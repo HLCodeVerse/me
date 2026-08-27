@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mfzulmibfmktllnshxox.supabase.co'
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1menVsbWliZm1rdGxsbnNoeG94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjk0OTMsImV4cCI6MjA5NzkwNTQ5M30.QYiOYZ9eQ_epSBRPZhyjOjl185do7tKVQtIBlgdiY0M'
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1menVsbWliZm1rdGxsbnNoeG94Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjMyOTQ5MywiZXhwIjoyMDk3OTA1NDkzfQ.KaV1NcBeZRWTtYurPyRWqpuUpghk8wJWVK0CtqO4dA0'
 
 function getDb() {
-  return createClient(SUPABASE_URL, SERVICE_KEY || ANON_KEY)
+  return createClient(SUPABASE_URL, SERVICE_KEY)
 }
 
 const CORS = {
@@ -51,10 +50,10 @@ async function handleUserinfo(req: NextRequest): Promise<NextResponse> {
     )
   }
 
-  // Fetch user profile
+  // Fetch user profile (profiles table has no email column)
   const { data: profile } = await db
     .from('profiles')
-    .select('id, display_name, phone, email')
+    .select('id, display_name, username, phone')
     .eq('id', tokenRow.user_id)
     .maybeSingle()
 
@@ -66,10 +65,15 @@ async function handleUserinfo(req: NextRequest): Promise<NextResponse> {
   }
 
   // Return OpenID Connect userinfo response
+  // Use username@nirmaan.app as synthetic email since profiles has no email column
+  const syntheticEmail = profile.username
+    ? `${profile.username}@nirmaan.app`
+    : `user-${profile.id.slice(0, 8)}@nirmaan.app`
+
   return NextResponse.json({
     sub: profile.id,
-    name: profile.display_name || 'NIRMAAN User',
-    email: profile.email || `user-${profile.id.slice(0, 8)}@nirmaan.app`,
+    name: profile.display_name || profile.username || 'NIRMAAN User',
+    email: syntheticEmail,
     email_verified: true,
     phone: profile.phone || null,
     updated_at: Math.floor(Date.now() / 1000),
