@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Phone, Lock, ArrowRight, Loader2, User } from 'lucide-react'
 import { toast } from 'sonner'
@@ -9,8 +9,10 @@ import type { Profile } from '@/lib/supabase/database.types'
 
 type Mode = 'login' | 'signup'
 
-export default function AuthPage() {
+function AuthContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const nextUrl = searchParams.get('next')
   const { user, setDirectUser } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
   const [loading, setLoading] = useState(false)
@@ -22,9 +24,9 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user) {
-      router.push('/dashboard')
+      router.push(nextUrl || '/dashboard')
     }
-  }, [user, router])
+  }, [user, router, nextUrl])
 
   useEffect(() => {
     // Clear any stale Supabase local storage tokens on auth page load
@@ -64,7 +66,7 @@ export default function AuthPage() {
       if (data.success && data.profile) {
         setDirectUser(data.profile as Profile)
         toast.success(mode === 'signup' ? 'Registration successful! Welcome to NIRMAAN 🚀' : 'Welcome back to NIRMAAN 🚀')
-        router.push('/dashboard')
+        router.push(nextUrl || '/dashboard')
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Authentication request failed')
@@ -208,5 +210,13 @@ export default function AuthPage() {
         NIRMAAN Personal OS · Direct Authentication
       </p>
     </div>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin" /> Loading...</div>}>
+      <AuthContent />
+    </Suspense>
   )
 }

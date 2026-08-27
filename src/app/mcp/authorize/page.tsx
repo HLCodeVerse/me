@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { createClient } from '@/lib/supabase/client'
 import { ShieldCheck, Key, Check, Plus, Loader2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ApiKey } from '@/lib/supabase/database.types'
@@ -11,8 +10,7 @@ import type { ApiKey } from '@/lib/supabase/database.types'
 function AuthorizeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useAuth()
-  const supabase = createClient()
+  const { user, loading: authLoading } = useAuth()
 
   const redirectUri = searchParams.get('redirect_uri')
   const state = searchParams.get('state')
@@ -24,62 +22,65 @@ function AuthorizeContent() {
   const [loading, setLoading] = useState(true)
   const [approving, setApproving] = useState(false)
   const [creatingKey, setCreatingKey] = useState(false)
+  const [createdRawKey, setCreatedRawKey] = useState<string | null>(null)
 
   useEffect(() => {
+    if (authLoading) return
+
     if (!user) {
       router.push(`/auth?next=${encodeURIComponent(window.location.href)}`)
       return
     }
 
     async function loadKeys() {
-      const { data } = await supabase
-        .from('api_keys')
-        .select('*')
-        .eq('user_id', user!.id)
-        .is('revoked_at', null)
-        .order('created_at', { ascending: false })
-
-      const keys = (data || []) as ApiKey[]
-      setApiKeys(keys)
-      if (keys.length > 0) {
-        setSelectedKeyId(keys[0].id)
+      try {
+        const res = await fetch('/api/keys')
+        const data = await res.json()
+        if (res.ok && data.keys) {
+          setApiKeys(data.keys)
+          if (data.keys.length > 0) {
+            setSelectedKeyId(data.keys[0].id)
+          }
+        }
+      } catch {
+        toast.error('Failed to load API keys')
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     loadKeys()
-  }, [user, router, supabase])
+  }, [user, authLoading, router])
 
   async function handleCreateKey(e: React.FormEvent) {
     e.preventDefault()
-    if (!newKeyName.trim() || !user) return
+    if (!newKeyName.trim()) return
     setCreatingKey(true)
 
-    const rawKey = `nir_${crypto.randomUUID().replace(/-/g, '')}`
-    const prefix = rawKey.slice(0, 12)
-    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawKey))
-    const hashHex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+    try {
+      const res = await fetch('/api/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newKeyName.trim() })
+      })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: createdKey, error } = await (supabase.from('api_keys') as any).insert({
-      user_id: user.id,
-      name: newKeyName,
-      key_hash: hashHex,
-      key_prefix: prefix,
-      scopes: ['tasks', 'todos', 'journal', 'goals', 'ai'],
-    }).select().single()
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        toast.error(data.error || 'Failed to create key')
+        setCreatingKey(false)
+        return
+      }
 
-    if (error) {
-      toast.error('Failed to create key')
+      toast.success(`API Key "${newKeyName}" created successfully!`)
+      setCreatedRawKey(data.rawKey)
+      setApiKeys(prev => [data.key, ...prev])
+      setSelectedKeyId(data.key.id)
+      setNewKeyName('')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error creating API key')
+    } finally {
       setCreatingKey(false)
-      return
     }
-
-    toast.success(`Key "${newKeyName}" created!`)
-    setApiKeys(prev => [createdKey, ...prev])
-    setSelectedKeyId(createdKey.id)
-    setNewKeyName('')
-    setCreatingKey(false)
   }
 
   function handleApprove() {
@@ -99,6 +100,14 @@ function AuthorizeContent() {
       toast.success('Authorized successfully!')
       router.push('/dashboard')
     }
+  }
+
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <Loader2 size={32} className="animate-spin" color="var(--growth)" />
+      </div>
+    )
   }
 
   return (
@@ -150,48 +159,77 @@ function AuthorizeContent() {
           </div>
         </div>
 
+        {/* Created Raw Key Display */}
+        {createdRawKey && (
+          <div style={{ marginBottom: 16, padding: '12px', background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 'var(--radius-sm)' }}>
+            <p style={{ fontSize: 11, color: 'var(--growth)', fontWeight: 700, marginBottom: 6 }}>
+              🔑 Key Created! Save it now:
+            </p>
+            <code style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--growth)', wordBreak: 'break-all', display: 'block' }}>
+              {createdRawKey}
+            </code>
+          </div>
+        )}
+
         {/* API Key Selection */}
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.04em', marginBottom: 8, display: 'block' }}>
-            SELECT OR CREATE API KEY
+            SELECT OR GENERATE API KEY
           </label>
 
           {loading ? (
             <div className="skeleton" style={{ height: 44, borderRadius: 'var(--radius-sm)' }} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {apiKeys.map(k => (
-                <div
-                  key={k.id}
-                  onClick={() => setSelectedKeyId(k.id)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                    borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-                    background: selectedKeyId === k.id ? 'rgba(52,211,153,0.1)' : 'var(--surface-2)',
-                    border: `1px solid ${selectedKeyId === k.id ? 'var(--growth)' : 'var(--border)'}`,
-                    transition: 'all 150ms ease',
-                  }}
-                >
-                  <Key size={14} color={selectedKeyId === k.id ? 'var(--growth)' : 'var(--text-dim)'} />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: selectedKeyId === k.id ? 'var(--growth)' : 'var(--text)' }}>
-                      {k.name}
-                    </p>
+              {apiKeys.length === 0 ? (
+                <p style={{ fontSize: 12, color: 'var(--text-dim)', padding: '4px 0' }}>No active API key found. Generate one below:</p>
+              ) : (
+                apiKeys.map(k => (
+                  <div
+                    key={k.id}
+                    onClick={() => setSelectedKeyId(k.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                      borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                      background: selectedKeyId === k.id ? 'rgba(52,211,153,0.1)' : 'var(--surface-2)',
+                      border: `1px solid ${selectedKeyId === k.id ? 'var(--growth)' : 'var(--border)'}`,
+                      transition: 'all 150ms ease',
+                    }}
+                  >
+                    <Key size={14} color={selectedKeyId === k.id ? 'var(--growth)' : 'var(--text-dim)'} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: selectedKeyId === k.id ? 'var(--growth)' : 'var(--text)' }}>
+                        {k.name}
+                      </p>
+                      <p style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'monospace' }}>
+                        {k.key_prefix}••••••••
+                      </p>
+                    </div>
+                    {selectedKeyId === k.id && <Check size={16} color="var(--growth)" />}
                   </div>
-                  {selectedKeyId === k.id && <Check size={16} color="var(--growth)" />}
-                </div>
-              ))}
+                ))
+              )}
 
-              {/* Create Key Inline */}
+              {/* Generate Key Inline Form */}
               <form onSubmit={handleCreateKey} style={{ display: 'flex', gap: 6, marginTop: 4 }}>
                 <input
-                  placeholder="Create new key (e.g. ChatGPT)"
+                  placeholder="Key name (e.g. ChatGPT Connector)"
                   value={newKeyName}
                   onChange={e => setNewKeyName(e.target.value)}
                   style={{ flex: 1, fontSize: 12, height: 38 }}
                 />
-                <button type="submit" disabled={creatingKey || !newKeyName} className="btn btn-secondary" style={{ height: 38, padding: '0 12px', fontSize: 12, flexShrink: 0 }}>
-                  {creatingKey ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                <button
+                  type="submit"
+                  disabled={creatingKey || !newKeyName.trim()}
+                  className="btn btn-primary"
+                  style={{ height: 38, padding: '0 12px', fontSize: 12, flexShrink: 0 }}
+                >
+                  {creatingKey ? <Loader2 size={13} className="animate-spin" /> : (
+                    <>
+                      <Plus size={13} />
+                      Generate
+                    </>
+                  )}
                 </button>
               </form>
             </div>
@@ -228,7 +266,7 @@ function AuthorizeContent() {
 
 export default function AuthorizePage() {
   return (
-    <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}><Loader2 className="animate-spin" /> Loading...</div>}>
+    <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 className="animate-spin" /> Loading...</div>}>
       <AuthorizeContent />
     </Suspense>
   )

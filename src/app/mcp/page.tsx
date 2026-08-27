@@ -47,7 +47,6 @@ const CLIENT_CONFIGS = [
 
 export default function MCPPage() {
   const { user } = useAuth()
-  const supabase = createClient()
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -58,10 +57,15 @@ export default function MCPPage() {
 
   const loadKeys = useCallback(async () => {
     if (!user) return
-    const { data } = await supabase.from('api_keys').select('*').eq('user_id', user.id).is('revoked_at', null).order('created_at', { ascending: false })
-    setApiKeys(data ?? [])
+    try {
+      const res = await fetch('/api/keys')
+      const data = await res.json()
+      if (res.ok && data.keys) {
+        setApiKeys(data.keys)
+      }
+    } catch {}
     setLoading(false)
-  }, [user, supabase])
+  }, [user])
 
   useEffect(() => { loadKeys() }, [loadKeys])
 
@@ -76,33 +80,42 @@ export default function MCPPage() {
     e.preventDefault()
     if (!newKeyName.trim() || !user) return
     setCreating(true)
-    const rawKey = `nir_${crypto.randomUUID().replace(/-/g, '')}`
-    const prefix = rawKey.slice(0, 12)
-    // Hash key (simple — in production use bcrypt via Edge Function)
-    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawKey))
-    const hashHex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('api_keys') as any).insert({
-      user_id: user.id,
-      name: newKeyName,
-      key_hash: hashHex,
-      key_prefix: prefix,
-      scopes: ['tasks', 'todos', 'journal', 'goals', 'lessons', 'ai'],
-    }).select().single()
+    try {
+      const res = await fetch('/api/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newKeyName.trim() })
+      })
 
-    if (error) { toast.error('Failed to create key'); setCreating(false); return }
-    setLastCreatedKey(rawKey)
-    setNewKeyName('')
-    setCreating(false)
-    loadKeys()
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        toast.error(data.error || 'Failed to create key')
+        setCreating(false)
+        return
+      }
+
+      toast.success(`Key "${newKeyName}" created!`)
+      setLastCreatedKey(data.rawKey)
+      setNewKeyName('')
+      loadKeys()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create key')
+    } finally {
+      setCreating(false)
+    }
   }
 
   async function revokeKey(keyId: string) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('api_keys') as any).update({ revoked_at: new Date().toISOString() }).eq('id', keyId)
-    setApiKeys(prev => prev.filter(k => k.id !== keyId))
-    toast.success('Key revoked')
+    try {
+      const res = await fetch(`/api/keys?id=${keyId}`, { method: 'DELETE' })
+      if (res.ok) {
+        setApiKeys(prev => prev.filter(k => k.id !== keyId))
+        toast.success('Key revoked')
+      }
+    } catch {
+      toast.error('Failed to revoke key')
+    }
   }
 
   const clientConfig = CLIENT_CONFIGS[selectedClient].config(MCP_SERVER_URL, lastCreatedKey ?? 'YOUR_NIRMAAN_KEY')
