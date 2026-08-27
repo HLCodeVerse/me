@@ -3,9 +3,10 @@ import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mfzulmibfmktllnshxox.supabase.co'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1menVsbWliZm1rdGxsbnNoeG94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjk0OTMsImV4cCI6MjA5NzkwNTQ5M30.QYiOYZ9eQ_epSBRPZhyjOjl185do7tKVQtIBlgdiY0M'
 
 function getDb() {
-  return createClient(SUPABASE_URL, SERVICE_KEY)
+  return createClient(SUPABASE_URL, SERVICE_KEY || ANON_KEY)
 }
 
 const CORS = {
@@ -15,36 +16,42 @@ const CORS = {
 }
 
 // Called by the authorize page after user approves — stores code in DB
+// Accepts user_id from request body OR nirmaan_user_id cookie
 export async function POST(req: NextRequest) {
   try {
     const db = getDb()
+    const body = await req.json()
 
-    // Resolve user from cookie
-    const userId = req.cookies.get('nirmaan_user_id')?.value
+    // Resolve user_id: client sends it explicitly from useAuth(), fallback to cookie
+    let userId: string | null = body.user_id || null
+
+    if (!userId) {
+      userId = req.cookies.get('nirmaan_user_id')?.value || null
+    }
+
     if (!userId) {
       return NextResponse.json(
-        { error: 'unauthorized', error_description: 'Not logged in' },
+        { error: 'unauthorized', error_description: 'Not logged in — no user_id provided' },
         { status: 401, headers: CORS }
       )
     }
 
-    // Verify user exists
+    // Verify user exists in profiles
     const { data: profile } = await db.from('profiles').select('id').eq('id', userId).maybeSingle()
     if (!profile) {
       return NextResponse.json(
-        { error: 'unauthorized', error_description: 'User not found' },
+        { error: 'unauthorized', error_description: 'User not found in database' },
         { status: 401, headers: CORS }
       )
     }
 
-    const body = await req.json()
     const clientId = body.client_id || 'unknown_client'
     const redirectUri = body.redirect_uri || null
     const scope = body.scope || 'mcp:read mcp:write'
 
-    // Generate a cryptographically secure code
+    // Generate a cryptographically secure auth code
     const code = `nir_${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '')}`
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 min
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes
 
     const { error } = await db.from('mcp_oauth_codes').insert({
       code,

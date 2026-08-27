@@ -13,12 +13,15 @@ export async function GET(req: NextRequest) {
     issuer: origin,
     authorization_endpoint: `${origin}/api/mcp/oauth/authorize`,
     token_endpoint: `${origin}/api/mcp/oauth/token`,
+    userinfo_endpoint: `${origin}/api/mcp/oauth/userinfo`,
     registration_endpoint: `${origin}/api/mcp/oauth/register`,
     scopes_supported: ['mcp:read', 'mcp:write', 'openid', 'profile', 'email'],
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token', 'client_credentials'],
     token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic', 'none'],
     code_challenge_methods_supported: ['S256', 'plain'],
+    subject_types_supported: ['public'],
+    id_token_signing_alg_values_supported: ['RS256'],
     service_documentation: `${origin}/mcp`
   }, {
     status: 200,

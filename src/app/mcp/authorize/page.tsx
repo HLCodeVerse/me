@@ -126,10 +126,12 @@ function AuthorizeContent() {
 
     try {
       // Persist the auth code in the database so the token endpoint can validate it
+      // Send user_id explicitly since cookies may not be forwarded server-side on Vercel
       const res = await fetch('/api/mcp/oauth/code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          user_id: user.id,
           client_id: clientId,
           redirect_uri: redirectUri,
           scope: 'mcp:read mcp:write',
