@@ -38,7 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .select('*')
       .eq('id', userId)
       .single()
-    if (data) setProfile(data)
+    if (data) {
+      setProfile(data)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nirmaan_direct_user', JSON.stringify(data))
+      }
+    }
   }, [supabase])
 
   const setDirectUser = useCallback((prof: Profile) => {
@@ -47,7 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(prof)
     if (typeof window !== 'undefined') {
       localStorage.setItem('nirmaan_direct_user', JSON.stringify(prof))
-      document.cookie = 'nirmaan_session=true; path=/; max-age=2592000'
+      document.cookie = 'nirmaan_session=true; path=/; max-age=2592000; SameSite=Lax'
+      document.cookie = `nirmaan_user_id=${prof.id}; path=/; max-age=2592000; SameSite=Lax`
     }
   }, [])
 
@@ -56,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, fetchProfile])
 
   useEffect(() => {
+    let hasDirect = false
     // 1. Check local storage for direct DB session
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('nirmaan_direct_user')
@@ -64,9 +71,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const prof = JSON.parse(stored) as Profile
           setUser({ id: prof.id, phone: prof.phone } as unknown as User)
           setProfile(prof)
-          document.cookie = 'nirmaan_session=true; path=/; max-age=2592000'
+          document.cookie = 'nirmaan_session=true; path=/; max-age=2592000; SameSite=Lax'
+          document.cookie = `nirmaan_user_id=${prof.id}; path=/; max-age=2592000; SameSite=Lax`
           fetchProfile(prof.id)
-          setLoading(false)
+          hasDirect = true
         } catch {}
       }
     }
@@ -78,13 +86,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSession(session)
           setUser(session.user)
           if (typeof window !== 'undefined') {
-            document.cookie = 'nirmaan_session=true; path=/; max-age=2592000'
+            document.cookie = 'nirmaan_session=true; path=/; max-age=2592000; SameSite=Lax'
+            document.cookie = `nirmaan_user_id=${session.user.id}; path=/; max-age=2592000; SameSite=Lax`
           }
           await fetchProfile(session.user.id)
         }
         setLoading(false)
       }
     )
+
+    if (hasDirect) {
+      setLoading(false)
+    }
+
     return () => subscription.unsubscribe()
   }, [supabase, fetchProfile])
 
@@ -92,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('nirmaan_direct_user')
       document.cookie = 'nirmaan_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      document.cookie = 'nirmaan_user_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
     }
     await supabase.auth.signOut()
     setUser(null)

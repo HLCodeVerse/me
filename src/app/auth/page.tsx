@@ -11,7 +11,7 @@ type Mode = 'login' | 'signup'
 
 export default function AuthPage() {
   const router = useRouter()
-  const { setDirectUser } = useAuth()
+  const { user, setDirectUser } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
   const [loading, setLoading] = useState(false)
 
@@ -19,6 +19,12 @@ export default function AuthPage() {
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
+
+  useEffect(() => {
+    if (user) {
+      router.push('/dashboard')
+    }
+  }, [user, router])
 
   useEffect(() => {
     // Clear any stale Supabase local storage tokens on auth page load

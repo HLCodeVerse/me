@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
 
     // Success response with session cookie
     const res = NextResponse.json({ success: true, profile: existingProfile })
-    res.cookies.set('nirmaan_session', 'true', { path: '/', maxAge: 2592000 })
+    res.cookies.set('nirmaan_session', 'true', { path: '/', maxAge: 2592000, sameSite: 'lax', httpOnly: false })
+    res.cookies.set('nirmaan_user_id', existingProfile.id, { path: '/', maxAge: 2592000, sameSite: 'lax', httpOnly: false })
     return res
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Login failed' }, { status: 500 })

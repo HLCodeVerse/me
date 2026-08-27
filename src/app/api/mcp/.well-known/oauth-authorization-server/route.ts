@@ -1,23 +1,31 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET() {
-  const domain = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://me-eight-dun.vercel.app'
+function getOrigin(req: NextRequest) {
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'me-eight-dun.vercel.app'
+  const proto = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
+  return `${proto}://${host}`
+}
+
+export async function GET(req: NextRequest) {
+  const origin = getOrigin(req)
 
   return NextResponse.json({
-    issuer: domain,
-    authorization_endpoint: `${domain}/api/mcp/oauth/authorize`,
-    token_endpoint: `${domain}/api/mcp/oauth/token`,
-    registration_endpoint: `${domain}/api/mcp/oauth/register`,
-    scopes_supported: ['mcp:read', 'mcp:write', 'openid', 'profile'],
+    issuer: origin,
+    authorization_endpoint: `${origin}/api/mcp/oauth/authorize`,
+    token_endpoint: `${origin}/api/mcp/oauth/token`,
+    registration_endpoint: `${origin}/api/mcp/oauth/register`,
+    scopes_supported: ['mcp:read', 'mcp:write', 'openid', 'profile', 'email'],
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token', 'client_credentials'],
     token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic', 'none'],
-    code_challenge_methods_supported: ['S256', 'plain']
+    code_challenge_methods_supported: ['S256', 'plain'],
+    service_documentation: `${origin}/mcp`
   }, {
+    status: 200,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': '*',
     }
   })
 }
@@ -28,7 +36,7 @@ export async function OPTIONS() {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': '*',
     }
   })
 }

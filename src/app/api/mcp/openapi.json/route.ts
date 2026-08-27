@@ -1,6 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET() {
+function getOrigin(req: NextRequest) {
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'me-eight-dun.vercel.app'
+  const proto = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
+  return `${proto}://${host}`
+}
+
+export async function GET(req: NextRequest) {
+  const origin = getOrigin(req)
+
   const openApiSpec = {
     openapi: '3.0.1',
     info: {
@@ -10,15 +18,14 @@ export async function GET() {
     },
     servers: [
       {
-        url: 'https://me-eight-dun.vercel.app',
-        description: 'Production Vercel NIRMAAN Server'
+        url: origin,
+        description: 'Active NIRMAAN Server'
       },
       {
-        url: 'http://localhost:3000',
-        description: 'Local NIRMAAN Server'
+        url: 'https://me-eight-dun.vercel.app',
+        description: 'Production Vercel NIRMAAN Server'
       }
     ],
-    security: [],
     paths: {
       '/api/mcp': {
         get: {
@@ -72,5 +79,23 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json(openApiSpec)
+  return NextResponse.json(openApiSpec, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    }
+  })
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    }
+  })
 }

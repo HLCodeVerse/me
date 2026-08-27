@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
     await (supabase.from('life_areas') as any).insert(areas.map(a => ({ ...a, user_id: createdProfile.id, target_score: 80 })))
 
     const res = NextResponse.json({ success: true, profile: createdProfile })
-    res.cookies.set('nirmaan_session', 'true', { path: '/', maxAge: 2592000 })
+    res.cookies.set('nirmaan_session', 'true', { path: '/', maxAge: 2592000, sameSite: 'lax', httpOnly: false })
+    res.cookies.set('nirmaan_user_id', createdProfile.id, { path: '/', maxAge: 2592000, sameSite: 'lax', httpOnly: false })
     return res
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Registration failed' }, { status: 500 })

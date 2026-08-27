@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     authorization_endpoint: `${origin}/api/mcp/oauth/authorize`,
     token_endpoint: `${origin}/api/mcp/oauth/token`,
     registration_endpoint: `${origin}/api/mcp/oauth/register`,
+    userinfo_endpoint: `${origin}/api/mcp`,
     scopes_supported: ['mcp:read', 'mcp:write', 'openid', 'profile', 'email'],
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token', 'client_credentials'],
