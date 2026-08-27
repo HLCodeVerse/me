@@ -1,0 +1,251 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+interface McpRequest {
+  jsonrpc: string
+  id: string | number
+  method: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params?: Record<string, any>
+}
+
+// Extract User ID from Authorization Bearer Key or return first profile
+async function getUserIdFromRequest(req: NextRequest): Promise<string> {
+  const authHeader = req.headers.get('authorization') || req.headers.get('x-api-key')
+  if (authHeader) {
+    const rawKey = authHeader.replace('Bearer ', '').trim()
+    const prefix = rawKey.slice(0, 12)
+
+    // Compute SHA-256 hash
+    const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawKey))
+    const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+
+    const { data: keyRow } = await supabase
+      .from('api_keys')
+      .select('user_id')
+      .eq('key_prefix', prefix)
+      .eq('key_hash', hashHex)
+      .is('revoked_at', null)
+      .single()
+
+    if (keyRow?.user_id) return keyRow.user_id
+  }
+
+  // Fallback to first profile if no key provided
+  const { data: profiles } = await supabase.from('profiles').select('id').limit(1)
+  return profiles?.[0]?.id || 'guest_user'
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body: McpRequest = await req.json()
+    const { id, method, params } = body
+    const userId = await getUserIdFromRequest(req)
+
+    // 1. MCP Initialize Handshake
+    if (method === 'initialize') {
+      return NextResponse.json({
+        jsonrpc: '2.0',
+        id,
+        result: {
+          protocolVersion: '2024-11-05',
+          capabilities: { tools: {} },
+          serverInfo: { name: 'NIRMAAN OS MCP Server', version: '1.0.0' }
+        }
+      })
+    }
+
+    // 2. Tools List (for Grok, Claude, Cursor, ChatGPT)
+    if (method === 'tools/list') {
+      return NextResponse.json({
+        jsonrpc: '2.0',
+        id,
+        result: {
+          tools: [
+            {
+              name: 'get_life_dashboard',
+              description: 'Retrieve user life score, active tasks, todos, and active streak in NIRMAAN OS.',
+              inputSchema: { type: 'object', properties: {} }
+            },
+            {
+              name: 'list_tasks',
+              description: 'Fetch user tasks from NIRMAAN OS.',
+              inputSchema: { type: 'object', properties: { status: { type: 'string', description: 'Filter by todo, in_progress, completed' } } }
+            },
+            {
+              name: 'create_task',
+              description: 'Create a new high-priority focus task in NIRMAAN OS.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  title: { type: 'string', description: 'Task title' },
+                  priority: { type: 'number', description: 'Priority 1 (low) to 4 (urgent)' },
+                  due_date: { type: 'string', description: 'Due date ISO string' }
+                },
+                required: ['title']
+              }
+            },
+            {
+              name: 'create_todo',
+              description: 'Create a daily todo item in NIRMAAN OS.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  title: { type: 'string', description: 'Todo title' }
+                },
+                required: ['title']
+              }
+            },
+            {
+              name: 'create_journal_entry',
+              description: 'Write a micro-journal entry or reflection in NIRMAAN OS.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  content: { type: 'string', description: 'Journal reflection text' },
+                  mood: { type: 'string', description: 'Mood emoji or string (e.g. ⚡, 🔥, 🧘)' }
+                },
+                required: ['content']
+              }
+            }
+          ]
+        }
+      })
+    }
+
+    // 3. Tools Call
+    if (method === 'tools/call') {
+      const toolName = params?.name
+      const args = params?.arguments || {}
+
+      if (toolName === 'get_life_dashboard') {
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+        const { data: tasks } = await supabase.from('tasks').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
+        const { data: todos } = await supabase.from('todos').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
+
+        return NextResponse.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                profile: profile || { display_name: 'Builder', life_score: 85, current_streak: 5 },
+                recent_tasks: tasks || [],
+                recent_todos: todos || []
+              }, null, 2)
+            }]
+          }
+        })
+      }
+
+      if (toolName === 'list_tasks') {
+        let query = supabase.from('tasks').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+        if (args.status) query = query.eq('status', args.status)
+        const { data: tasks } = await query
+
+        return NextResponse.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [{ type: 'text', text: JSON.stringify(tasks || [], null, 2) }]
+          }
+        })
+      }
+
+      if (toolName === 'create_task') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: newTask, error } = await (supabase.from('tasks') as any).insert({
+          user_id: userId,
+          title: args.title,
+          priority: args.priority || 3,
+          due_date: args.due_date || null,
+          status: 'todo'
+        }).select().single()
+
+        if (error) throw error
+
+        return NextResponse.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [{ type: 'text', text: `Created task: ${newTask.title} (ID: ${newTask.id})` }]
+          }
+        })
+      }
+
+      if (toolName === 'create_todo') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: newTodo, error } = await (supabase.from('todos') as any).insert({
+          user_id: userId,
+          title: args.title,
+          completed: false
+        }).select().single()
+
+        if (error) throw error
+
+        return NextResponse.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [{ type: 'text', text: `Created todo: ${newTodo.title}` }]
+          }
+        })
+      }
+
+      if (toolName === 'create_journal_entry') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: newEntry, error } = await (supabase.from('journal_entries') as any).insert({
+          user_id: userId,
+          content: args.content,
+          mood: args.mood || '⚡'
+        }).select().single()
+
+        if (error) throw error
+
+        return NextResponse.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [{ type: 'text', text: `Logged journal entry (${newEntry.mood}): ${newEntry.content}` }]
+          }
+        })
+      }
+
+      return NextResponse.json({
+        jsonrpc: '2.0',
+        id,
+        error: { code: -32601, message: `Tool ${toolName} not found` }
+      })
+    }
+
+    return NextResponse.json({
+      jsonrpc: '2.0',
+      id,
+      error: { code: -32601, message: `Method ${method} not supported` }
+    })
+  } catch (err: unknown) {
+    return NextResponse.json({
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32603, message: err instanceof Error ? err.message : 'Internal MCP error' }
+    }, { status: 500 })
+  }
+}
+
+export async function GET() {
+  return NextResponse.json({
+    status: 'online',
+    server: 'NIRMAAN MCP Protocol Gateway',
+    version: '1.0.0',
+    supported_clients: ['Grok', 'ChatGPT', 'Claude Desktop', 'Cursor', 'Windsurf'],
+    endpoints: {
+      mcp_jsonrpc: '/api/mcp',
+      openapi_spec: '/api/mcp/openapi.json'
+    }
+  })
+}
