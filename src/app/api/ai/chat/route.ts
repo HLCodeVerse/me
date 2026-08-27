@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
-// Free models in order of capability/preference
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mfzulmibfmktllnshxox.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1menVsbWliZm1rdGxsbnNoeG94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjk0OTMsImV4cCI6MjA5NzkwNTQ5M30.QYiOYZ9eQ_epSBRPZhyjOjl185do7tKVQtIBlgdiY0M'
+
+const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// Free models in priority order — tested to work on OpenRouter
 const FREE_MODELS = [
   'google/gemini-2.0-flash-exp:free',
-  'deepseek/deepseek-r1:free',
+  'deepseek/deepseek-chat-v3-0324:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
   'meta-llama/llama-3.1-8b-instruct:free',
   'mistralai/mistral-7b-instruct:free',
   'openchat/openchat-7b:free',
 ]
+
+// Primary embedding model
+const EMBEDDING_MODEL = 'liquid/lfm-2.5-embedding-350m:free'
 
 // AI Tools — actions the AI can perform IN the app
 const AI_TOOLS = [
@@ -88,17 +97,17 @@ const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'plan_my_day',
-      description: 'Get open tasks and todos to help plan the user\'s day',
+      description: "Get open tasks and todos to help plan the user's day",
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },
 ]
 
-async function executeTool(toolName: string, args: Record<string, unknown>, supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
+async function executeTool(toolName: string, args: Record<string, unknown>, userId: string) {
   switch (toolName) {
     case 'create_task': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase.from('tasks') as any).insert({
+      const { data } = await (db.from('tasks') as any).insert({
         user_id: userId,
         title: args.title as string,
         description: (args.description as string) || null,
@@ -110,7 +119,7 @@ async function executeTool(toolName: string, args: Record<string, unknown>, supa
     }
     case 'create_todo': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase.from('todos') as any).insert({
+      const { data } = await (db.from('todos') as any).insert({
         user_id: userId,
         title: args.title as string,
         due_date: (args.due_date as string) || null,
@@ -119,7 +128,7 @@ async function executeTool(toolName: string, args: Record<string, unknown>, supa
     }
     case 'create_journal_entry': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase.from('journal_entries') as any).insert({
+      const { data } = await (db.from('journal_entries') as any).insert({
         user_id: userId,
         title: (args.title as string) || null,
         content: args.content as string,
@@ -130,7 +139,7 @@ async function executeTool(toolName: string, args: Record<string, unknown>, supa
     }
     case 'create_goal': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase.from('goals') as any).insert({
+      const { data } = await (db.from('goals') as any).insert({
         user_id: userId,
         title: args.title as string,
         description: (args.description as string) || null,
@@ -141,26 +150,24 @@ async function executeTool(toolName: string, args: Record<string, unknown>, supa
       return { success: true, message: `Goal "${args.title}" created!`, goal: data }
     }
     case 'get_dashboard_summary': {
-      const [tasks, todos, streaks, profile] = await Promise.all([
-        supabase.from('tasks').select('id, title, status, priority').eq('user_id', userId).neq('status', 'done').limit(10),
-        supabase.from('todos').select('id, title').eq('user_id', userId).eq('is_done', false).limit(10),
-        supabase.from('streaks').select('*').eq('user_id', userId),
-        supabase.from('profiles').select('life_score, current_streak').eq('id', userId).single(),
+      const [tasks, todos, profile] = await Promise.all([
+        db.from('tasks').select('id, title, status, priority').eq('user_id', userId).neq('status', 'done').limit(10),
+        db.from('todos').select('id, title').eq('user_id', userId).eq('is_done', false).limit(10),
+        db.from('profiles').select('life_score, current_streak').eq('id', userId).maybeSingle(),
       ])
       const profileObj = profile.data as { life_score?: number; current_streak?: number } | null
       return {
         open_tasks: tasks.data ?? [],
         open_todos: todos.data ?? [],
-        streaks: streaks.data ?? [],
         life_score: profileObj?.life_score ?? 0,
         current_streak: profileObj?.current_streak ?? 0,
       }
     }
     case 'plan_my_day': {
       const [tasks, todos, goals] = await Promise.all([
-        supabase.from('tasks').select('id, title, priority, due_date, status').eq('user_id', userId).neq('status', 'done').order('priority', { ascending: false }).limit(10),
-        supabase.from('todos').select('id, title, due_date').eq('user_id', userId).eq('is_done', false).limit(10),
-        supabase.from('goals').select('id, title, status').eq('user_id', userId).eq('status', 'active').limit(5),
+        db.from('tasks').select('id, title, priority, due_date, status').eq('user_id', userId).neq('status', 'done').order('priority', { ascending: false }).limit(10),
+        db.from('todos').select('id, title, due_date').eq('user_id', userId).eq('is_done', false).limit(10),
+        db.from('goals').select('id, title, status').eq('user_id', userId).eq('status', 'active').limit(5),
       ])
       return {
         tasks: tasks.data ?? [],
@@ -191,33 +198,72 @@ async function callOpenRouter(apiKey: string, model: string, messages: unknown[]
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL ?? 'https://me-eight-dun.vercel.app',
       'X-Title': 'NIRMAAN Personal OS',
     },
     body: JSON.stringify(body),
   })
 }
 
-const HARDCODED_OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || 'sk-or-v1-fallback'
+// Resolve authenticated user from cookie or Supabase auth
+async function resolveUserId(req: NextRequest): Promise<string | null> {
+  // 1. Direct mobile auth cookie (most reliable)
+  const cookieUserId = req.cookies.get('nirmaan_user_id')?.value
+  if (cookieUserId && cookieUserId.trim().length > 0) {
+    return cookieUserId.trim()
+  }
+
+  // 2. API key auth
+  const authHeader = req.headers.get('authorization')
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const rawKey = authHeader.replace('Bearer ', '').trim()
+    if (rawKey.length > 10) {
+      const prefix = rawKey.slice(0, 12)
+      const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawKey))
+      const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+
+      const { data } = await db
+        .from('api_keys')
+        .select('user_id')
+        .eq('key_prefix', prefix)
+        .eq('key_hash', hashHex)
+        .is('revoked_at', null)
+        .maybeSingle()
+
+      if (data?.user_id) return data.user_id
+    }
+  }
+
+  return null
+}
 
 export async function POST(req: NextRequest) {
   try {
     const { messages, model, enableTools = true } = await req.json()
-    const supabase = await createClient()
-    
-    // Resolve user ID
-    let userId: string | null = null
-    const { data: authData } = await supabase.auth.getUser()
-    if (authData?.user) {
-      userId = authData.user.id
-    } else {
-      // Fallback for direct DB session
-      const { data: firstProfile } = await supabase.from('profiles').select('id').limit(1).maybeSingle()
-      const prof = firstProfile as { id: string } | null
-      userId = prof?.id || 'c9d3517e-542b-4cf4-9bce-ebda2502252f'
+
+    // Resolve authenticated user
+    let userId = await resolveUserId(req)
+
+    // Fallback: try Supabase session cookie (for email/OAuth users)
+    if (!userId) {
+      try {
+        const { createClient: createServerClient } = await import('@/lib/supabase/server')
+        const supabase = await createServerClient()
+        const { data: authData } = await supabase.auth.getUser()
+        if (authData?.user) {
+          userId = authData.user.id
+        }
+      } catch {}
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY || HARDCODED_OPENROUTER_KEY
+    if (!userId) {
+      return NextResponse.json({ error: 'Authentication required. Please log in first.' }, { status: 401 })
+    }
+
+    const apiKey = process.env.OPENROUTER_API_KEY
+    if (!apiKey || apiKey === 'sk-or-v1-fallback' || apiKey.length < 20) {
+      return NextResponse.json({ error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in settings.' }, { status: 503 })
+    }
 
     const systemMessage = {
       role: 'system',
@@ -239,29 +285,35 @@ When user says "plan my day" — first call plan_my_day tool to get real data, t
     const allMessages = [systemMessage, ...messages]
     const tools = enableTools ? AI_TOOLS : undefined
 
-    // Try primary model, then fallbacks
-    let targetModel = model
+    // Build model fallback chain
     const isFreeRequest = !model || FREE_MODELS.includes(model)
     const modelFallbacks = isFreeRequest
-      ? [model, ...FREE_MODELS.filter(m => m !== model)]
-      : [model, FREE_MODELS[0], FREE_MODELS[1]]
+      ? [model, ...FREE_MODELS.filter(m => m !== model)].filter(Boolean)
+      : [model, ...FREE_MODELS].filter(Boolean)
 
-    // For tool calling, we need a non-streaming request first
+    // For tool calling — non-streaming first pass
     if (enableTools) {
       let toolResponse = null
-      for (const fallbackModel of modelFallbacks.filter(Boolean)) {
+      let targetModel = model || FREE_MODELS[0]
+
+      for (const fallbackModel of modelFallbacks) {
         try {
           const res = await callOpenRouter(apiKey, fallbackModel, allMessages, tools, false)
           if (res.ok) {
             toolResponse = await res.json()
             targetModel = fallbackModel
             break
+          } else {
+            const errText = await res.text()
+            console.warn(`[AI] Model ${fallbackModel} failed:`, res.status, errText.slice(0, 200))
           }
-        } catch {}
+        } catch (e) {
+          console.warn(`[AI] Model ${fallbackModel} threw:`, e)
+        }
       }
 
       if (!toolResponse) {
-        return NextResponse.json({ error: 'All models failed' }, { status: 500 })
+        return NextResponse.json({ error: 'All AI models failed. Check your OpenRouter API key and try again.' }, { status: 500 })
       }
 
       const choice = toolResponse.choices?.[0]
@@ -273,7 +325,7 @@ When user says "plan my day" — first call plan_my_day tool to get real data, t
 
         for (const toolCall of toolCalls) {
           const args = JSON.parse(toolCall.function.arguments || '{}')
-          const result = await executeTool(toolCall.function.name, args, supabase, userId!)
+          const result = await executeTool(toolCall.function.name, args, userId)
           toolResults.push({
             role: 'tool',
             tool_call_id: toolCall.id,
@@ -281,21 +333,18 @@ When user says "plan my day" — first call plan_my_day tool to get real data, t
           })
         }
 
-        // Get final response after tool execution
         const finalMessages = [
           ...allMessages,
           choice.message,
           ...toolResults,
         ]
 
-        // Stream the final response
         const streamRes = await callOpenRouter(apiKey, targetModel, finalMessages, undefined, true)
         if (!streamRes.ok) {
           const errText = await streamRes.text()
           return NextResponse.json({ error: errText }, { status: streamRes.status })
         }
 
-        // Inject action events at the start of the stream
         const actionsSummary = toolCalls.map((tc: { function: { name: string } }) => `[ACTION:${tc.function.name}]`).join(',')
         const actionHeader = `data: {"choices":[{"delta":{"content":""},"finish_reason":null}],"actions":"${actionsSummary}"}\n\n`
 
@@ -328,8 +377,6 @@ When user says "plan my day" — first call plan_my_day tool to get real data, t
 
       // No tool calls — stream the response directly
       const content = choice?.message?.content ?? ''
-
-      // Convert to streaming format for client consistency
       const streamChunk = `data: {"choices":[{"delta":{"content":${JSON.stringify(content)}},"finish_reason":null}]}\n\ndata: [DONE]\n\n`
       return new NextResponse(streamChunk, {
         headers: {
@@ -341,7 +388,7 @@ When user says "plan my day" — first call plan_my_day tool to get real data, t
 
     // Pure streaming without tools
     let streamResponse: Response | null = null
-    for (const fallbackModel of modelFallbacks.filter(Boolean)) {
+    for (const fallbackModel of modelFallbacks) {
       try {
         const res = await callOpenRouter(apiKey, fallbackModel, allMessages, undefined, true)
         if (res.ok) { streamResponse = res; break }
@@ -349,7 +396,7 @@ When user says "plan my day" — first call plan_my_day tool to get real data, t
     }
 
     if (!streamResponse) {
-      return NextResponse.json({ error: 'All models failed' }, { status: 500 })
+      return NextResponse.json({ error: 'All AI models failed. Check your OpenRouter API key and try again.' }, { status: 500 })
     }
 
     return new NextResponse(streamResponse.body, {
@@ -359,36 +406,53 @@ When user says "plan my day" — first call plan_my_day tool to get real data, t
         'Connection': 'keep-alive',
       },
     })
-  } catch {
+  } catch (err) {
+    console.error('[AI chat error]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-// Embeddings endpoint
+// Embeddings endpoint — uses liquid/lfm-2.5-embedding-350m:free as primary
 export async function PUT(req: NextRequest) {
   try {
     const { text } = await req.json()
-    const apiKey = process.env.OPENROUTER_API_KEY || HARDCODED_OPENROUTER_KEY
+    const apiKey = process.env.OPENROUTER_API_KEY
 
-    const res = await fetch('https://openrouter.ai/api/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'liquid/lfm-2.5-embedding-350m:free',
-        input: text,
-        encoding_format: 'float',
-      }),
-    })
-
-    if (!res.ok) {
-      return NextResponse.json({ error: await res.text() }, { status: res.status })
+    if (!apiKey || apiKey.length < 20) {
+      return NextResponse.json({ error: 'OpenRouter API key not configured' }, { status: 503 })
     }
 
-    const data = await res.json()
-    return NextResponse.json({ embedding: data.data?.[0]?.embedding })
+    // Try primary embedding model, then fallbacks
+    const embeddingModels = [
+      EMBEDDING_MODEL,
+      'text-embedding-ada-002', // OpenAI fallback via OpenRouter
+    ]
+
+    for (const embModel of embeddingModels) {
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/embeddings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL ?? 'https://me-eight-dun.vercel.app',
+            'X-Title': 'NIRMAAN Personal OS',
+          },
+          body: JSON.stringify({
+            model: embModel,
+            input: text,
+            encoding_format: 'float',
+          }),
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          return NextResponse.json({ embedding: data.data?.[0]?.embedding, model: embModel })
+        }
+      } catch {}
+    }
+
+    return NextResponse.json({ error: 'All embedding models failed' }, { status: 500 })
   } catch {
     return NextResponse.json({ error: 'Embedding failed' }, { status: 500 })
   }

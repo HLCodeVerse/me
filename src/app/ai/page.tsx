@@ -9,10 +9,11 @@ import { toast } from 'sonner'
 import type { AIConversation, AIMessage } from '@/lib/supabase/database.types'
 
 const FREE_MODELS = [
-  { id: 'google/gemini-2.0-flash-exp:free', label: 'Gemini 2.0 Flash', tag: 'Free' },
-  { id: 'deepseek/deepseek-r1:free',         label: 'DeepSeek R1',      tag: 'Free' },
-  { id: 'meta-llama/llama-3.1-8b-instruct:free', label: 'Llama 3.1 8B', tag: 'Free' },
-  { id: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B',      tag: 'Free' },
+  { id: 'google/gemini-2.0-flash-exp:free',           label: 'Gemini 2.0 Flash',  tag: 'Free' },
+  { id: 'deepseek/deepseek-chat-v3-0324:free',        label: 'DeepSeek V3',       tag: 'Free' },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free',    label: 'Llama 3.3 70B',     tag: 'Free' },
+  { id: 'meta-llama/llama-3.1-8b-instruct:free',     label: 'Llama 3.1 8B',      tag: 'Free' },
+  { id: 'mistralai/mistral-7b-instruct:free',         label: 'Mistral 7B',        tag: 'Free' },
 ]
 
 const PAID_MODELS = [
@@ -141,7 +142,16 @@ export default function AIPage() {
         }),
       })
 
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) {
+        let errMsg = 'AI request failed'
+        try {
+          const errData = await res.json()
+          errMsg = errData.error || errMsg
+        } catch {}
+        if (res.status === 401) errMsg = 'Please log in to use AI Chat.'
+        if (res.status === 503) errMsg = 'No OpenRouter API key configured. Go to Settings → AI Provider to add your key.'
+        throw new Error(errMsg)
+      }
 
       // Check for action headers
       const actionsHeader = res.headers.get('X-Actions')
@@ -185,8 +195,9 @@ export default function AIPage() {
         role: 'assistant',
         content: fullContent,
       })
-    } catch {
-      toast.error('AI request failed. Check your connection.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'AI request failed. Check your connection.'
+      toast.error(msg, { duration: 6000 })
       setMessages(prev => prev.filter(m => m.id !== assistantId))
     } finally {
       setStreaming(false)
