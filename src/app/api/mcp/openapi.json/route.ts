@@ -10,19 +10,38 @@ export async function GET() {
     },
     servers: [
       {
-        url: 'https://me-eight-dun.vercel.app/api/mcp',
-        description: 'Production Vercel NIRMAAN MCP Server'
+        url: 'https://me-eight-dun.vercel.app',
+        description: 'Production Vercel NIRMAAN Server'
       },
       {
-        url: 'http://localhost:3000/api/mcp',
-        description: 'Local Development NIRMAAN MCP Server'
+        url: 'http://localhost:3000',
+        description: 'Local NIRMAAN Server'
       }
     ],
+    security: [],
     paths: {
-      '/': {
+      '/api/mcp': {
+        get: {
+          summary: 'Get NIRMAAN User Dashboard or Tasks',
+          operationId: 'getNirmaanDashboard',
+          parameters: [
+            {
+              name: 'action',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['dashboard', 'tasks'] },
+              description: 'Fetch dashboard metrics or task list'
+            }
+          ],
+          responses: {
+            '200': {
+              description: 'Dashboard state or task list'
+            }
+          }
+        },
         post: {
-          summary: 'MCP JSON-RPC Protocol Endpoint',
-          operationId: 'executeMcpRpc',
+          summary: 'Execute MCP JSON-RPC or Create Task / Journal',
+          operationId: 'createNirmaanItem',
           requestBody: {
             required: true,
             content: {
@@ -30,6 +49,10 @@ export async function GET() {
                 schema: {
                   type: 'object',
                   properties: {
+                    action: { type: 'string', example: 'create_task' },
+                    title: { type: 'string', example: 'Complete Project Blueprint' },
+                    priority: { type: 'number', example: 3 },
+                    content: { type: 'string', example: 'Daily reflection entry' },
                     jsonrpc: { type: 'string', example: '2.0' },
                     id: { type: 'string', example: '1' },
                     method: { type: 'string', example: 'tools/call' },
@@ -41,7 +64,7 @@ export async function GET() {
           },
           responses: {
             '200': {
-              description: 'Successful JSON-RPC Response'
+              description: 'Item created or MCP tool output'
             }
           }
         }

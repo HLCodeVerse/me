@@ -10,14 +10,6 @@ function getSupabase() {
   return createClient(url, key)
 }
 
-interface McpRequest {
-  jsonrpc: string
-  id: string | number
-  method: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  params?: Record<string, any>
-}
-
 // Extract User ID from Authorization Bearer Key or return first profile
 async function getUserIdFromRequest(req: NextRequest): Promise<string> {
   const supabase = getSupabase()
@@ -26,7 +18,6 @@ async function getUserIdFromRequest(req: NextRequest): Promise<string> {
     const rawKey = authHeader.replace('Bearer ', '').trim()
     const prefix = rawKey.slice(0, 12)
 
-    // Compute SHA-256 hash
     const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawKey))
     const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
 
@@ -49,11 +40,40 @@ async function getUserIdFromRequest(req: NextRequest): Promise<string> {
 export async function POST(req: NextRequest) {
   try {
     const supabase = getSupabase()
-    const body: McpRequest = await req.json()
-    const { id, method, params } = body
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body: any = await req.json()
     const userId = await getUserIdFromRequest(req)
 
-    // 1. MCP Initialize Handshake
+    // Handle Direct RESTful ChatGPT Actions: Create Task / Todo / Journal
+    if (body.action === 'create_task' || (body.title && !body.method && !body.type)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: newTask, error } = await (supabase.from('tasks') as any).insert({
+        user_id: userId,
+        title: body.title,
+        priority: body.priority || 3,
+        due_date: body.due_date || null,
+        status: 'todo'
+      }).select().single()
+
+      if (error) throw error
+      return NextResponse.json({ success: true, message: `Created task: ${newTask.title}`, task: newTask })
+    }
+
+    if (body.action === 'create_journal' || body.content) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: newEntry, error } = await (supabase.from('journal_entries') as any).insert({
+        user_id: userId,
+        content: body.content,
+        mood: body.mood || '⚡'
+      }).select().single()
+
+      if (error) throw error
+      return NextResponse.json({ success: true, message: `Logged journal entry: ${newEntry.content}`, entry: newEntry })
+    }
+
+    // Handle MCP JSON-RPC Protocol
+    const { id, method, params } = body
+
     if (method === 'initialize') {
       return NextResponse.json({
         jsonrpc: '2.0',
@@ -66,7 +86,6 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // 2. Tools List (for Grok, Claude, Cursor, ChatGPT)
     if (method === 'tools/list') {
       return NextResponse.json({
         jsonrpc: '2.0',
@@ -124,7 +143,6 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // 3. Tools Call
     if (method === 'tools/call') {
       const toolName = params?.name
       const args = params?.arguments || {}
@@ -232,7 +250,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       jsonrpc: '2.0',
-      id,
+      id: id || null,
       error: { code: -32601, message: `Method ${method} not supported` }
     })
   } catch (err: unknown) {
@@ -244,7 +262,23 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const supabase = getSupabase()
+  const userId = await getUserIdFromRequest(req)
+  const action = req.nextUrl.searchParams.get('action')
+
+  if (action === 'dashboard') {
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+    const { data: tasks } = await supabase.from('tasks').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
+    const { data: todos } = await supabase.from('todos').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
+    return NextResponse.json({ profile, tasks, todos })
+  }
+
+  if (action === 'tasks') {
+    const { data: tasks } = await supabase.from('tasks').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+    return NextResponse.json(tasks || [])
+  }
+
   return NextResponse.json({
     status: 'online',
     server: 'NIRMAAN MCP Protocol Gateway',
