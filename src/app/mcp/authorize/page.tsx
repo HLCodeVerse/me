@@ -116,27 +116,51 @@ function AuthorizeContent() {
     setTimeout(() => setCopiedKey(false), 2000)
   }
 
-  function handleApprove() {
+  async function handleApprove() {
     if (!user) {
       redirectToLogin()
       return
     }
 
     setApproving(true)
-    const authCode = `nir_code_${crypto.randomUUID().replace(/-/g, '')}`
 
-    if (redirectUri) {
-      const callbackUrl = new URL(redirectUri)
-      callbackUrl.searchParams.set('code', authCode)
-      if (state) callbackUrl.searchParams.set('state', state)
+    try {
+      // Persist the auth code in the database so the token endpoint can validate it
+      const res = await fetch('/api/mcp/oauth/code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          scope: 'mcp:read mcp:write',
+        }),
+      })
 
-      toast.success('Connection Authorized! Redirecting back to AI client...')
-      setTimeout(() => {
-        window.location.href = callbackUrl.toString()
-      }, 1000)
-    } else {
-      toast.success('Authorized successfully!')
-      router.push('/dashboard')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error_description || 'Failed to generate auth code')
+        setApproving(false)
+        return
+      }
+
+      const { code } = await res.json()
+
+      if (redirectUri) {
+        const callbackUrl = new URL(redirectUri)
+        callbackUrl.searchParams.set('code', code)
+        if (state) callbackUrl.searchParams.set('state', state)
+
+        toast.success('Connection Authorized! Redirecting back to AI client...')
+        setTimeout(() => {
+          window.location.href = callbackUrl.toString()
+        }, 800)
+      } else {
+        toast.success('Authorized successfully!')
+        router.push('/dashboard')
+      }
+    } catch {
+      toast.error('Authorization failed. Please try again.')
+      setApproving(false)
     }
   }
 

@@ -15,32 +15,46 @@ function getSupabase() {
   return createClient(url, getAnonKey())
 }
 
-// Extract User ID from Authorization Bearer Key or return first profile
-async function getUserIdFromRequest(req: NextRequest): Promise<string> {
+// Extract User ID from Authorization Bearer Token (validated against DB)
+async function getUserIdFromRequest(req: NextRequest): Promise<string | null> {
   const supabase = getSupabase()
   const authHeader = req.headers.get('authorization') || req.headers.get('x-api-key')
-  if (authHeader) {
-    const rawKey = authHeader.replace('Bearer ', '').trim()
-    const prefix = rawKey.slice(0, 12)
+  if (!authHeader) return null
 
-    const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawKey))
-    const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+  const rawToken = authHeader.replace('Bearer ', '').trim()
+  if (!rawToken) return null
 
-    const { data: keyRow } = await supabase
-      .from('api_keys')
+  // 1. Check mcp_oauth_tokens (ChatGPT / Claude MCP connections)
+  if (rawToken.startsWith('nir_')) {
+    const { data: tokenRow } = await supabase
+      .from('mcp_oauth_tokens')
       .select('user_id')
-      .eq('key_prefix', prefix)
-      .eq('key_hash', hashHex)
+      .eq('access_token', rawToken)
       .is('revoked_at', null)
-      .single()
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle()
 
-    if (keyRow?.user_id) return keyRow.user_id
+    if (tokenRow?.user_id) return tokenRow.user_id
   }
 
-  // Fallback to first profile if no key provided
-  const { data: profiles } = await supabase.from('profiles').select('id').limit(1)
-  return profiles?.[0]?.id || 'guest_user'
+  // 2. Check api_keys (direct API integrations — hashed)
+  const prefix = rawToken.slice(0, 12)
+  const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawToken))
+  const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+
+  const { data: keyRow } = await supabase
+    .from('api_keys')
+    .select('user_id')
+    .eq('key_prefix', prefix)
+    .eq('key_hash', hashHex)
+    .is('revoked_at', null)
+    .maybeSingle()
+
+  if (keyRow?.user_id) return keyRow.user_id
+
+  return null
 }
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,6 +62,14 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: any = await req.json()
     const userId = await getUserIdFromRequest(req)
+
+    // Require valid token for all MCP operations
+    if (!userId) {
+      return NextResponse.json(
+        { jsonrpc: '2.0', id: body?.id || null, error: { code: -32001, message: 'Unauthorized: valid Bearer token required' } },
+        { status: 401, headers: { 'WWW-Authenticate': 'Bearer realm="NIRMAAN MCP"' } }
+      )
+    }
 
     // Handle Direct RESTful ChatGPT Actions: Create Task / Todo / Journal
     if (body.action === 'create_task' || (body.title && !body.method && !body.type)) {
@@ -272,6 +294,24 @@ export async function GET(req: NextRequest) {
   const userId = await getUserIdFromRequest(req)
   const action = req.nextUrl.searchParams.get('action')
 
+  // Allow unauthenticated status check
+  if (!action) {
+    return NextResponse.json({
+      status: 'online',
+      server: 'NIRMAAN MCP Protocol Gateway',
+      version: '1.0.0',
+      supported_clients: ['ChatGPT', 'Claude Desktop', 'Cursor', 'Windsurf'],
+      endpoints: {
+        mcp_jsonrpc: '/api/mcp',
+        openapi_spec: '/api/mcp/openapi.json'
+      }
+    })
+  }
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   if (action === 'dashboard') {
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
     const { data: tasks } = await supabase.from('tasks').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
@@ -284,14 +324,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(tasks || [])
   }
 
-  return NextResponse.json({
-    status: 'online',
-    server: 'NIRMAAN MCP Protocol Gateway',
-    version: '1.0.0',
-    supported_clients: ['Grok', 'ChatGPT', 'Claude Desktop', 'Cursor', 'Windsurf'],
-    endpoints: {
-      mcp_jsonrpc: '/api/mcp',
-      openapi_spec: '/api/mcp/openapi.json'
-    }
-  })
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
