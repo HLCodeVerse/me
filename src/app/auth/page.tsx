@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { Phone, Lock, ArrowRight, Loader2, User } from 'lucide-react'
 import { toast } from 'sonner'
@@ -12,7 +11,6 @@ type Mode = 'login' | 'signup'
 
 export default function AuthPage() {
   const router = useRouter()
-  const supabase = createClient()
   const { setDirectUser } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
   const [loading, setLoading] = useState(false)
@@ -22,116 +20,51 @@ export default function AuthPage() {
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
 
-  function formatPhone(val: string) {
-    const digits = val.replace(/\D/g, '')
-    if (digits.length === 10) return `+91${digits}`
-    if (digits.startsWith('91') && digits.length === 12) return `+${digits}`
-    return val.startsWith('+') ? val : `+${digits}`
-  }
+  useEffect(() => {
+    // Clear any stale Supabase local storage tokens on auth page load
+    if (typeof window !== 'undefined') {
+      try {
+        Object.keys(localStorage).forEach(k => {
+          if (k.startsWith('sb-')) localStorage.removeItem(k)
+        })
+      } catch {}
+    }
+  }, [])
 
   async function handleDirectAuth(e: React.FormEvent) {
     e.preventDefault()
     if (!phone || !password) return
     setLoading(true)
 
-    const cleanPhone = formatPhone(phone)
-    const cleanUsername = `user_${cleanPhone.replace(/\D/g, '').slice(-10)}`
-
     try {
-      if (mode === 'signup') {
-        // 1. Check if phone already registered in profiles
-        const { data: existing } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('phone', cleanPhone)
-          .maybeSingle()
+      const endpoint = mode === 'signup' ? '/api/auth/register' : '/api/auth/login'
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password, displayName }),
+      })
 
-        if (existing) {
-          toast.error('Mobile number already registered! Please login.')
-          setMode('login')
-          setLoading(false)
-          return
-        }
+      const data = await res.json()
 
-        // 2. Insert new profile directly into PostgreSQL profiles table
-        const newProfile: Partial<Profile> = {
-          id: crypto.randomUUID(),
-          username: cleanUsername,
-          display_name: displayName || 'Builder',
-          phone: cleanPhone,
-          password_hash: password,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          life_score: 0,
-          current_streak: 0,
-          longest_streak: 0,
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: createdProfile, error: insertErr } = await (supabase.from('profiles') as any)
-          .insert(newProfile)
-          .select()
-          .single()
-
-        if (insertErr) {
-          throw new Error(insertErr.message)
-        }
-
-        // 3. Seed default life areas for new user
-        await seedDefaultLifeAreas(createdProfile.id)
-
-        // 4. Log in user directly
-        setDirectUser(createdProfile as Profile)
-        toast.success('Registration successful! Welcome to NIRMAAN 🚀')
-        router.push('/dashboard')
-      } else {
-        // LOGIN: Query profiles table by phone or last 10 digits
-        const rawDigits = phone.replace(/\D/g, '').slice(-10)
-        const { data: existingProfile, error: selectErr } = await supabase
-          .from('profiles')
-          .select('*')
-          .or(`phone.eq.${cleanPhone},phone.ilike.%${rawDigits}%`)
-          .maybeSingle()
-
-        if (selectErr) throw selectErr
-
-        const userProfile = existingProfile as Profile | null
-
-        if (!userProfile) {
-          toast.error('Number not registered. Please register first!')
+      if (!res.ok) {
+        toast.error(data.error || 'Authentication failed')
+        if (res.status === 404 && mode === 'login') {
           setMode('signup')
-          setLoading(false)
-          return
         }
+        setLoading(false)
+        return
+      }
 
-        // Password check
-        if (userProfile.password_hash && userProfile.password_hash !== password) {
-          toast.error('Incorrect password. Please try again.')
-          setLoading(false)
-          return
-        }
-
-        // Log in user directly
-        setDirectUser(userProfile)
-        toast.success('Welcome back to NIRMAAN 🚀')
+      if (data.success && data.profile) {
+        setDirectUser(data.profile as Profile)
+        toast.success(mode === 'signup' ? 'Registration successful! Welcome to NIRMAAN 🚀' : 'Welcome back to NIRMAAN 🚀')
         router.push('/dashboard')
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Authentication failed')
+      toast.error(err instanceof Error ? err.message : 'Authentication request failed')
     } finally {
       setLoading(false)
     }
-  }
-
-  async function seedDefaultLifeAreas(userId: string) {
-    const areas = [
-      { name: 'Career',  icon: '💼', color: '#60A5FA' },
-      { name: 'Health',  icon: '🏋️', color: '#34D399' },
-      { name: 'Finance', icon: '💰', color: '#F59E0B' },
-      { name: 'Mind',    icon: '🧠', color: '#A78BFA' },
-      { name: 'Skills',  icon: '⚡', color: '#FB923C' },
-    ]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('life_areas') as any).insert(areas.map(a => ({ ...a, user_id: userId, target_score: 80 })))
   }
 
   return (
@@ -266,7 +199,7 @@ export default function AuthPage() {
       </div>
 
       <p className="animate-fade-up delay-200" style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text-dim)' }}>
-        NIRMAAN Personal OS · Direct DB Authentication
+        NIRMAAN Personal OS · Direct Authentication
       </p>
     </div>
   )
