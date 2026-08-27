@@ -10,8 +10,12 @@ export async function GET() {
     },
     servers: [
       {
+        url: 'https://me-eight-dun.vercel.app/api/mcp',
+        description: 'Production Vercel NIRMAAN MCP Server'
+      },
+      {
         url: 'http://localhost:3000/api/mcp',
-        description: 'Local NIRMAAN MCP Server'
+        description: 'Local Development NIRMAAN MCP Server'
       }
     ],
     paths: {

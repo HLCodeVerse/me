@@ -8,7 +8,7 @@ import { Copy, Check, Plus, Trash2, Loader2, Key } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ApiKey } from '@/lib/supabase/database.types'
 
-const MCP_SERVER_URL = process.env.NEXT_PUBLIC_MCP_SERVER_URL ?? 'https://mcp.nirmaan.app'
+const MCP_SERVER_URL = process.env.NEXT_PUBLIC_MCP_SERVER_URL ?? 'https://me-eight-dun.vercel.app'
 
 const CLIENT_CONFIGS = [
   {
