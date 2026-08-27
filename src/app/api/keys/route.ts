@@ -7,36 +7,41 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 async function getUserIdFromRequest(req: NextRequest): Promise<string | null> {
+  // 1. Check nirmaan_user_id cookie from direct mobile auth
   const cookieUserId = req.cookies.get('nirmaan_user_id')?.value
-  if (cookieUserId) return cookieUserId
+  if (cookieUserId && cookieUserId.trim().length > 0) {
+    return cookieUserId.trim()
+  }
 
+  // 2. Check Authorization Bearer Key
   const authHeader = req.headers.get('authorization')
   if (authHeader) {
     const rawKey = authHeader.replace('Bearer ', '').trim()
-    const prefix = rawKey.slice(0, 12)
-    const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawKey))
-    const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+    if (rawKey.length > 0) {
+      const prefix = rawKey.slice(0, 12)
+      const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawKey))
+      const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
 
-    const { data } = await supabase
-      .from('api_keys')
-      .select('user_id')
-      .eq('key_prefix', prefix)
-      .eq('key_hash', hashHex)
-      .is('revoked_at', null)
-      .single()
+      const { data } = await supabase
+        .from('api_keys')
+        .select('user_id')
+        .eq('key_prefix', prefix)
+        .eq('key_hash', hashHex)
+        .is('revoked_at', null)
+        .maybeSingle()
 
-    if (data?.user_id) return data.user_id
+      if (data?.user_id) return data.user_id
+    }
   }
 
-  // Fallback to first profile
-  const { data: profiles } = await supabase.from('profiles').select('id').limit(1)
-  return profiles?.[0]?.id || null
+  // Strict requirement: NO unauthenticated fallbacks!
+  return null
 }
 
 export async function GET(req: NextRequest) {
   const userId = await getUserIdFromRequest(req)
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Authentication required. Please log in first.', require_login: true }, { status: 401 })
   }
 
   const { data: keys, error } = await supabase
@@ -56,17 +61,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const userId = await getUserIdFromRequest(req)
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Authentication required. Please log in first.', require_login: true }, { status: 401 })
   }
 
   const body = await req.json().catch(() => ({}))
-  const name = body.name || 'AI Assistant Key'
+  const name = (body.name || 'AI Assistant Key').trim()
 
   const rawKey = `nir_${crypto.randomUUID().replace(/-/g, '')}`
   const prefix = rawKey.slice(0, 12)
   const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawKey))
   const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
 
+  // Insert into Supabase database api_keys table
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: createdKey, error } = await (supabase.from('api_keys') as any)
     .insert({
@@ -80,7 +86,7 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: `Database save failed: ${error.message}` }, { status: 500 })
   }
 
   return NextResponse.json({ success: true, key: createdKey, rawKey })
@@ -89,7 +95,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const userId = await getUserIdFromRequest(req)
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Authentication required. Please log in first.', require_login: true }, { status: 401 })
   }
 
   const { searchParams } = req.nextUrl

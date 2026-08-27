@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { ShieldCheck, Key, Check, Plus, Loader2, ArrowRight } from 'lucide-react'
+import { ShieldCheck, Key, Check, Plus, Loader2, ArrowRight, LogIn, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ApiKey } from '@/lib/supabase/database.types'
 
@@ -23,12 +23,15 @@ function AuthorizeContent() {
   const [approving, setApproving] = useState(false)
   const [creatingKey, setCreatingKey] = useState(false)
   const [createdRawKey, setCreatedRawKey] = useState<string | null>(null)
+  const [copiedKey, setCopiedKey] = useState(false)
+
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : '/mcp/authorize'
 
   useEffect(() => {
     if (authLoading) return
 
     if (!user) {
-      router.push(`/auth?next=${encodeURIComponent(window.location.href)}`)
+      setLoading(false)
       return
     }
 
@@ -36,6 +39,12 @@ function AuthorizeContent() {
       try {
         const res = await fetch('/api/keys')
         const data = await res.json()
+        if (res.status === 401 || data.require_login) {
+          toast.error('Session expired. Please log in first.')
+          router.push(`/auth?next=${encodeURIComponent(currentUrl)}`)
+          return
+        }
+
         if (res.ok && data.keys) {
           setApiKeys(data.keys)
           if (data.keys.length > 0) {
@@ -50,10 +59,20 @@ function AuthorizeContent() {
     }
 
     loadKeys()
-  }, [user, authLoading, router])
+  }, [user, authLoading, router, currentUrl])
+
+  function redirectToLogin() {
+    toast.info('Please log in to generate API keys & authorize connection.')
+    router.push(`/auth?next=${encodeURIComponent(currentUrl)}`)
+  }
 
   async function handleCreateKey(e: React.FormEvent) {
     e.preventDefault()
+    if (!user) {
+      redirectToLogin()
+      return
+    }
+
     if (!newKeyName.trim()) return
     setCreatingKey(true)
 
@@ -65,13 +84,19 @@ function AuthorizeContent() {
       })
 
       const data = await res.json()
+
+      if (res.status === 401 || data.require_login) {
+        redirectToLogin()
+        return
+      }
+
       if (!res.ok || !data.success) {
-        toast.error(data.error || 'Failed to create key')
+        toast.error(data.error || 'Failed to create key in database')
         setCreatingKey(false)
         return
       }
 
-      toast.success(`API Key "${newKeyName}" created successfully!`)
+      toast.success(`API Key "${newKeyName}" saved to database! 🚀`)
       setCreatedRawKey(data.rawKey)
       setApiKeys(prev => [data.key, ...prev])
       setSelectedKeyId(data.key.id)
@@ -83,7 +108,20 @@ function AuthorizeContent() {
     }
   }
 
+  function handleCopyRawKey() {
+    if (!createdRawKey) return
+    navigator.clipboard.writeText(createdRawKey)
+    setCopiedKey(true)
+    toast.success('Key copied to clipboard!')
+    setTimeout(() => setCopiedKey(false), 2000)
+  }
+
   function handleApprove() {
+    if (!user) {
+      redirectToLogin()
+      return
+    }
+
     setApproving(true)
     const authCode = `nir_code_${crypto.randomUUID().replace(/-/g, '')}`
 
@@ -106,6 +144,39 @@ function AuthorizeContent() {
     return (
       <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
         <Loader2 size={32} className="animate-spin" color="var(--growth)" />
+      </div>
+    )
+  }
+
+  // Not Logged In Screen
+  if (!user) {
+    return (
+      <div style={{
+        minHeight: '100dvh', background: 'var(--bg)', display: 'flex',
+        flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+        padding: '24px', position: 'relative',
+      }}>
+        <div className="card animate-fade-up" style={{ padding: '32px 28px', maxWidth: 440, width: '100%', textAlign: 'center' }}>
+          <div style={{
+            width: 60, height: 60, borderRadius: 20, background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px',
+          }}>
+            <LogIn size={28} color="var(--danger)" />
+          </div>
+          <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8 }}>Authentication Required</h2>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 24 }}>
+            You must log in to your NIRMAAN OS account before generating API keys or authorizing <strong style={{ color: 'var(--text)' }}>{clientId}</strong>.
+          </p>
+          <button
+            onClick={redirectToLogin}
+            className="btn btn-primary"
+            style={{ width: '100%', height: 46, fontSize: 14, fontWeight: 700 }}
+          >
+            <LogIn size={16} />
+            Log In to Continue
+          </button>
+        </div>
       </div>
     )
   }
@@ -162,9 +233,18 @@ function AuthorizeContent() {
         {/* Created Raw Key Display */}
         {createdRawKey && (
           <div style={{ marginBottom: 16, padding: '12px', background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 'var(--radius-sm)' }}>
-            <p style={{ fontSize: 11, color: 'var(--growth)', fontWeight: 700, marginBottom: 6 }}>
-              🔑 Key Created! Save it now:
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <p style={{ fontSize: 11, color: 'var(--growth)', fontWeight: 700 }}>
+                🔑 Key Saved to DB! Copy now:
+              </p>
+              <button
+                onClick={handleCopyRawKey}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: 'var(--growth)', fontSize: 11, fontWeight: 600 }}
+              >
+                {copiedKey ? <Check size={13} /> : <Copy size={13} />}
+                {copiedKey ? 'Copied' : 'Copy Key'}
+              </button>
+            </div>
             <code style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--growth)', wordBreak: 'break-all', display: 'block' }}>
               {createdRawKey}
             </code>

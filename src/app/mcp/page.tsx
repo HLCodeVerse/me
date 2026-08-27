@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import { Copy, Check, Plus, Trash2, Loader2, Key } from 'lucide-react'
 import { toast } from 'sonner'
