@@ -11,6 +11,13 @@ function getAnonKey() {
 }
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // 1. Bypass all API routes, OAuth discovery, and static assets
+  if (pathname.startsWith('/api/') || pathname.startsWith('/.well-known/')) {
+    return NextResponse.next()
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -34,7 +41,6 @@ export async function middleware(request: NextRequest) {
   const hasDirectSession = request.cookies.get('nirmaan_session')?.value === 'true'
   const isAuthenticated = !!(user || hasDirectSession)
 
-  const { pathname } = request.nextUrl
   const protectedPaths = ['/dashboard', '/tasks', '/todos', '/journal', '/ai', '/goals', '/analytics', '/learn', '/settings', '/mcp']
   const isProtected = protectedPaths.some(p => pathname.startsWith(p))
   const isAuth = pathname.startsWith('/auth') || pathname.startsWith('/onboarding')
@@ -51,5 +57,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/|\\.well-known/).*)'],
 }

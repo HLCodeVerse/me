@@ -4,20 +4,34 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const redirectUri = searchParams.get('redirect_uri')
   const state = searchParams.get('state')
+  const clientId = searchParams.get('client_id')
   const responseType = searchParams.get('response_type') || 'code'
 
-  if (redirectUri) {
-    const authCode = `nir_code_${crypto.randomUUID().replace(/-/g, '')}`
-    const callbackUrl = new URL(redirectUri)
-    callbackUrl.searchParams.set('code', authCode)
-    if (state) callbackUrl.searchParams.set('state', state)
+  const hasSession = req.cookies.get('nirmaan_session')?.value === 'true'
 
-    return NextResponse.redirect(callbackUrl.toString())
+  if (redirectUri) {
+    const authParams = new URLSearchParams({
+      redirect_uri: redirectUri,
+      ...(state ? { state } : {}),
+      ...(clientId ? { client_id: clientId } : {}),
+      response_type: responseType,
+    }).toString()
+
+    if (!hasSession) {
+      // Redirect to Login page first with next parameter
+      const loginUrl = new URL('/auth', req.url)
+      loginUrl.searchParams.set('next', `/mcp/authorize?${authParams}`)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    // User is logged in -> Redirect to Interactive MCP Authorize Screen
+    const authorizePageUrl = new URL(`/mcp/authorize?${authParams}`, req.url)
+    return NextResponse.redirect(authorizePageUrl)
   }
 
   return NextResponse.json({
-    status: 'authorized',
-    message: 'NIRMAAN MCP OAuth Authorization Server',
+    status: 'online',
+    message: 'NIRMAAN MCP OAuth Authorization Gateway',
     response_type: responseType
   })
 }
