@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+const DEFAULT_URL = 'https://mfzulmibfmktllnshxox.supabase.co'
+const DEFAULT_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1menVsbWliZm1rdGxsbnNoxoxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjk0OTMsImV4cCI6MjA5NzkwNTQ5M30.QYiOYZ9eQ_epSBRPZhyjOjl185do7tKVQtIBlgdiY0M'
+
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_ANON_KEY
+  return createClient(url, key)
+}
 
 interface McpRequest {
   jsonrpc: string
@@ -15,6 +20,7 @@ interface McpRequest {
 
 // Extract User ID from Authorization Bearer Key or return first profile
 async function getUserIdFromRequest(req: NextRequest): Promise<string> {
+  const supabase = getSupabase()
   const authHeader = req.headers.get('authorization') || req.headers.get('x-api-key')
   if (authHeader) {
     const rawKey = authHeader.replace('Bearer ', '').trim()
@@ -42,6 +48,7 @@ async function getUserIdFromRequest(req: NextRequest): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getSupabase()
     const body: McpRequest = await req.json()
     const { id, method, params } = body
     const userId = await getUserIdFromRequest(req)
