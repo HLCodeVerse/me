@@ -252,15 +252,28 @@ export default function MCPPage() {
         <div className="card" style={{ padding: '16px' }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Available MCP Tools</h3>
           <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 14 }}>
-            Use these via JSON-RPC <code style={{ fontFamily: 'monospace' }}>tools/call</code> or through ChatGPT's natural language interface.
+            Use these via JSON-RPC <code style={{ fontFamily: 'monospace' }}>tools/call</code> or through ChatGPT&apos;s natural language interface.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[
-              { name: 'get_life_dashboard', desc: 'Life score, active tasks, todos, current streak' },
-              { name: 'list_tasks', desc: 'Fetch tasks — filter by status (todo / in_progress / completed)' },
-              { name: 'create_task', desc: 'Create a high-priority focus task with optional due date' },
-              { name: 'create_todo', desc: 'Add a daily todo item' },
+              { name: 'get_life_dashboard', desc: 'Full overview: life score, streak, tasks, todos, goals' },
+              { name: 'get_streaks', desc: 'Current streak, longest streak, life score history' },
+              { name: 'list_tasks', desc: 'List tasks — filter by todo / in_progress / done' },
+              { name: 'create_task', desc: 'Create a task with priority and optional due date' },
+              { name: 'update_task', desc: 'Update title, priority, status, due date, or notes' },
+              { name: 'complete_task', desc: 'Mark a task as done by ID' },
+              { name: 'delete_task', desc: 'Permanently delete a task by ID' },
+              { name: 'list_todos', desc: 'List daily todos — filter by completed status' },
+              { name: 'create_todo', desc: 'Add a new daily todo item' },
+              { name: 'toggle_todo', desc: 'Toggle todo between completed / incomplete' },
+              { name: 'delete_todo', desc: 'Delete a todo item by ID' },
+              { name: 'list_journal_entries', desc: 'List recent journal / reflection entries' },
               { name: 'create_journal_entry', desc: 'Write a micro-journal entry with mood emoji' },
+              { name: 'delete_journal_entry', desc: 'Delete a journal entry by ID' },
+              { name: 'list_goals', desc: 'List goals — filter by active / completed / paused' },
+              { name: 'create_goal', desc: 'Create a new goal with category and target date' },
+              { name: 'update_goal', desc: 'Update goal title, status, or progress %' },
+              { name: 'delete_goal', desc: 'Delete a goal by ID' },
             ].map(tool => (
               <div key={tool.name} style={{ display: 'flex', gap: 10, padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', alignItems: 'flex-start' }}>
                 <code style={{ fontSize: 11, color: 'var(--info)', fontFamily: 'monospace', flexShrink: 0, paddingTop: 1 }}>{tool.name}</code>
@@ -269,6 +282,7 @@ export default function MCPPage() {
             ))}
           </div>
         </div>
+
 
         <div style={{ height: 8 }} />
       </div>
