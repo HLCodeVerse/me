@@ -33,6 +33,19 @@ const QUICK_ACTIONS = [
   { label: 'Brain dump → Tasks',   icon: Brain,     prompt: "I'll give you my brain dump and you convert them into organized tasks. Ready? Start by asking me what's on my mind." },
 ]
 
+const ACTION_LABELS: Record<string, string> = {
+  create_task: '✅ Task created',
+  create_todo: '📝 Todo added',
+  delete_task: '🗑️ Task deleted',
+  convert_task_to_todo: '🔄 Converted task to todo',
+  convert_all_tasks_to_todos: '✨ All tasks converted to todos',
+  delete_all_tasks: '🗑️ All tasks deleted',
+  create_journal_entry: '📓 Journal entry created',
+  create_goal: '🎯 Goal added',
+  get_dashboard_summary: '📊 Dashboard loaded',
+  plan_my_day: '📅 Day plan loaded',
+}
+
 export default function AIPage() {
   const { user } = useAuth()
   const supabase = createClient()
@@ -318,7 +331,7 @@ export default function AIPage() {
           messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
           model: selectedModel,
           conversationId: conv.id,
-          enableTools,
+          enableTools: true,
         }),
       })
 
@@ -404,7 +417,7 @@ export default function AIPage() {
             >
               <MessageSquare size={18} color="#818CF8" />
             </button>
-            <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>NIRMAAN AI</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>Easy Life AI</h1>
           </div>
 
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

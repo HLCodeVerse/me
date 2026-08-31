@@ -64,10 +64,10 @@ export default function DesktopSidebar() {
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 800, fontFamily: 'Syne, sans-serif', letterSpacing: '-0.01em', color: 'var(--text)' }}>
-              NIRMAAN
+              Easy Life
             </div>
             <div style={{ fontSize: 10, color: 'var(--text-dim)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Personal OS
+              Personal Assistant
             </div>
           </div>
         </div>

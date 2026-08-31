@@ -144,7 +144,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>NIRMAAN Navigation</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>Easy Life Navigation</span>
                 <span className="badge badge-emerald" style={{ fontSize: 10 }}>12 Apps</span>
               </div>
               <button onClick={() => setShowDrawer(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>

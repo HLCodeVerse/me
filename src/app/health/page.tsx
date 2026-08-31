@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import AppShell from '@/components/layout/AppShell'
-import { Activity, Flame, CheckCircle2, Circle, Heart, Droplets, Brain, Loader2, Play, Sparkles } from 'lucide-react'
+import { Activity, Flame, CheckCircle2, Circle, Heart, Droplets, Brain, Loader2, Play } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface Exercise {

@@ -4,14 +4,14 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
-  title: 'NIRMAAN — Personal Reconstruction OS',
-  description: 'Rebuild yourself. Skill by skill. Day by day. NIRMAAN is your personal OS for reconstructing self, skill, and career.',
-  keywords: ['productivity', 'personal growth', 'tasks', 'journal', 'learning', 'AI'],
+  title: 'Easy Life — Personal Assistant & Productivity OS',
+  description: 'Simplify your day. Skill by skill. Day by day. Easy Life is your personal assistant for tasks, habits, health, and growth.',
+  keywords: ['productivity', 'personal assistant', 'tasks', 'habits', 'health', 'journal', 'AI'],
   manifest: '/manifest.json',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'NIRMAAN' },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Easy Life' },
   openGraph: {
-    title: 'NIRMAAN — Personal Reconstruction OS',
-    description: 'Your personal OS for reconstructing self, skill, and career.',
+    title: 'Easy Life — Personal Assistant & Productivity OS',
+    description: 'Your personal AI assistant for tasks, habits, health, and growth.',
     type: 'website',
   },
 }
