@@ -7,10 +7,10 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-// Verified active free models on OpenRouter
+// Verified active free models on OpenRouter with minimax/minimax-m2.7:free as primary
 const FREE_MODELS = [
-  'liquid/lfm-2.5-2.6b:free',
   'minimax/minimax-m2.7:free',
+  'liquid/lfm-2.5-2.6b:free',
   'z-ai/glm-5.2:free',
   'inclusionai/ling-3.0-flash-fin:free',
   'cohere/north-mini-code:free',
@@ -21,8 +21,8 @@ const FREE_MODELS = [
 
 // Fallback GPT models
 const GPT_FALLBACK_MODELS = [
-  'liquid/lfm-2.5-2.6b:free',
   'minimax/minimax-m2.7:free',
+  'liquid/lfm-2.5-2.6b:free',
   'openai/gpt-3.5-turbo',
   'openai/gpt-4o-mini',
 ]
@@ -196,28 +196,70 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
   }
 }
 
-async function callOpenRouter(apiKey: string, model: string, messages: unknown[], tools?: unknown[], stream = false) {
-  const body: Record<string, unknown> = {
-    model,
-    messages,
-    stream,
-    max_tokens: 2000,
-  }
-  if (tools && tools.length > 0) {
-    body.tools = tools
-    body.tool_choice = 'auto'
-  }
+// @openrouter/sdk implementation for chat streaming
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function callOpenRouter(apiKey: string, model: string, messages: any[], tools?: any[], stream = false) {
+  try {
+    const openrouter = new OpenRouter({ apiKey })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chatRequest: any = {
+      model: model || 'minimax/minimax-m2.7:free',
+      messages,
+      stream,
+      maxTokens: 2000,
+    }
+    if (tools && tools.length > 0) {
+      chatRequest.tools = tools
+      chatRequest.toolChoice = 'auto'
+    }
 
-  return fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL ?? 'https://me-eight-dun.vercel.app',
-      'X-Title': 'NIRMAAN Personal OS',
-    },
-    body: JSON.stringify(body),
-  })
+    if (stream) {
+      const sdkStream = await openrouter.chat.send({ chatRequest })
+      const encoder = new TextEncoder()
+      const { readable, writable } = new TransformStream()
+      const writer = writable.getWriter()
+
+      ;(async () => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          for await (const chunk of (sdkStream as any)) {
+            const content = chunk.choices?.[0]?.delta?.content || ''
+            if (content) {
+              const sseLine = `data: ${JSON.stringify({ choices: [{ delta: { content }, finish_reason: null }] })}\n\n`
+              await writer.write(encoder.encode(sseLine))
+            }
+          }
+          await writer.write(encoder.encode('data: [DONE]\n\n'))
+        } catch {
+        } finally {
+          await writer.close()
+        }
+      })()
+
+      return new Response(readable, {
+        headers: { 'Content-Type': 'text/event-stream' }
+      })
+    } else {
+      const response = await openrouter.chat.send({ chatRequest })
+      return new Response(JSON.stringify(response), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+  } catch {
+    const body: Record<string, unknown> = { model: model || 'minimax/minimax-m2.7:free', messages, stream, max_tokens: 2000 }
+    if (tools && tools.length > 0) { body.tools = tools; body.tool_choice = 'auto' }
+    return fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL ?? 'https://me-eight-dun.vercel.app',
+        'X-Title': 'NIRMAAN Personal OS',
+      },
+      body: JSON.stringify(body),
+    })
+  }
 }
 
 // Gemini REST Fallback API call
@@ -330,7 +372,7 @@ Formatting: Use **bold**, bullet points, and numbered lists for clarity. Keep re
     const isFreeRequest = !model || FREE_MODELS.includes(model)
     const modelFallbacks = Array.from(new Set(
       isFreeRequest
-        ? [model, ...FREE_MODELS, ...GPT_FALLBACK_MODELS].filter(Boolean)
+        ? [model || 'minimax/minimax-m2.7:free', ...FREE_MODELS, ...GPT_FALLBACK_MODELS].filter(Boolean)
         : [model, ...FREE_MODELS, ...GPT_FALLBACK_MODELS].filter(Boolean)
     ))
 
@@ -433,7 +475,7 @@ Formatting: Use **bold**, bullet points, and numbered lists for clarity. Keep re
       } catch {}
     }
 
-    // Final Fallback: Google Gemini API REST call or smart response
+    // Final Fallback: Google Gemini API REST call
     const lastUserMsg = (messages as { role: string; content: string }[]).reverse().find(m => m.role === 'user')?.content || 'Hello'
     const geminiText = await callGeminiFallback(lastUserMsg)
 

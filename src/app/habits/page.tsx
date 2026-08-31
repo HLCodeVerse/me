@@ -28,29 +28,34 @@ export default function HabitsPage() {
   const [saving, setSaving] = useState(false)
 
   const loadHabits = useCallback(async () => {
-    if (!user) return
-    const today = new Date().toISOString().split('T')[0]
+    try {
+      if (!user) { setLoading(false); return }
+      const today = new Date().toISOString().split('T')[0]
 
-    const [habitsRes, logsRes] = await Promise.all([
-      supabase.from('habits').select('*').eq('user_id', user.id).eq('archived', false),
-      supabase.from('habit_logs').select('*').eq('user_id', user.id).eq('logged_at', today),
-    ])
+      const [habitsRes, logsRes] = await Promise.all([
+        supabase.from('habits').select('*').eq('user_id', user.id).eq('archived', false),
+        supabase.from('habit_logs').select('*').eq('user_id', user.id).eq('logged_at', today),
+      ])
 
-    const rawHabits = (habitsRes.data ?? []) as Habit[]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const logs = (logsRes.data ?? []) as any[]
+      const rawHabits = (habitsRes.data ?? []) as Habit[]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const logs = (logsRes.data ?? []) as any[]
 
-    const loggedMap = new Map<string, number>()
-    logs.forEach(l => loggedMap.set(l.habit_id, l.count || 1))
+      const loggedMap = new Map<string, number>()
+      logs.forEach(l => loggedMap.set(l.habit_id, l.count || 1))
 
-    const processed = rawHabits.map(h => ({
-      ...h,
-      today_count: loggedMap.get(h.id) ?? 0,
-      completed_today: (loggedMap.get(h.id) ?? 0) >= (h.target_count || 1),
-    }))
+      const processed = rawHabits.map(h => ({
+        ...h,
+        today_count: loggedMap.get(h.id) ?? 0,
+        completed_today: (loggedMap.get(h.id) ?? 0) >= (h.target_count || 1),
+      }))
 
-    setHabits(processed)
-    setLoading(false)
+      setHabits(processed)
+    } catch {
+      setHabits([])
+    } finally {
+      setLoading(false)
+    }
   }, [user, supabase])
 
   useEffect(() => { loadHabits() }, [loadHabits])
@@ -59,58 +64,69 @@ export default function HabitsPage() {
     e.preventDefault()
     if (!name.trim() || !user) return
     setSaving(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('habits') as any).insert({
-      user_id: user.id,
-      name: name.trim(),
-      frequency,
-      target_count: targetCount,
-      color: '#F43F5E',
-      archived: false,
-    })
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('habits') as any).insert({
+        user_id: user.id,
+        name: name.trim(),
+        frequency,
+        target_count: targetCount,
+        color: '#F43F5E',
+        archived: false,
+      })
 
-    if (error) {
-      toast.error('Failed to create habit')
-    } else {
-      toast.success('Habit created!')
-      setName('')
-      setShowAddModal(false)
-      loadHabits()
+      if (error) {
+        toast.error('Failed to create habit')
+      } else {
+        toast.success('Habit created!')
+        setName('')
+        setShowAddModal(false)
+        loadHabits()
+      }
+    } catch {
+      toast.error('Could not save habit')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   async function toggleHabitLog(habit: HabitWithLog) {
     if (!user) return
     const today = new Date().toISOString().split('T')[0]
 
-    if (habit.completed_today) {
-      // Delete today log
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('habit_logs') as any)
-        .delete()
-        .eq('habit_id', habit.id)
-        .eq('logged_at', today)
-      toast.info('Habit log un-checked')
-    } else {
-      // Upsert today log
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('habit_logs') as any).upsert({
-        habit_id: habit.id,
-        user_id: user.id,
-        logged_at: today,
-        count: habit.target_count || 1,
-      })
-      toast.success(`Habit "${habit.name}" completed today! 🔥`)
+    try {
+      if (habit.completed_today) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('habit_logs') as any)
+          .delete()
+          .eq('habit_id', habit.id)
+          .eq('logged_at', today)
+        toast.info('Habit log un-checked')
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('habit_logs') as any).upsert({
+          habit_id: habit.id,
+          user_id: user.id,
+          logged_at: today,
+          count: habit.target_count || 1,
+        })
+        toast.success(`Habit "${habit.name}" completed today! 🔥`)
+      }
+    } catch {
+      toast.error('Could not update habit log')
     }
     loadHabits()
   }
 
   async function deleteHabit(id: string) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('habits') as any).update({ archived: true }).eq('id', id)
-    setHabits(prev => prev.filter(h => h.id !== id))
-    toast.success('Habit archived')
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('habits') as any).update({ archived: true }).eq('id', id)
+      setHabits(prev => prev.filter(h => h.id !== id))
+      toast.success('Habit archived')
+    } catch {
+      toast.error('Could not archive habit')
+    }
   }
 
   async function aiHabitCoach() {

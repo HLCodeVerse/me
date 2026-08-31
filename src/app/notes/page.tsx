@@ -24,15 +24,20 @@ export default function NotesPage() {
   const [saving, setSaving] = useState(false)
 
   const loadNotes = useCallback(async () => {
-    if (!user) return
-    const { data } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('is_pinned', { ascending: false })
-      .order('updated_at', { ascending: false })
-    setNotes(data ?? [])
-    setLoading(false)
+    try {
+      if (!user) { setLoading(false); return }
+      const { data } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('is_pinned', { ascending: false })
+        .order('updated_at', { ascending: false })
+      setNotes(data ?? [])
+    } catch {
+      setNotes([])
+    } finally {
+      setLoading(false)
+    }
   }, [user, supabase])
 
   useEffect(() => { loadNotes() }, [loadNotes])
@@ -41,37 +46,48 @@ export default function NotesPage() {
     e.preventDefault()
     if (!content.trim() || !user) return
     setSaving(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('notes') as any).insert({
-      user_id: user.id,
-      title: title.trim() || null,
-      content: content.trim(),
-      is_pinned: false,
-      tags: [],
-    })
-    if (error) { toast.error('Failed to save note') }
-    else {
-      toast.success('Note created!')
-      setTitle(''); setContent(''); setShowForm(false)
-      loadNotes()
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('notes') as any).insert({
+        user_id: user.id,
+        title: title.trim() || null,
+        content: content.trim(),
+        is_pinned: false,
+        tags: [],
+      })
+      if (error) { toast.error('Failed to save note') }
+      else {
+        toast.success('Note created!')
+        setTitle(''); setContent(''); setShowForm(false)
+        loadNotes()
+      }
+    } catch {
+      toast.error('Could not save note')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   async function togglePin(note: Note) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('notes') as any)
-      .update({ is_pinned: !note.is_pinned })
-      .eq('id', note.id)
-    setNotes(prev => prev.map(n => n.id === note.id ? { ...n, is_pinned: !n.is_pinned } : n))
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('notes') as any)
+        .update({ is_pinned: !note.is_pinned })
+        .eq('id', note.id)
+      setNotes(prev => prev.map(n => n.id === note.id ? { ...n, is_pinned: !n.is_pinned } : n))
+    } catch {}
   }
 
   async function deleteNote(id: string) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('notes') as any).delete().eq('id', id)
-    setNotes(prev => prev.filter(n => n.id !== id))
-    if (selectedNote?.id === id) setSelectedNote(null)
-    toast.success('Note deleted')
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('notes') as any).delete().eq('id', id)
+      setNotes(prev => prev.filter(n => n.id !== id))
+      if (selectedNote?.id === id) setSelectedNote(null)
+      toast.success('Note deleted')
+    } catch {
+      toast.error('Could not delete note')
+    }
   }
 
   async function summarizeNoteWithAI(note: Note) {
