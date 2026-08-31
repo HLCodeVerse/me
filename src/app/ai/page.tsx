@@ -7,7 +7,7 @@ import AppShell from '@/components/layout/AppShell'
 import {
   Send, Plus, Loader2, Brain, Zap, Calendar, Sparkles, ChevronDown, Check, Wrench,
   Copy, Volume2, VolumeX, Mic, MicOff, RotateCcw, Download, Trash2, Edit2, Search,
-  PanelLeftClose, PanelLeft, Paperclip, MessageSquare, ShieldCheck, FileText, CheckSquare, X
+  PanelLeftClose, PanelLeft, Paperclip, MessageSquare, ShieldCheck, FileText, CheckSquare
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { AIConversation, AIMessage } from '@/lib/supabase/database.types'
@@ -291,7 +291,7 @@ export default function AIPage() {
       <div>
         {parts.map((p, idx) => {
           if (p.type === 'text') {
-            const lines = p.text.split('\n')
+            const lines = (p.text || '').split('\n')
             return (
               <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {lines.map((line, lIdx) => {
