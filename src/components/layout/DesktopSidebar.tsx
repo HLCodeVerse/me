@@ -2,125 +2,153 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  Home, CheckSquare, BookOpen, Brain, Compass,
-  ListTodo, Target, BarChart2, Settings, Link2, Flame
-} from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import {
+  LayoutDashboard, CheckSquare, ListTodo, BookOpen,
+  Target, GraduationCap, Bot, Settings, Zap, Bell,
+  StickyNote, Flame, ChevronRight
+} from 'lucide-react'
 
-const navItems = [
-  { href: '/dashboard',  icon: Home,        label: 'Dashboard',       section: 'main' },
-  { href: '/tasks',      icon: CheckSquare, label: 'Tasks',           section: 'main' },
-  { href: '/todos',      icon: ListTodo,    label: 'Todos',           section: 'main' },
-  { href: '/journal',    icon: BookOpen,    label: 'Journal',         section: 'main' },
-  { href: '/goals',      icon: Target,      label: 'Goals',           section: 'growth' },
-  { href: '/learn',      icon: Compass,     label: 'Learn',           section: 'growth' },
-  { href: '/ai',         icon: Brain,       label: 'AI Companion',    section: 'tools' },
-  { href: '/analytics',  icon: BarChart2,   label: 'Analytics',       section: 'tools' },
-  { href: '/mcp',        icon: Link2,       label: 'MCP Connect',     section: 'tools' },
-  { href: '/settings',   icon: Settings,    label: 'Settings',        section: 'settings' },
+const NAV_ITEMS = [
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',   color: '#10B981' },
+  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',       color: '#F59E0B' },
+  { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#818CF8' },
+  { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#F43F5E' },
+  { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4' },
+  { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#A78BFA' },
+  { href: '/goals',     icon: Target,          label: 'Goals',       color: '#10B981' },
+  { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B' },
+  { href: '/learn',     icon: GraduationCap,   label: 'Learn',       color: '#60A5FA' },
+  { href: '/ai',        icon: Bot,             label: 'AI Chat',     color: '#818CF8' },
 ]
-
-const SECTIONS: Record<string, string> = {
-  main: 'WORKSPACE',
-  growth: 'GROWTH',
-  tools: 'TOOLS',
-  settings: 'SYSTEM',
-}
 
 export default function DesktopSidebar() {
   const pathname = usePathname()
   const { profile } = useAuth()
 
-  const grouped: Record<string, typeof navItems> = {}
-  for (const item of navItems) {
-    if (!grouped[item.section]) grouped[item.section] = []
-    grouped[item.section].push(item)
-  }
+  const lifeScore = profile?.life_score ?? 0
+  const streakCount = profile?.current_streak ?? 0
 
   return (
-    <aside className="desktop-sidebar">
+    <nav className="desktop-sidebar" style={{ justifyContent: 'space-between', overflow: 'hidden' }}>
       {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, padding: '0 8px' }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 10,
-          background: 'var(--growth)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18, fontWeight: 900, color: '#0A0B0D', flexShrink: 0,
-          boxShadow: '0 0 16px rgba(52,211,153,0.3)',
-        }}>N</div>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.03em' }}>NIRMAAN</div>
-          <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.05em' }}>निर्माण</div>
-        </div>
-      </div>
-
-      {/* User info */}
-      {profile && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20,
-          padding: '10px 12px', background: 'var(--surface-2)',
-          border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-        }}>
+      <div style={{ padding: '4px 8px 16px', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 32, height: 32, borderRadius: '50%', background: 'var(--growth)',
+            width: 34, height: 34, borderRadius: 10,
+            background: 'linear-gradient(135deg, #10B981, #059669)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 800, color: '#0A0B0D', flexShrink: 0,
+            boxShadow: '0 0 20px rgba(16,185,129,0.3)',
+            flexShrink: 0,
           }}>
-            {(profile.display_name || profile.username || 'U')[0].toUpperCase()}
+            <Zap size={18} color="white" />
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {profile.display_name || profile.username}
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, fontFamily: 'Syne, sans-serif', letterSpacing: '-0.01em', color: 'var(--text)' }}>
+              NIRMAAN
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Flame size={10} color="var(--focus)" />
-              {profile.current_streak || 0}d · Score {profile.life_score || 0}
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Personal OS
             </div>
           </div>
         </div>
-      )}
-
-      {/* Nav sections */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {Object.entries(grouped).map(([section, items]) => (
-          <div key={section}>
-            <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-dim)', letterSpacing: '0.08em', padding: '0 10px', marginBottom: 4 }}>
-              {SECTIONS[section]}
-            </div>
-            {items.map(({ href, icon: Icon, label }) => {
-              const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '9px 12px', borderRadius: 'var(--radius-sm)',
-                    textDecoration: 'none', fontSize: 13, fontWeight: active ? 700 : 500,
-                    color: active ? 'var(--growth)' : 'var(--text-muted)',
-                    background: active ? 'rgba(52,211,153,0.08)' : 'transparent',
-                    border: `1px solid ${active ? 'rgba(52,211,153,0.15)' : 'transparent'}`,
-                    transition: 'all 150ms ease',
-                  }}
-                >
-                  <Icon size={16} strokeWidth={active ? 2.5 : 1.8} />
-                  {label}
-                  {active && (
-                    <div style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: 'var(--growth)', boxShadow: '0 0 8px rgba(52,211,153,0.6)' }} />
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        ))}
       </div>
 
-      {/* Footer */}
-      <div style={{ marginTop: 8, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-        <div style={{ fontSize: 10, color: 'var(--text-dim)', textAlign: 'center', padding: '0 8px' }}>
-          NIRMAAN v1.0 · निर्माण
+      {/* Navigation */}
+      <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {NAV_ITEMS.map(({ href, icon: Icon, label, color }) => {
+          const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+          return (
+            <Link
+              key={href}
+              href={href}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '9px 10px',
+                borderRadius: 10,
+                textDecoration: 'none',
+                transition: 'all 150ms',
+                background: isActive ? `rgba(${hexToRgb(color)},0.1)` : 'transparent',
+                border: `1px solid ${isActive ? `rgba(${hexToRgb(color)},0.2)` : 'transparent'}`,
+                position: 'relative',
+              }}
+            >
+              <div style={{
+                width: 30, height: 30, borderRadius: 8,
+                background: isActive ? `rgba(${hexToRgb(color)},0.15)` : 'var(--surface-2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+                transition: 'all 150ms',
+              }}>
+                <Icon size={15} color={isActive ? color : 'var(--text-muted)'} />
+              </div>
+              <span style={{
+                fontSize: 13,
+                fontWeight: isActive ? 700 : 500,
+                color: isActive ? color : 'var(--text-muted)',
+                flex: 1,
+                transition: 'color 150ms',
+              }}>
+                {label}
+              </span>
+              {isActive && (
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: color, flexShrink: 0 }} />
+              )}
+            </Link>
+          )
+        })}
+      </div>
+
+      {/* MCP Status */}
+      <Link href="/mcp" style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '8px 10px', borderRadius: 10,
+        background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)',
+        textDecoration: 'none', marginBottom: 8,
+        transition: 'all 150ms',
+      }}>
+        <div style={{ position: 'relative' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981' }} />
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#10B981', animation: 'ping 1.5s infinite' }} />
         </div>
-      </div>
-    </aside>
+        <span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>MCP Connected</span>
+        <ChevronRight size={12} color="var(--text-dim)" style={{ marginLeft: 'auto' }} />
+      </Link>
+
+      {/* Profile card */}
+      <Link href="/settings" style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 10px', borderRadius: 12,
+        background: 'var(--surface-2)', border: '1px solid var(--border)',
+        textDecoration: 'none', transition: 'all 150ms',
+      }}>
+        {/* Avatar */}
+        <div style={{
+          width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+          background: 'linear-gradient(135deg, #818CF8, #10B981)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 14, fontWeight: 700, color: 'white',
+        }}>
+          {(profile?.display_name || profile?.username || 'U')[0].toUpperCase()}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {profile?.display_name || profile?.username || 'Builder'}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            {lifeScore} pts · {streakCount}d streak
+          </div>
+        </div>
+        <Settings size={14} color="var(--text-dim)" />
+      </Link>
+    </nav>
   )
+}
+
+function hexToRgb(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  if (!result) return '255,255,255'
+  return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`
 }
