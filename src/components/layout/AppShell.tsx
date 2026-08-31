@@ -1,8 +1,8 @@
 'use client'
 
-import { ReactNode, useState } from 'react'
+import { ReactNode, useState, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import BottomNav from './BottomNav'
 import DesktopSidebar from './DesktopSidebar'
 import {
@@ -32,12 +32,52 @@ const ALL_MODULES = [
   { href: '/settings',  icon: Settings,        label: 'Settings',    color: '#8892A4' },
 ]
 
+const NAV_SEQUENCE = ALL_MODULES.map(m => m.href)
+
 export default function AppShell({ children, header, noPadding }: AppShellProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [showDrawer, setShowDrawer] = useState(false)
 
+  // Touch Swipe Gesture State
+  const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null || touchStartY.current === null) return
+
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current
+
+    // Check if horizontal swipe is prominent (deltaX > 75px, deltaY < 50px)
+    if (Math.abs(deltaX) > 75 && Math.abs(deltaY) < 50) {
+      const currentIndex = NAV_SEQUENCE.indexOf(pathname)
+      if (currentIndex !== -1) {
+        if (deltaX < 0 && currentIndex < NAV_SEQUENCE.length - 1) {
+          // Swipe left -> Next page
+          router.push(NAV_SEQUENCE[currentIndex + 1])
+        } else if (deltaX > 0 && currentIndex > 0) {
+          // Swipe right -> Previous page
+          router.push(NAV_SEQUENCE[currentIndex - 1])
+        }
+      }
+    }
+
+    touchStartX.current = null
+    touchStartY.current = null
+  }
+
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}
+    >
       <DesktopSidebar />
       <div className="app-layout" style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
         {header && (
