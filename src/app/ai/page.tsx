@@ -5,9 +5,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
-  Send, Plus, Loader2, Brain, Zap, Calendar, Sparkles, ChevronDown, Check, Wrench,
-  Copy, Volume2, VolumeX, Mic, MicOff, RotateCcw, Download, Trash2, Edit2, Search,
-  PanelLeftClose, PanelLeft, Paperclip, MessageSquare, ShieldCheck, FileText, CheckSquare, X
+  Send, Plus, Loader2, Brain, Zap, Calendar, Sparkles, ChevronDown, Check,
+  Copy, Mic, MicOff, Trash2, MessageSquare, X
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { AIConversation, AIMessage } from '@/lib/supabase/database.types'
@@ -34,15 +33,6 @@ const QUICK_ACTIONS = [
   { label: 'Brain dump → Tasks',   icon: Brain,     prompt: "I'll give you my brain dump and you convert them into organized tasks. Ready? Start by asking me what's on my mind." },
 ]
 
-const ACTION_LABELS: Record<string, string> = {
-  create_task: '✅ Task created',
-  create_todo: '📝 Todo added',
-  create_journal_entry: '📓 Journal entry created',
-  create_goal: '🎯 Goal added',
-  get_dashboard_summary: '📊 Dashboard loaded',
-  plan_my_day: '📅 Day plan loaded',
-}
-
 export default function AIPage() {
   const { user } = useAuth()
   const supabase = createClient()
@@ -53,15 +43,11 @@ export default function AIPage() {
   const [streaming, setStreaming] = useState(false)
   const [selectedModel, setSelectedModel] = useState(FREE_MODELS[0].id)
   const [showModelPicker, setShowModelPicker] = useState(false)
-  const [enableTools, setEnableTools] = useState(true)
-  const [pendingActions, setPendingActions] = useState<string[]>([])
   const [speakingId, setSpeakingId] = useState<string | null>(null)
   const [isListening, setIsListening] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [showMobileHistory, setShowMobileHistory] = useState(false)
-  const [editingConvId, setEditingConvId] = useState<string | null>(null)
-  const [editingTitle, setEditingTitle] = useState('')
 
+  const [pendingActions, setPendingActions] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -131,20 +117,6 @@ export default function AIPage() {
     } catch {
       toast.error('Failed to delete')
     }
-  }
-
-  async function saveRenamedTitle(convId: string) {
-    if (!editingTitle.trim()) return
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('ai_conversations') as any).update({ title: editingTitle.trim() }).eq('id', convId)
-      setConversations(prev => prev.map(c => c.id === convId ? { ...c, title: editingTitle.trim() } : c))
-      if (activeConv?.id === convId) {
-        setActiveConv(prev => prev ? { ...prev, title: editingTitle.trim() } : null)
-      }
-      setEditingConvId(null)
-      toast.success('Renamed')
-    } catch {}
   }
 
   const copyToClipboard = (text: string) => {

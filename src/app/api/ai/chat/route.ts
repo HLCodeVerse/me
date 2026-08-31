@@ -103,6 +103,50 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'delete_task',
+      description: 'Delete a task by title or keyword',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Title or keyword of the task to delete' },
+        },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'convert_task_to_todo',
+      description: 'Convert a specific task into a quick todo item and remove it from tasks',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Title or keyword of the task to convert' },
+        },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'convert_all_tasks_to_todos',
+      description: 'Convert all existing tasks into quick todo items and remove them from tasks',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_all_tasks',
+      description: 'Delete all tasks for the user',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_dashboard_summary',
       description: 'Get current user stats: tasks, todos, streaks, life score',
       parameters: { type: 'object', properties: {}, required: [] },
@@ -140,6 +184,43 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
         due_date: (args.due_date as string) || null,
       }).select().single()
       return { success: true, message: `Todo "${args.title}" added!`, todo: data }
+    }
+    case 'delete_task': {
+      const searchTitle = args.title as string
+      const { data: found } = await db.from('tasks').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
+      if (!found || found.length === 0) return { error: `No task found matching "${searchTitle}"` }
+      const ids = found.map(t => t.id)
+      await db.from('tasks').delete().in('id', ids)
+      return { success: true, message: `Deleted ${found.length} task(s) matching "${searchTitle}"` }
+    }
+    case 'convert_task_to_todo': {
+      const searchTitle = args.title as string
+      const { data: found } = await db.from('tasks').select('id, title, due_date').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
+      if (!found || found.length === 0) return { error: `No task found matching "${searchTitle}"` }
+      
+      for (const t of found) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (db.from('todos') as any).insert({ user_id: userId, title: t.title, due_date: t.due_date, is_done: false })
+        await db.from('tasks').delete().eq('id', t.id)
+      }
+      return { success: true, message: `Converted ${found.length} task(s) into todo items and removed them from tasks!` }
+    }
+    case 'convert_all_tasks_to_todos': {
+      const { data: found } = await db.from('tasks').select('id, title, due_date').eq('user_id', userId)
+      if (!found || found.length === 0) return { success: true, message: 'No tasks found to convert.' }
+      
+      for (const t of found) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (db.from('todos') as any).insert({ user_id: userId, title: t.title, due_date: t.due_date, is_done: false })
+        await db.from('tasks').delete().eq('id', t.id)
+      }
+      return { success: true, message: `Successfully converted all ${found.length} tasks into quick todos and removed them from tasks!` }
+    }
+    case 'delete_all_tasks': {
+      const { data: found } = await db.from('tasks').select('id').eq('user_id', userId)
+      if (!found || found.length === 0) return { success: true, message: 'No tasks to delete.' }
+      await db.from('tasks').delete().eq('user_id', userId)
+      return { success: true, message: `Deleted all ${found.length} tasks!` }
     }
     case 'create_journal_entry': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

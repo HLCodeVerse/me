@@ -7,7 +7,7 @@ import BottomNav from './BottomNav'
 import DesktopSidebar from './DesktopSidebar'
 import {
   Menu, X, LayoutDashboard, CheckSquare, ListTodo, BookOpen, Bot, Flame,
-  StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, ShieldCheck
+  StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, ShieldCheck, Activity
 } from 'lucide-react'
 
 interface AppShellProps {
@@ -21,6 +21,7 @@ const ALL_MODULES = [
   { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',       color: '#F59E0B' },
   { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#818CF8' },
   { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#F43F5E' },
+  { href: '/health',    icon: Activity,        label: 'Health',      color: '#10B981' },
   { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4' },
   { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B' },
   { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#A78BFA' },

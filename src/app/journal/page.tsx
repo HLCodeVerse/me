@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
   Plus, Mic, Sparkles, ChevronRight, X, Loader2,
-  BookOpen, Smile, Meh, Frown, Zap, Heart, Brain
+  BookOpen, Smile, Meh, Frown, Zap, Heart, Brain, Search, Sparkle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
@@ -15,22 +15,19 @@ import type { JournalEntry } from '@/lib/supabase/database.types'
 type EntryType = 'free' | 'prompted' | 'voice'
 
 const MOODS = [
-  { id: 'amazing', icon: Zap,   color: '#F59E0B', label: 'Amazing' },
-  { id: 'good',    icon: Smile, color: '#10B981', label: 'Good'    },
-  { id: 'meh',     icon: Meh,   color: '#06B6D4', label: 'Meh'     },
-  { id: 'bad',     icon: Frown, color: '#60A5FA', label: 'Bad'     },
-  { id: 'awful',   icon: Heart, color: '#EF4444', label: 'Awful'   },
+  { id: 'amazing', icon: Zap,   color: '#F59E0B', label: 'Amazing 🔥' },
+  { id: 'good',    icon: Smile, color: '#10B981', label: 'Good 😊'    },
+  { id: 'meh',     icon: Meh,   color: '#06B6D4', label: 'Meh 😐'     },
+  { id: 'bad',     icon: Frown, color: '#60A5FA', label: 'Bad 😔'     },
+  { id: 'awful',   icon: Heart, color: '#EF4444', label: 'Awful 😫'   },
 ]
 
 const PROMPTS = [
   'What are 3 things I learned today?',
   'What am I grateful for right now?',
-  'What would make tomorrow better?',
-  'What challenge am I avoiding?',
-  'Who inspired me today and why?',
   'What progress did I make on my goals?',
-  'What drained my energy today?',
-  'What am I most proud of this week?',
+  'What challenge did I overcome today?',
+  'What would make tomorrow even better?',
 ]
 
 export default function JournalPage() {
@@ -41,26 +38,32 @@ export default function JournalPage() {
   const [showForm, setShowForm] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
   const [generatingReflection, setGeneratingReflection] = useState(false)
+  const [search, setSearch] = useState('')
 
   // Form state
   const [entryType, setEntryType] = useState<EntryType>('free')
   const [content, setContent] = useState('')
-  const [selectedMood, setSelectedMood] = useState('')
+  const [selectedMood, setSelectedMood] = useState('good')
   const [selectedPrompt, setSelectedPrompt] = useState('')
   const [title, setTitle] = useState('')
   const [saving, setSaving] = useState(false)
   const [recording, setRecording] = useState(false)
 
   const fetchEntries = useCallback(async () => {
-    if (!user) return
-    const { data } = await supabase
-      .from('journal_entries')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(30)
-    setEntries(data ?? [])
-    setLoading(false)
+    try {
+      if (!user) { setLoading(false); return }
+      const { data } = await supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(40)
+      setEntries(data ?? [])
+    } catch {
+      setEntries([])
+    } finally {
+      setLoading(false)
+    }
   }, [user, supabase])
 
   useEffect(() => { fetchEntries() }, [fetchEntries])
@@ -68,28 +71,33 @@ export default function JournalPage() {
   async function saveEntry() {
     if (!content.trim() || !user) return
     setSaving(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from('journal_entries') as any).insert({
-      user_id: user.id,
-      title: title || null,
-      content,
-      mood: selectedMood || null,
-      mood_score: selectedMood ? getMoodScore(selectedMood) : null,
-      entry_type: entryType,
-      tags: [],
-    }).select().single()
-    if (error) { toast.error('Failed to save entry'); setSaving(false); return }
-    toast.success('Journal entry saved!')
-    setEntries(prev => [data, ...prev])
-    setShowForm(false)
-    setContent(''); setTitle(''); setSelectedMood(''); setSelectedPrompt('')
-    setSaving(false)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from('journal_entries') as any).insert({
+        user_id: user.id,
+        title: title.trim() || selectedPrompt || null,
+        content: content.trim(),
+        mood: selectedMood || null,
+        mood_score: getMoodScore(selectedMood),
+        entry_type: entryType,
+        tags: [],
+      }).select().single()
+      if (error) { toast.error('Failed to save journal entry'); setSaving(false); return }
+      toast.success('Journal entry saved! 📓')
+      setEntries(prev => [data, ...prev])
+      setShowForm(false)
+      setContent(''); setTitle(''); setSelectedMood('good'); setSelectedPrompt('')
+    } catch {
+      toast.error('Could not save entry')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function generateAIReflection(entry: JournalEntry) {
     if (!user) return
     setGeneratingReflection(true)
-    toast.info('AI is generating personalized reflection...')
+    toast.info('AI Mindset Coach is analyzing your entry...')
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -97,7 +105,7 @@ export default function JournalPage() {
         body: JSON.stringify({
           messages: [{
             role: 'user',
-            content: `Read this journal entry and provide a short 2-sentence encouraging AI reflection:\n"${entry.content}"`
+            content: `Read this journal entry and provide a 2-sentence empowering AI reflection:\n"${entry.content}"`
           }],
           enableTools: false
         })
@@ -127,7 +135,6 @@ export default function JournalPage() {
         }
       }
 
-      // Update database entry
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('journal_entries') as any)
         .update({ ai_reflection: reflectionText })
@@ -137,7 +144,7 @@ export default function JournalPage() {
       setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, ai_reflection: reflectionText } : e))
       toast.success('AI reflection saved!')
     } catch {
-      toast.error('Failed to generate reflection')
+      toast.error('Failed to generate AI reflection')
     } finally {
       setGeneratingReflection(false)
     }
@@ -150,7 +157,7 @@ export default function JournalPage() {
 
   function startVoice() {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      toast.error('Voice not supported in this browser')
+      toast.error('Voice input not supported')
       return
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,8 +178,13 @@ export default function JournalPage() {
     setTimeout(() => { recognition.stop() }, 60000)
   }
 
+  const filteredEntries = entries.filter(e =>
+    (e.title?.toLowerCase() || '').includes(search.toLowerCase()) ||
+    e.content.toLowerCase().includes(search.toLowerCase())
+  )
+
   const grouped: Record<string, JournalEntry[]> = {}
-  for (const e of entries) {
+  for (const e of filteredEntries) {
     const date = formatDate(e.created_at, 'long')
     if (!grouped[date]) grouped[date] = []
     grouped[date].push(e)
@@ -193,16 +205,27 @@ export default function JournalPage() {
       }
     >
       <div style={{ paddingTop: 16 }}>
+        {/* Search */}
+        <div style={{ position: 'relative', marginBottom: 16 }}>
+          <Search size={15} color="var(--text-dim)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+          <input
+            placeholder="Search entries..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ paddingLeft: 36 }}
+          />
+        </div>
+
         {loading ? (
           [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 'var(--radius)', marginBottom: 10 }} />)
-        ) : entries.length === 0 ? (
+        ) : filteredEntries.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 20px' }}>
             <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(167,139,250,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <BookOpen size={28} color="#A78BFA" />
             </div>
             <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Your story begins here</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6, maxWidth: 280, margin: '0 auto 24px' }}>
-              Capture your thoughts, track your mood, and let AI reflect on your growth.
+              Capture your daily thoughts, track your mood, and receive AI mindset reflections.
             </p>
             <button onClick={() => setShowForm(true)} className="btn btn-primary">
               <Plus size={16} /> Write First Entry
@@ -228,7 +251,7 @@ export default function JournalPage() {
                         display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
                         background: 'var(--surface)', border: '1px solid var(--border)',
                         borderRadius: 'var(--radius)', cursor: 'pointer', textAlign: 'left',
-                        width: '100%', transition: 'border-color 200ms',
+                        width: '100%', transition: 'all 200ms ease',
                       }}
                     >
                       <div style={{
@@ -239,14 +262,14 @@ export default function JournalPage() {
                         <MoodIcon size={18} color={moodColor} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {entry.title || entry.content.slice(0, 50)}
                         </p>
                         <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>
                           {new Date(entry.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
-                      {entry.ai_reflection && <Sparkles size={15} color="#A78BFA" />}
+                      {entry.ai_reflection && <Sparkle size={15} color="#A78BFA" />}
                       <ChevronRight size={14} color="var(--text-dim)" />
                     </button>
                   )
@@ -317,15 +340,15 @@ export default function JournalPage() {
               </div>
 
               <input
-                placeholder="Entry title (optional)"
+                placeholder="Entry title (optional)..."
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}
+                style={{ marginBottom: 12, fontSize: 16, fontWeight: 700 }}
               />
 
               {entryType === 'prompted' && (
                 <div style={{ marginBottom: 12 }}>
-                  <p style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 600, marginBottom: 8 }}>Pick a prompt:</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 600, marginBottom: 8 }}>Pick a reflection prompt:</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {PROMPTS.map(p => (
                       <button
@@ -361,7 +384,7 @@ export default function JournalPage() {
                   >
                     <Mic size={18} color={recording ? 'var(--danger)' : 'var(--text-muted)'} />
                     <span style={{ fontSize: 14, color: recording ? 'var(--danger)' : 'var(--text-muted)', fontWeight: 600 }}>
-                      {recording ? 'Recording... (speaking into mic)' : 'Tap to start voice dictation'}
+                      {recording ? 'Recording... Speak now 🎙️' : 'Tap to start voice dictation'}
                     </span>
                   </button>
                 </div>
@@ -391,7 +414,7 @@ export default function JournalPage() {
         </>
       )}
 
-      {/* Read Entry Modal with AI Reflection Button */}
+      {/* Read Entry Modal */}
       {selectedEntry && (
         <>
           <div className="overlay" onClick={() => setSelectedEntry(null)} />
@@ -401,7 +424,7 @@ export default function JournalPage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
               <div>
-                <p style={{ fontSize: 15, fontWeight: 700 }}>{selectedEntry.title || 'Journal Entry'}</p>
+                <p style={{ fontSize: 16, fontWeight: 800 }}>{selectedEntry.title || 'Journal Entry'}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>{formatDate(selectedEntry.created_at, 'long')}</p>
               </div>
               <button onClick={() => setSelectedEntry(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
