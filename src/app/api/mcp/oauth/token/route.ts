@@ -36,6 +36,29 @@ function parseFormBody(text: string): Record<string, string> {
   return params
 }
 
+/**
+ * PKCE S256 verification:
+ * code_challenge = BASE64URL(SHA-256(ASCII(code_verifier)))
+ * RFC 7636 §4.6
+ */
+async function verifyPkce(
+  codeVerifier: string,
+  codeChallenge: string,
+  method: string
+): Promise<boolean> {
+  if (method === 'plain') {
+    return codeVerifier === codeChallenge
+  }
+  // Default: S256
+  const encoded = new TextEncoder().encode(codeVerifier)
+  const hashBuf = await crypto.subtle.digest('SHA-256', encoded)
+  const hashArray = new Uint8Array(hashBuf)
+  // Base64URL encode (no padding, + → -, / → _)
+  const base64 = btoa(String.fromCharCode(...hashArray))
+  const base64url = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  return base64url === codeChallenge
+}
+
 export async function POST(req: NextRequest) {
   try {
     const db = getDb()
@@ -63,10 +86,10 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Look up the auth code in DB
+      // Look up the auth code in DB (fetch PKCE columns too)
       const { data: codeRow, error: codeErr } = await db
         .from('mcp_oauth_codes')
-        .select('id, user_id, client_id, scope, expires_at, used_at')
+        .select('id, user_id, client_id, scope, expires_at, used_at, code_challenge, code_challenge_method')
         .eq('code', code)
         .maybeSingle()
 
@@ -97,6 +120,25 @@ export async function POST(req: NextRequest) {
           { error: 'invalid_grant', error_description: 'Authorization code expired' },
           { status: 400, headers: CORS }
         )
+      }
+
+      // ── PKCE Verification (OAuth 2.1 mandatory for public clients) ────────
+      if (codeRow.code_challenge) {
+        const codeVerifier = params.code_verifier
+        if (!codeVerifier) {
+          return NextResponse.json(
+            { error: 'invalid_grant', error_description: 'code_verifier required — PKCE was used during authorization' },
+            { status: 400, headers: CORS }
+          )
+        }
+        const method = codeRow.code_challenge_method || 'S256'
+        const valid = await verifyPkce(codeVerifier, codeRow.code_challenge, method)
+        if (!valid) {
+          return NextResponse.json(
+            { error: 'invalid_grant', error_description: 'PKCE code_verifier does not match code_challenge' },
+            { status: 400, headers: CORS }
+          )
+        }
       }
 
       // Mark code as used
@@ -160,7 +202,7 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Rotate
+      // Rotate tokens
       const newAccess = `nir_${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '')}`
       const newRefresh = `nir_ref_${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '')}`
       const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
@@ -187,7 +229,6 @@ export async function POST(req: NextRequest) {
     // ── client_credentials ────────────────────────────────────────────────
     if (grantType === 'client_credentials') {
       const clientId = params.client_id
-      const clientSecret = params.client_secret
 
       if (!clientId) {
         return NextResponse.json(

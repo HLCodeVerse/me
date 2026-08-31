@@ -289,21 +289,53 @@ export async function POST(req: NextRequest) {
   }
 }
 
+function getMcpOrigin(req: NextRequest) {
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'me-eight-dun.vercel.app'
+  const proto = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
+  return `${proto}://${host}`
+}
+
 export async function GET(req: NextRequest) {
   const supabase = getSupabase()
   const userId = await getUserIdFromRequest(req)
   const action = req.nextUrl.searchParams.get('action')
 
-  // Allow unauthenticated status check
+  // RFC 9728: When no action and not authenticated, return 401 with PRM discovery header
+  // This is how ChatGPT MCP connector discovers the authorization server
   if (!action) {
+    const origin = getMcpOrigin(req)
+    const prmUrl = `${origin}/api/mcp/.well-known/oauth-protected-resource`
+    const authServerUrl = `${origin}/api/mcp/.well-known/oauth-authorization-server`
+
+    if (!userId) {
+      return NextResponse.json(
+        {
+          error: 'unauthorized',
+          message: 'NIRMAAN MCP Protocol Gateway — authenticate to use MCP tools',
+          resource_metadata: prmUrl,
+          authorization_server: authServerUrl,
+        },
+        {
+          status: 401,
+          headers: {
+            // RFC 9728 WWW-Authenticate with resource_metadata pointer
+            'WWW-Authenticate': `Bearer realm="NIRMAAN MCP", resource_metadata="${prmUrl}"`,
+          },
+        }
+      )
+    }
+
+    // Authenticated: return server info
     return NextResponse.json({
       status: 'online',
       server: 'NIRMAAN MCP Protocol Gateway',
       version: '1.0.0',
       supported_clients: ['ChatGPT', 'Claude Desktop', 'Cursor', 'Windsurf'],
       endpoints: {
-        mcp_jsonrpc: '/api/mcp',
-        openapi_spec: '/api/mcp/openapi.json'
+        mcp_jsonrpc: `${origin}/api/mcp`,
+        openapi_spec: `${origin}/api/mcp/openapi.json`,
+        oauth_metadata: authServerUrl,
+        protected_resource_metadata: prmUrl,
       }
     })
   }

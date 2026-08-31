@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+function getOrigin(req: NextRequest) {
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'me-eight-dun.vercel.app'
+  const proto = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
+  return `${proto}://${host}`
+}
+
 export async function GET(req: NextRequest) {
   const sessionId = crypto.randomUUID()
-  const domain = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://me-eight-dun.vercel.app'
-  const messageUrl = `${domain}/api/mcp?sessionId=${sessionId}`
+  // Derive origin dynamically from request — avoids VERCEL_URL env fallback issues
+  const origin = getOrigin(req)
+  const messageUrl = `${origin}/api/mcp?sessionId=${sessionId}`
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
@@ -11,7 +18,7 @@ export async function GET(req: NextRequest) {
       // Send endpoint event per MCP SSE spec
       controller.enqueue(encoder.encode(`event: endpoint\ndata: ${messageUrl}\n\n`))
 
-      // Keepalive interval
+      // Keepalive interval (15s)
       const timer = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(': keepalive\n\n'))

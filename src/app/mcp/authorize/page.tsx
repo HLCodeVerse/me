@@ -15,6 +15,9 @@ function AuthorizeContent() {
   const redirectUri = searchParams.get('redirect_uri')
   const state = searchParams.get('state')
   const clientId = searchParams.get('client_id') || 'AI Assistant'
+  // PKCE params forwarded from the OAuth client (e.g. ChatGPT)
+  const codeChallenge = searchParams.get('code_challenge')
+  const codeChallengeMethod = searchParams.get('code_challenge_method') || 'S256'
 
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [selectedKeyId, setSelectedKeyId] = useState<string>('')
@@ -135,6 +138,8 @@ function AuthorizeContent() {
           client_id: clientId,
           redirect_uri: redirectUri,
           scope: 'mcp:read mcp:write',
+          // Forward PKCE params — stored in DB, verified at token exchange
+          ...(codeChallenge ? { code_challenge: codeChallenge, code_challenge_method: codeChallengeMethod } : {}),
         }),
       })
 

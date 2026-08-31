@@ -250,18 +250,21 @@ export default function MCPPage() {
 
         {/* Available tools */}
         <div className="card" style={{ padding: '16px' }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Available MCP Tools</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Available MCP Tools</h3>
+          <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 14 }}>
+            Use these via JSON-RPC <code style={{ fontFamily: 'monospace' }}>tools/call</code> or through ChatGPT's natural language interface.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[
-              'list_tasks', 'create_task', 'update_task', 'complete_task',
-              'list_todos', 'create_todo', 'toggle_todo',
-              'create_journal_entry', 'list_journal_entries',
-              'list_goals', 'create_goal',
-              'get_life_dashboard', 'plan_my_day', 'get_streaks',
-              'list_lessons', 'mark_lesson_complete',
+              { name: 'get_life_dashboard', desc: 'Life score, active tasks, todos, current streak' },
+              { name: 'list_tasks', desc: 'Fetch tasks — filter by status (todo / in_progress / completed)' },
+              { name: 'create_task', desc: 'Create a high-priority focus task with optional due date' },
+              { name: 'create_todo', desc: 'Add a daily todo item' },
+              { name: 'create_journal_entry', desc: 'Write a micro-journal entry with mood emoji' },
             ].map(tool => (
-              <div key={tool} style={{ padding: '6px 10px', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                <code style={{ fontSize: 11, color: 'var(--info)', fontFamily: 'monospace' }}>{tool}</code>
+              <div key={tool.name} style={{ display: 'flex', gap: 10, padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', alignItems: 'flex-start' }}>
+                <code style={{ fontSize: 11, color: 'var(--info)', fontFamily: 'monospace', flexShrink: 0, paddingTop: 1 }}>{tool.name}</code>
+                <span style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.4 }}>{tool.desc}</span>
               </div>
             ))}
           </div>

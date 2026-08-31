@@ -48,6 +48,9 @@ export async function POST(req: NextRequest) {
     const clientId = body.client_id || 'unknown_client'
     const redirectUri = body.redirect_uri || null
     const scope = body.scope || 'mcp:read mcp:write'
+    // PKCE parameters — passed from the authorize page (originally sent by the OAuth client)
+    const codeChallenge = body.code_challenge || null
+    const codeChallengeMethod = body.code_challenge_method || (codeChallenge ? 'S256' : null)
 
     // Generate a cryptographically secure auth code
     const code = `nir_${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '')}`
@@ -60,6 +63,9 @@ export async function POST(req: NextRequest) {
       redirect_uri: redirectUri,
       scope,
       expires_at: expiresAt,
+      // Store PKCE data bound to this code — verified at token exchange time
+      code_challenge: codeChallenge,
+      code_challenge_method: codeChallengeMethod,
     })
 
     if (error) {

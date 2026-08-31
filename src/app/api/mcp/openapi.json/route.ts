@@ -22,14 +22,35 @@ export async function GET(req: NextRequest) {
         description: 'NIRMAAN Server'
       }
     ],
-    security: [{ BearerAuth: [] }],
+    // Both Bearer (API Key) and OAuth2 flows supported
+    security: [{ BearerAuth: [] }, { OAuth2: ['mcp:read', 'mcp:write'] }],
     components: {
       securitySchemes: {
+        // Direct API key (for Claude Desktop, Cursor, Windsurf)
         BearerAuth: {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'nir_token',
-          description: 'Bearer token obtained via OAuth2 authorization flow'
+          description: 'Personal API Key from NIRMAAN MCP settings page'
+        },
+        // OAuth 2.0 Authorization Code + PKCE (for ChatGPT connector)
+        OAuth2: {
+          type: 'oauth2',
+          description: 'OAuth 2.1 with PKCE — used by ChatGPT and other MCP-compatible clients',
+          flows: {
+            authorizationCode: {
+              authorizationUrl: `${origin}/api/mcp/oauth/authorize`,
+              tokenUrl: `${origin}/api/mcp/oauth/token`,
+              refreshUrl: `${origin}/api/mcp/oauth/token`,
+              scopes: {
+                'mcp:read': 'Read tasks, todos, journal entries, goals, and life dashboard',
+                'mcp:write': 'Create and update tasks, todos, journal entries, and goals',
+                'openid': 'OpenID Connect identity',
+                'profile': 'User profile information',
+                'email': 'User email address'
+              }
+            }
+          }
         }
       },
       schemas: {
@@ -60,7 +81,7 @@ export async function GET(req: NextRequest) {
           summary: 'Get life dashboard summary or task list',
           description: 'Retrieve the user\'s NIRMAAN OS dashboard including life score, active tasks, todos, and streaks.',
           operationId: 'getDashboard',
-          security: [{ BearerAuth: [] }],
+          security: [{ BearerAuth: [] }, { OAuth2: ['mcp:read'] }],
           parameters: [
             {
               name: 'action',
@@ -90,10 +111,10 @@ export async function GET(req: NextRequest) {
           }
         },
         post: {
-          summary: 'Create a task, todo, or journal entry',
-          description: 'Create items in the user\'s NIRMAAN OS account. Set "action" to "create_task", or include "content" for a journal entry.',
+          summary: 'Create a task, todo, or journal entry (or send MCP JSON-RPC)',
+          description: 'Create items in the user\'s NIRMAAN OS account. Supports direct REST actions and MCP JSON-RPC 2.0 protocol.',
           operationId: 'createItem',
-          security: [{ BearerAuth: [] }],
+          security: [{ BearerAuth: [] }, { OAuth2: ['mcp:write'] }],
           requestBody: {
             required: true,
             content: {
@@ -104,7 +125,7 @@ export async function GET(req: NextRequest) {
                     action: {
                       type: 'string',
                       enum: ['create_task', 'create_journal'],
-                      description: 'Action to perform'
+                      description: 'Action to perform (REST mode)'
                     },
                     title: {
                       type: 'string',
@@ -130,18 +151,33 @@ export async function GET(req: NextRequest) {
                     },
                     jsonrpc: { type: 'string', example: '2.0', description: 'JSON-RPC version for MCP protocol' },
                     id: { type: 'string', description: 'JSON-RPC request ID' },
-                    method: { type: 'string', description: 'JSON-RPC method e.g. tools/call' },
+                    method: {
+                      type: 'string',
+                      enum: ['initialize', 'tools/list', 'tools/call'],
+                      description: 'MCP JSON-RPC method'
+                    },
                     params: { type: 'object', description: 'JSON-RPC parameters' }
                   }
                 },
                 examples: {
                   createTask: {
-                    summary: 'Create a task',
+                    summary: 'Create a task (REST)',
                     value: { action: 'create_task', title: 'Review project docs', priority: 3 }
                   },
                   createJournal: {
-                    summary: 'Write a journal entry',
+                    summary: 'Write a journal entry (REST)',
                     value: { content: 'Today I focused on deep work for 3 hours.', mood: '🔥' }
+                  },
+                  mcpListTools: {
+                    summary: 'MCP: list available tools',
+                    value: { jsonrpc: '2.0', id: '1', method: 'tools/list', params: {} }
+                  },
+                  mcpCallTool: {
+                    summary: 'MCP: call a tool',
+                    value: {
+                      jsonrpc: '2.0', id: '2', method: 'tools/call',
+                      params: { name: 'get_life_dashboard', arguments: {} }
+                    }
                   }
                 }
               }
@@ -149,7 +185,7 @@ export async function GET(req: NextRequest) {
           },
           responses: {
             '200': {
-              description: 'Item created successfully',
+              description: 'Item created successfully or MCP JSON-RPC response',
               content: {
                 'application/json': {
                   schema: {
