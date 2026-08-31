@@ -7,28 +7,28 @@ import AppShell from '@/components/layout/AppShell'
 import {
   Send, Plus, Loader2, Brain, Zap, Calendar, Sparkles, ChevronDown, Check, Wrench,
   Copy, Volume2, VolumeX, Mic, MicOff, RotateCcw, Download, Trash2, Edit2, Search,
-  PanelLeftClose, PanelLeft, Paperclip, MessageSquare, ShieldCheck, FileText, CheckSquare
+  PanelLeftClose, PanelLeft, Paperclip, MessageSquare, ShieldCheck, FileText, CheckSquare, X
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { AIConversation, AIMessage } from '@/lib/supabase/database.types'
 
 const FREE_MODELS = [
-  { id: 'openai/gpt-3.5-turbo:free',           label: 'GPT-3.5 Turbo',     tag: 'Free / GPT' },
-  { id: 'openai/gpt-4o-mini:free',              label: 'GPT-4o Mini',       tag: 'Free / GPT' },
-  { id: 'liquid/lfm-2.5-embedding-350m:free',   label: 'Liquid LFM 2.5',    tag: 'Free' },
-  { id: 'deepseek/deepseek-chat-v3-0324:free', label: 'DeepSeek V3',       tag: 'Free' },
-  { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B',   tag: 'Free' },
-  { id: 'mistralai/mistral-7b-instruct:free',  label: 'Mistral 7B',        tag: 'Free' },
+  { id: 'minimax/minimax-m2.7:free',           label: 'MiniMax M2.7',      tag: 'Primary Free' },
+  { id: 'liquid/lfm-2.5-2.6b:free',             label: 'Liquid LFM 2.5',    tag: 'Fast Free' },
+  { id: 'z-ai/glm-5.2:free',                   label: 'GLM 5.2',           tag: 'Free' },
+  { id: 'inclusionai/ling-3.0-flash-fin:free',  label: 'Ling 3.0 Flash',    tag: 'Free' },
+  { id: 'cohere/north-mini-code:free',         label: 'North Mini Code',   tag: 'Code Free' },
+  { id: 'google/gemma-4-31b-it:free',           label: 'Gemma 4 31B',       tag: 'Free' },
+  { id: 'openai/gpt-3.5-turbo',                label: 'GPT-3.5 Turbo',     tag: 'OpenAI' },
 ]
 
 const PAID_MODELS = [
   { id: 'openai/gpt-4o',                      label: 'GPT-4o',           tag: 'GPT Premier' },
   { id: 'anthropic/claude-3.5-sonnet',        label: 'Claude 3.5 Sonnet',tag: 'Smart' },
-  { id: 'meta-llama/llama-3.1-70b-instruct',  label: 'Llama 3.1 70B',   tag: 'Open' },
 ]
 
 const QUICK_ACTIONS = [
-  { label: 'Plan my day',          icon: Calendar,  prompt: 'Plan my day based on my current tasks and goals. Then use plan_my_day to see what I have open.' },
+  { label: 'Plan my day',          icon: Calendar,  prompt: 'Plan my day based on my current tasks and goals. Give me 3 high-priority deep work tasks for today.' },
   { label: 'Weekly reflection',    icon: Sparkles,  prompt: 'Help me reflect on this week. What should I focus on next week?' },
   { label: 'Add 3 focus tasks',    icon: Zap,       prompt: 'Create 3 high-priority tasks for me to focus on today for deep work.' },
   { label: 'Brain dump → Tasks',   icon: Brain,     prompt: "I'll give you my brain dump and you convert them into organized tasks. Ready? Start by asking me what's on my mind." },
@@ -70,19 +70,27 @@ export default function AIPage() {
   }, [messages])
 
   const loadConversations = useCallback(async () => {
-    if (!user) return
-    const { data } = await supabase
-      .from('ai_conversations').select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(30)
-    setConversations(data ?? [])
-    if (data && data.length > 0 && !activeConv) setActiveConv(data[0])
+    try {
+      if (!user) return
+      const { data } = await supabase
+        .from('ai_conversations').select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(30)
+      setConversations(data ?? [])
+      if (data && data.length > 0 && !activeConv) setActiveConv(data[0])
+    } catch {
+      setConversations([])
+    }
   }, [user, supabase, activeConv])
 
   const loadMessages = useCallback(async (convId: string) => {
-    const { data } = await supabase.from('ai_messages').select('*').eq('conversation_id', convId).order('created_at')
-    setMessages(data ?? [])
+    try {
+      const { data } = await supabase.from('ai_messages').select('*').eq('conversation_id', convId).order('created_at')
+      setMessages(data ?? [])
+    } catch {
+      setMessages([])
+    }
   }, [supabase])
 
   useEffect(() => { loadConversations() }, [loadConversations])
@@ -90,21 +98,25 @@ export default function AIPage() {
 
   const createNewConversation = useCallback(async (firstMessage?: string) => {
     if (!user) return null
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase.from('ai_conversations') as any).insert({
-      user_id: user.id,
-      title: firstMessage ? firstMessage.slice(0, 45) + (firstMessage.length > 45 ? '…' : '') : 'New Conversation',
-      model: selectedModel,
-    }).select().single()
-    if (data) {
-      setConversations(prev => [data, ...prev])
-      setActiveConv(data)
-      setMessages([])
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.from('ai_conversations') as any).insert({
+        user_id: user.id,
+        title: firstMessage ? firstMessage.slice(0, 45) + (firstMessage.length > 45 ? '…' : '') : 'New Conversation',
+        model: selectedModel,
+      }).select().single()
+      if (data) {
+        setConversations(prev => [data, ...prev])
+        setActiveConv(data)
+        setMessages([])
+      }
+      return data
+    } catch {
+      return null
     }
-    return data
   }, [user, supabase, selectedModel])
 
-  // Keyboard shortcut Ctrl+N / Cmd+K for new chat
+  // Keyboard shortcut Ctrl+K for new chat
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -118,34 +130,32 @@ export default function AIPage() {
 
   async function deleteConversation(convId: string, e?: React.MouseEvent) {
     e?.stopPropagation()
-    const { error } = await supabase.from('ai_conversations').delete().eq('id', convId)
-    if (error) {
+    try {
+      await supabase.from('ai_conversations').delete().eq('id', convId)
+      setConversations(prev => prev.filter(c => c.id !== convId))
+      if (activeConv?.id === convId) {
+        const remaining = conversations.filter(c => c.id !== convId)
+        setActiveConv(remaining[0] ?? null)
+        setMessages([])
+      }
+      toast.success('Conversation deleted')
+    } catch {
       toast.error('Failed to delete conversation')
-      return
     }
-    setConversations(prev => prev.filter(c => c.id !== convId))
-    if (activeConv?.id === convId) {
-      const remaining = conversations.filter(c => c.id !== convId)
-      setActiveConv(remaining[0] ?? null)
-      setMessages([])
-    }
-    toast.success('Conversation deleted')
   }
 
   async function saveRenamedTitle(convId: string) {
     if (!editingTitle.trim()) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('ai_conversations') as any).update({ title: editingTitle.trim() }).eq('id', convId)
-    if (error) {
-      toast.error('Failed to rename')
-      return
-    }
-    setConversations(prev => prev.map(c => c.id === convId ? { ...c, title: editingTitle.trim() } : c))
-    if (activeConv?.id === convId) {
-      setActiveConv(prev => prev ? { ...prev, title: editingTitle.trim() } : null)
-    }
-    setEditingConvId(null)
-    toast.success('Conversation renamed')
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('ai_conversations') as any).update({ title: editingTitle.trim() }).eq('id', convId)
+      setConversations(prev => prev.map(c => c.id === convId ? { ...c, title: editingTitle.trim() } : c))
+      if (activeConv?.id === convId) {
+        setActiveConv(prev => prev ? { ...prev, title: editingTitle.trim() } : null)
+      }
+      setEditingConvId(null)
+      toast.success('Conversation renamed')
+    } catch {}
   }
 
   const downloadArtifact = (title: string, body: string, type: string) => {
@@ -162,63 +172,45 @@ export default function AIPage() {
 
   const saveArtifactToNotes = async (title: string, body: string) => {
     if (!user) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('notes') as any).insert({
-      user_id: user.id,
-      title: title || 'AI Artifact',
-      content: body,
-      tags: ['ai-artifact']
-    })
-    if (error) {
-      toast.error('Failed to save to Notes')
-    } else {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('notes') as any).insert({
+        user_id: user.id,
+        title: title || 'AI Artifact',
+        content: body,
+        tags: ['ai-artifact']
+      })
       toast.success('Saved to Notes! 📝')
+    } catch {
+      toast.error('Failed to save to Notes')
     }
   }
 
   const saveArtifactToTask = async (title: string, body: string) => {
     if (!user) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('tasks') as any).insert({
-      user_id: user.id,
-      title: title || 'AI Task Artifact',
-      description: body.slice(0, 500),
-      priority: 2,
-      status: 'todo'
-    })
-    if (error) {
-      toast.error('Failed to save to Tasks')
-    } else {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('tasks') as any).insert({
+        user_id: user.id,
+        title: title || 'AI Task Artifact',
+        description: body.slice(0, 500),
+        priority: 2,
+        status: 'todo'
+      })
       toast.success('Saved to Tasks! ✅')
+    } catch {
+      toast.error('Failed to save to Tasks')
     }
-  }
-
-  const exportConversation = () => {
-    if (!activeConv || messages.length === 0) {
-      toast.error('No messages to export')
-      return
-    }
-    const content = `# ${activeConv.title}\n*Exported from NIRMAAN AI OS on ${new Date().toLocaleDateString()}*\n\n` +
-      messages.map(m => `### ${m.role === 'user' ? 'User' : 'NIRMAAN AI'}\n${m.content}\n`).join('\n---\n\n')
-    
-    const blob = new Blob([content], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${activeConv.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.md`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success('Conversation exported as Markdown file')
   }
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-    toast.success('Message copied to clipboard!')
+    toast.success('Copied to clipboard!')
   }
 
   const toggleSpeech = (msgId: string, text: string) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      toast.error('Text-to-speech not supported in browser')
+      toast.error('Text-to-speech not supported')
       return
     }
     if (speakingId === msgId) {
@@ -240,7 +232,7 @@ export default function AIPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) {
-      toast.error('Voice recognition not supported in browser')
+      toast.error('Voice input not supported in browser')
       return
     }
     if (isListening) {
@@ -263,20 +255,17 @@ export default function AIPage() {
         const transcript = Array.from(event.results).map((r: any) => r[0].transcript).join('')
         setInput(transcript)
       }
-      recognition.onerror = () => {
-        setIsListening(false)
-      }
-      recognition.onend = () => {
-        setIsListening(false)
-      }
+      recognition.onerror = () => setIsListening(false)
+      recognition.onend = () => setIsListening(false)
       recognition.start()
     } catch {
       setIsListening(false)
-      toast.error('Could not start voice recognition')
+      toast.error('Could not start voice input')
     }
   }
 
-  const renderArtifactContent = (content: string) => {
+  // Stylish Markdown parser for headers, bold text, bullet lists, and artifacts
+  const renderStylishContent = (content: string) => {
     const artifactRegex = /<<<ARTIFACT:(.*?):(.*?)\>>>([\s\S]*?)<<<END_ARTIFACT\>>>/g
     const parts = []
     let lastIndex = 0
@@ -298,49 +287,100 @@ export default function AIPage() {
       parts.push({ type: 'text', text: content.substring(lastIndex) })
     }
 
-    if (parts.length === 0 || (parts.length === 1 && parts[0].type === 'text')) {
-      return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>
-    }
-
     return (
       <div>
         {parts.map((p, idx) => {
           if (p.type === 'text') {
-            return <div key={idx} style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{p.text}</div>
+            const lines = p.text.split('\n')
+            return (
+              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {lines.map((line, lIdx) => {
+                  const trimmed = line.trim()
+                  if (!trimmed) return <div key={lIdx} style={{ height: 4 }} />
+
+                  // Heading level 2 or 3
+                  if (trimmed.startsWith('## ') || trimmed.startsWith('### ')) {
+                    const headerText = trimmed.replace(/^###?\s*/, '')
+                    return (
+                      <h3 key={lIdx} style={{
+                        fontSize: 16, fontWeight: 800, color: 'var(--text)',
+                        margin: '10px 0 4px', letterSpacing: '-0.01em',
+                        display: 'flex', alignItems: 'center', gap: 6
+                      }}>
+                        {headerText}
+                      </h3>
+                    )
+                  }
+
+                  // Bullet list item
+                  if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                    const bulletText = trimmed.replace(/^[-*]\s*/, '')
+                    return (
+                      <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, paddingLeft: 4 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#818CF8', marginTop: 7, flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}
+                              dangerouslySetInnerHTML={{ __html: parseBoldText(bulletText) }} />
+                      </div>
+                    )
+                  }
+
+                  // Numbered list item
+                  if (/^\d+\.\s/.test(trimmed)) {
+                    const numMatch = trimmed.match(/^(\d+)\.\s*(.*)/)
+                    if (numMatch) {
+                      return (
+                        <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, paddingLeft: 4 }}>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: '#818CF8', width: 16, flexShrink: 0, marginTop: 2 }}>{numMatch[1]}.</span>
+                          <span style={{ flex: 1, fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}
+                                dangerouslySetInnerHTML={{ __html: parseBoldText(numMatch[2]) }} />
+                        </div>
+                      )
+                    }
+                  }
+
+                  // Regular line
+                  return (
+                    <p key={lIdx} style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, margin: 0 }}
+                       dangerouslySetInnerHTML={{ __html: parseBoldText(line) }} />
+                  )
+                })}
+              </div>
+            )
           }
+
+          // Artifact Card
           return (
-            <div key={idx} style={{
-              margin: '12px 0', padding: '14px', borderRadius: 'var(--radius)',
-              background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.35)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)'
+            <div key={idx} className="glow-box-indigo" style={{
+              margin: '14px 0', padding: '16px', borderRadius: 'var(--radius)',
+              background: 'rgba(129,140,248,0.08)', backdropFilter: 'blur(16px)',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid rgba(129,140,248,0.2)', paddingBottom: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Sparkles size={14} color="#A78BFA" />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#FFF' }}>{p.title || 'AI Artifact'}</span>
-                  <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: 'rgba(139,92,246,0.3)', color: '#A78BFA', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <Sparkles size={16} color="#818CF8" />
+                  <span style={{ fontSize: 14, fontWeight: 800, color: '#FFF' }}>{p.title || 'AI Artifact'}</span>
+                  <span style={{ fontSize: 9, padding: '2px 8px', borderRadius: 4, background: 'rgba(129,140,248,0.25)', color: '#818CF8', fontWeight: 800, textTransform: 'uppercase' }}>
                     {p.artifactType || 'Document'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: 5 }}>
-                  <button onClick={() => copyToClipboard(p.body || '')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }} title="Copy Artifact">
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button onClick={() => copyToClipboard(p.body || '')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }}>
                     <Copy size={11} /> Copy
                   </button>
-                  <button onClick={() => saveArtifactToNotes(p.title || '', p.body || '')} style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: 'var(--growth)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }} title="Save to Notes">
+                  <button onClick={() => saveArtifactToNotes(p.title || '', p.body || '')} style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer', color: '#10B981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <FileText size={11} /> Save to Notes
                   </button>
-                  <button onClick={() => saveArtifactToTask(p.title || '', p.body || '')} style={{ background: 'rgba(6,182,212,0.15)', border: '1px solid rgba(6,182,212,0.3)', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#06B6D4', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }} title="Create Task">
+                  <button onClick={() => saveArtifactToTask(p.title || '', p.body || '')} style={{ background: 'rgba(6,182,212,0.15)', border: '1px solid rgba(6,182,212,0.3)', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer', color: '#06B6D4', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <CheckSquare size={11} /> Create Task
                   </button>
-                  <button onClick={() => downloadArtifact(p.title || '', p.body || '', p.artifactType || '')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }} title="Download File">
+                  <button onClick={() => downloadArtifact(p.title || '', p.body || '', p.artifactType || '')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                     <Download size={11} /> Download
                   </button>
                 </div>
               </div>
               <pre style={{
-                background: 'rgba(10,11,13,0.85)', padding: '12px 14px', borderRadius: 'var(--radius-sm)',
-                fontSize: 12, fontFamily: 'Consolas, Monaco, monospace', overflowX: 'auto', color: '#E2E8F0', margin: 0,
-                maxHeight: 320, overflowY: 'auto', lineHeight: 1.6, border: '1px solid rgba(255,255,255,0.05)'
+                background: 'rgba(10,11,13,0.95)', padding: '14px', borderRadius: 'var(--radius-sm)',
+                fontSize: 12, fontFamily: 'Consolas, Monaco, monospace', color: '#E2E8F0', margin: 0,
+                maxHeight: 340, overflowY: 'auto', lineHeight: 1.6, border: '1px solid rgba(255,255,255,0.08)'
               }}>
                 {p.body}
               </pre>
@@ -353,22 +393,26 @@ export default function AIPage() {
 
   async function attachDashboardContext() {
     if (!user) return
-    toast.info('Fetching dashboard context...')
-    const [tasks, todos, profile] = await Promise.all([
-      supabase.from('tasks').select('title, status, priority').eq('user_id', user.id).neq('status', 'done').limit(5),
-      supabase.from('todos').select('title').eq('user_id', user.id).eq('is_done', false).limit(5),
-      supabase.from('profiles').select('current_streak, life_score').eq('id', user.id).maybeSingle()
-    ])
+    toast.info('Fetching context data...')
+    try {
+      const [tasks, todos, profile] = await Promise.all([
+        supabase.from('tasks').select('title, priority').eq('user_id', user.id).neq('status', 'done').limit(5),
+        supabase.from('todos').select('title').eq('user_id', user.id).eq('is_done', false).limit(5),
+        supabase.from('profiles').select('current_streak, life_score').eq('id', user.id).maybeSingle()
+      ])
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const profileData = profile.data as any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const openTasks = (tasks.data as any[]) ?? []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const openTodos = (todos.data as any[]) ?? []
-    const contextStr = `[DASHBOARD CONTEXT]:\n- Streak: ${profileData?.current_streak ?? 0} days | Score: ${profileData?.life_score ?? 0}\n- Open Tasks: ${openTasks.map(t => t.title).join(', ') || 'None'}\n- Open Todos: ${openTodos.map(t => t.title).join(', ') || 'None'}\n\n`
-    setInput(prev => contextStr + prev)
-    toast.success('Attached current status!')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const profileData = profile.data as any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const openTasks = (tasks.data as any[]) ?? []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const openTodos = (todos.data as any[]) ?? []
+      const contextStr = `[CURRENT CONTEXT]:\n- Streak: ${profileData?.current_streak ?? 0} days | Score: ${profileData?.life_score ?? 0}\n- Open Tasks: ${openTasks.map(t => t.title).join(', ') || 'None'}\n- Open Todos: ${openTodos.map(t => t.title).join(', ') || 'None'}\n\n`
+      setInput(prev => contextStr + prev)
+      toast.success('Attached status context!')
+    } catch {
+      toast.error('Could not fetch context')
+    }
   }
 
   async function sendMessage(e?: React.FormEvent, overrideContent?: string) {
@@ -419,16 +463,7 @@ export default function AIPage() {
         }),
       })
 
-      if (!res.ok) {
-        let errMsg = 'AI request failed'
-        try {
-          const errData = await res.json()
-          errMsg = errData.error || errMsg
-        } catch {}
-        if (res.status === 401) errMsg = 'Please log in to use AI Chat.'
-        if (res.status === 503) errMsg = 'No OpenRouter API key configured. Set OPENROUTER_API_KEY in settings.'
-        throw new Error(errMsg)
-      }
+      if (!res.ok) throw new Error('AI Assistant request failed')
 
       const actionsHeader = res.headers.get('X-Actions')
       if (actionsHeader) {
@@ -473,7 +508,7 @@ export default function AIPage() {
       })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'AI request failed.'
-      toast.error(msg, { duration: 6000 })
+      toast.error(msg)
       setMessages(prev => prev.filter(m => m.id !== assistantId))
     } finally {
       setStreaming(false)
@@ -511,7 +546,7 @@ export default function AIPage() {
               {isSidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeft size={18} />}
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #8B5CF6, #06B6D4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #818CF8, #06B6D4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Brain size={16} color="#FFF" />
               </div>
               <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>NIRMAAN AI</h1>
@@ -567,9 +602,9 @@ export default function AIPage() {
                   color: 'var(--text)',
                 }}
               >
-                <ShieldCheck size={13} color="#06B6D4" />
+                <ShieldCheck size={13} color="#818CF8" />
                 <span>{currentModel.label}</span>
-                <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: 'rgba(6,182,212,0.15)', color: '#06B6D4', fontWeight: 700 }}>
+                <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: 'rgba(129,140,248,0.15)', color: '#818CF8', fontWeight: 700 }}>
                   {currentModel.tag}
                 </span>
                 <ChevronDown size={11} />
@@ -585,36 +620,25 @@ export default function AIPage() {
                     boxShadow: '0 12px 36px rgba(0,0,0,0.6)',
                     backdropFilter: 'blur(16px)',
                   }}>
-                    <p style={{ fontSize: 10, color: 'var(--text-dim)', padding: '4px 8px 6px', fontWeight: 700, letterSpacing: '0.05em' }}>FREE MODELS (OPENROUTER / GPT)</p>
+                    <p style={{ fontSize: 10, color: 'var(--text-dim)', padding: '4px 8px 6px', fontWeight: 700, letterSpacing: '0.05em' }}>PRIMARY MODELS (OPENROUTER SDK)</p>
                     {FREE_MODELS.map(m => (
-                      <ModelOption key={m.id} model={m} selected={selectedModel === m.id} onSelect={(id) => { setSelectedModel(id); setShowModelPicker(false) }} color="var(--growth)" />
+                      <ModelOption key={m.id} model={m} selected={selectedModel === m.id} onSelect={(id) => { setSelectedModel(id); setShowModelPicker(false) }} color="#818CF8" />
                     ))}
                     <div className="divider" style={{ margin: '6px 0' }} />
                     <p style={{ fontSize: 10, color: 'var(--text-dim)', padding: '4px 8px 6px', fontWeight: 700, letterSpacing: '0.05em' }}>PREMIER MODELS</p>
                     {PAID_MODELS.map(m => (
-                      <ModelOption key={m.id} model={m} selected={selectedModel === m.id} onSelect={(id) => { setSelectedModel(id); setShowModelPicker(false) }} color="#8B5CF6" />
+                      <ModelOption key={m.id} model={m} selected={selectedModel === m.id} onSelect={(id) => { setSelectedModel(id); setShowModelPicker(false) }} color="#10B981" />
                     ))}
                   </div>
                 </>
               )}
             </div>
 
-            {/* Export Markdown */}
-            {activeConv && messages.length > 0 && (
-              <button
-                onClick={exportConversation}
-                title="Export Chat as Markdown"
-                style={{ width: 34, height: 34, borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)' }}
-              >
-                <Download size={14} />
-              </button>
-            )}
-
             {/* New Chat */}
             <button
               onClick={() => { setActiveConv(null); setMessages([]) }}
               title="New Chat (Ctrl+K)"
-              style={{ height: 34, padding: '0 12px', borderRadius: 'var(--radius-sm)', background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(6,182,212,0.2))', border: '1px solid rgba(139,92,246,0.4)', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', color: '#A78BFA', fontWeight: 700, fontSize: 12 }}
+              style={{ height: 34, padding: '0 12px', borderRadius: 'var(--radius-sm)', background: 'linear-gradient(135deg, rgba(129,140,248,0.2), rgba(6,182,212,0.2))', border: '1px solid rgba(129,140,248,0.4)', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', color: '#818CF8', fontWeight: 700, fontSize: 12 }}
             >
               <Plus size={14} /> New Chat
             </button>
@@ -625,18 +649,19 @@ export default function AIPage() {
     >
       <div style={{ display: 'flex', height: 'calc(100dvh - 132px)', overflow: 'hidden' }}>
         
-        {/* App-like Collapsible Sidebar */}
+        {/* Responsive Collapsible Sidebar */}
         {isSidebarOpen && (
           <div style={{
             width: 260, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)',
-            display: 'flex', flexDirection: 'column', height: '100%', padding: '12px 10px'
+            display: 'flex', flexDirection: 'column', height: '100%', padding: '12px 10px',
+            position: 'relative', zIndex: 20
           }}>
             <div style={{ position: 'relative', marginBottom: 10 }}>
               <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
               <input
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search chats..."
+                placeholder="Search conversations..."
                 style={{ paddingLeft: 30, height: 32, fontSize: 12, borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}
               />
             </div>
@@ -654,14 +679,14 @@ export default function AIPage() {
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '8px 10px', borderRadius: 'var(--radius-sm)',
-                      background: activeConv?.id === conv.id ? 'rgba(139,92,246,0.15)' : 'transparent',
-                      border: activeConv?.id === conv.id ? '1px solid rgba(139,92,246,0.3)' : '1px solid transparent',
+                      background: activeConv?.id === conv.id ? 'rgba(129,140,248,0.15)' : 'transparent',
+                      border: activeConv?.id === conv.id ? '1px solid rgba(129,140,248,0.3)' : '1px solid transparent',
                       cursor: 'pointer', color: activeConv?.id === conv.id ? '#FFF' : 'var(--text-muted)',
                       fontSize: 13, transition: 'all 150ms'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                      <MessageSquare size={14} color={activeConv?.id === conv.id ? '#A78BFA' : 'var(--text-dim)'} style={{ flexShrink: 0 }} />
+                      <MessageSquare size={14} color={activeConv?.id === conv.id ? '#818CF8' : 'var(--text-dim)'} style={{ flexShrink: 0 }} />
                       <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: activeConv?.id === conv.id ? 600 : 400 }}>
                         {conv.title}
                       </span>
@@ -680,25 +705,23 @@ export default function AIPage() {
           </div>
         )}
 
-        {/* Main Chat Interface */}
+        {/* Main Chat Stream Container */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', background: 'var(--background)' }}>
           
-          {/* Chat Stream / Messages */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 20px', display: 'flex', flexDirection: 'column' }}>
             {messages.length === 0 && (
               <div style={{ textAlign: 'center', margin: 'auto', maxWidth: 440 }}>
-                <div style={{
+                <div className="glow-box-indigo" style={{
                   width: 64, height: 64, borderRadius: '50%',
-                  background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(6,182,212,0.2))',
-                  border: '1px solid rgba(139,92,246,0.3)',
+                  background: 'linear-gradient(135deg, rgba(129,140,248,0.2), rgba(6,182,212,0.2))',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 16px', boxShadow: '0 0 24px rgba(139,92,246,0.2)'
+                  margin: '0 auto 16px',
                 }}>
-                  <Brain size={30} color="#A78BFA" />
+                  <Brain size={30} color="#818CF8" />
                 </div>
-                <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.02em' }}>How can NIRMAAN assist you today?</h2>
+                <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.02em' }}>How can NIRMAAN AI help you today?</h2>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.6 }}>
-                  Powered by OpenRouter SDK & Liquid LFM. I can directly create tasks, set goals, manage todos, and journal inside your OS.
+                  Directly create tasks, set goals, manage todos, and generate study artifacts inside your app.
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {QUICK_ACTIONS.map(qa => (
@@ -709,10 +732,10 @@ export default function AIPage() {
                         display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
                         background: 'var(--surface)', border: '1px solid var(--border)',
                         borderRadius: 'var(--radius)', cursor: 'pointer', textAlign: 'left',
-                        transition: 'border 150ms, background 150ms'
+                        transition: 'all 150ms ease'
                       }}
                     >
-                      <qa.icon size={16} color="#A78BFA" />
+                      <qa.icon size={16} color="#818CF8" />
                       <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>{qa.label}</span>
                     </button>
                   ))}
@@ -725,13 +748,13 @@ export default function AIPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, paddingLeft: 4, paddingRight: 4 }}>
                   <div style={{
                     width: 18, height: 18, borderRadius: '50%',
-                    background: msg.role === 'user' ? 'var(--growth)' : 'rgba(139,92,246,0.25)',
+                    background: msg.role === 'user' ? 'var(--growth)' : 'rgba(129,140,248,0.25)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     {msg.role === 'user' ? (
                       <span style={{ fontSize: 10, fontWeight: 800, color: '#0A0B0D' }}>U</span>
                     ) : (
-                      <Brain size={10} color="#A78BFA" />
+                      <Brain size={10} color="#818CF8" />
                     )}
                   </div>
                   <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700 }}>
@@ -739,26 +762,26 @@ export default function AIPage() {
                   </span>
                 </div>
 
-                <div style={{
-                  maxWidth: '85%', padding: '12px 16px',
+                <div className={msg.role === 'assistant' ? 'glow-box-indigo' : ''} style={{
+                  maxWidth: '88%', padding: '14px 16px',
                   borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
-                  background: msg.role === 'user' ? 'linear-gradient(135deg, #34D399, #059669)' : 'var(--surface)',
+                  background: msg.role === 'user' ? 'linear-gradient(135deg, #818CF8, #6366F1)' : 'var(--surface)',
                   border: msg.role === 'user' ? 'none' : '1px solid var(--border)',
-                  color: msg.role === 'user' ? '#042F2E' : 'var(--text)',
+                  color: msg.role === 'user' ? '#FFF' : 'var(--text)',
                   fontSize: 14, lineHeight: 1.6, position: 'relative'
                 }}>
                   {msg.content ? (
-                    renderArtifactContent(msg.content)
+                    renderStylishContent(msg.content)
                   ) : (streaming && msg.role === 'assistant' ? (
                     <div style={{ display: 'flex', gap: 4, padding: '4px 0' }}>
                       {[0, 1, 2].map(i => (
-                        <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#A78BFA', animation: `pulse 1s ease-in-out ${i * 0.2}s infinite` }} />
+                        <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#818CF8', animation: `pulse 1s ease-in-out ${i * 0.2}s infinite` }} />
                       ))}
                     </div>
                   ) : '')}
                 </div>
 
-                {/* Message Quick Controls */}
+                {/* Message Controls */}
                 {msg.role === 'assistant' && msg.content && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 4, paddingLeft: 4 }}>
                     <button
@@ -806,7 +829,7 @@ export default function AIPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Context Pill Carousel above Input */}
+          {/* Context Pills Carousel */}
           <div style={{ padding: '0 16px 8px', display: 'flex', gap: 8, overflowX: 'auto' }}>
             <button
               onClick={attachDashboardContext}
@@ -828,12 +851,12 @@ export default function AIPage() {
                   color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', flexShrink: 0
                 }}
               >
-                <qa.icon size={11} color="#A78BFA" /> {qa.label}
+                <qa.icon size={11} color="#818CF8" /> {qa.label}
               </button>
             ))}
           </div>
 
-          {/* App-like Floating Input Dock */}
+          {/* Glass Input Bar */}
           <div style={{
             padding: '10px 16px 14px', borderTop: '1px solid var(--border)',
             background: 'rgba(10,11,13,0.92)', backdropFilter: 'blur(16px)'
@@ -848,7 +871,7 @@ export default function AIPage() {
                   e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
                 }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-                placeholder={enableTools ? 'Chat or ask "create task: Review PR"...' : 'Message NIRMAAN AI...'}
+                placeholder={enableTools ? 'Chat or ask "create task: Review code"...' : 'Message NIRMAAN AI...'}
                 rows={1}
                 style={{
                   flex: 1, resize: 'none', maxHeight: 120, overflowY: 'auto',
@@ -857,7 +880,6 @@ export default function AIPage() {
                 }}
               />
 
-              {/* Voice STT Button inside Input */}
               <button
                 type="button"
                 onClick={toggleListening}
@@ -879,7 +901,7 @@ export default function AIPage() {
                 disabled={streaming || !input.trim()}
                 style={{
                   width: 38, height: 38, borderRadius: 'var(--radius-sm)', flexShrink: 0,
-                  background: input.trim() ? 'var(--growth)' : 'var(--surface-2)',
+                  background: input.trim() ? '#818CF8' : 'var(--surface-2)',
                   border: '1px solid var(--border)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'all 200ms ease',
@@ -923,4 +945,9 @@ function ModelOption({ model, selected, onSelect, color }: { model: { id: string
       </div>
     </button>
   )
+}
+
+function parseBoldText(text: string): string {
+  // Convert **bold** to <strong>bold</strong>
+  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 }
