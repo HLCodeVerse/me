@@ -40,7 +40,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
           className="pb-nav"
           style={{
             flex: 1,
-            padding: noPadding ? 0 : '0 16px',
+            padding: noPadding ? '0 0 calc(90px + env(safe-area-inset-bottom, 0px))' : '0 16px calc(90px + env(safe-area-inset-bottom, 0px))',
             width: '100%',
           }}
         >

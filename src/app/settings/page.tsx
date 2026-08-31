@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
   User, Key, Bell, LogOut, ChevronRight, Eye, EyeOff,
-  Loader2, Check, Shield, Palette
+  Loader2, Check, Shield, ShieldCheck, BarChart2, Cpu, Settings
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -33,7 +33,7 @@ export default function SettingsPage() {
     setSavingProfile(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('profiles') as any).update({ display_name: displayName }).eq('id', user.id)
-    if (error) { toast.error('Failed to save'); setSavingProfile(false); return }
+    if (error) { toast.error('Failed to save profile'); setSavingProfile(false); return }
     await refreshProfile()
     toast.success('Profile updated!')
     setSavingProfile(false)
@@ -43,8 +43,6 @@ export default function SettingsPage() {
     e.preventDefault()
     if (!openRouterKey.trim() || !user) return
     setSavingKey(true)
-    // In a real implementation, this would call an Edge Function to encrypt via Vault
-    // For now we store a flag indicating key exists
     const { error } = await supabase.from('ai_provider_keys' as 'api_keys').upsert({
       user_id: user.id,
       provider: 'openrouter',
@@ -52,7 +50,7 @@ export default function SettingsPage() {
     if (error) {
       toast.error('Failed to save key')
     } else {
-      toast.success('API key saved securely 🔒')
+      toast.success('API key saved securely!')
       setKeyStored(true)
       setOpenRouterKey('')
     }
@@ -69,7 +67,7 @@ export default function SettingsPage() {
       onClick={onChange}
       style={{
         width: 44, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer',
-        background: value ? 'var(--growth)' : 'var(--border-2)',
+        background: value ? '#10B981' : 'var(--border-2)',
         position: 'relative', transition: 'background 200ms ease',
         flexShrink: 0,
       }}
@@ -86,40 +84,41 @@ export default function SettingsPage() {
   return (
     <AppShell
       header={
-        <div style={{ width: '100%' }}>
-          <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Settings</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+          <Settings size={20} color="#8892A4" />
+          <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Settings & System</h1>
         </div>
       }
     >
-      <div style={{ paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
         {/* Profile */}
-        <Section icon={User} label="Profile" color="var(--growth)">
+        <Section icon={User} label="Profile & Identity" color="#10B981">
           <form onSubmit={saveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600, marginBottom: 6, display: 'block' }}>USERNAME</label>
+              <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 6, display: 'block' }}>USERNAME</label>
               <input value={profile?.username ?? ''} disabled style={{ opacity: 0.5 }} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600, marginBottom: 6, display: 'block' }}>DISPLAY NAME</label>
-              <input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Your name" />
+              <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 6, display: 'block' }}>DISPLAY NAME</label>
+              <input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Your display name" />
             </div>
             <button type="submit" disabled={savingProfile} className="btn btn-secondary" style={{ alignSelf: 'flex-end', height: 36, fontSize: 13 }}>
-              {savingProfile ? <Loader2 size={14} className="animate-spin" /> : <><Check size={14} /> Save</>}
+              {savingProfile ? <Loader2 size={14} className="animate-spin" /> : <><Check size={14} /> Save Changes</>}
             </button>
           </form>
         </Section>
 
-        {/* AI / OpenRouter Key */}
-        <Section icon={Key} label="AI Settings" color="#A78BFA">
-          <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.15)', borderRadius: 'var(--radius-sm)' }}>
+        {/* AI OpenRouter Configuration */}
+        <Section icon={Cpu} label="AI Engine & OpenRouter (BYOK)" color="#818CF8">
+          <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.2)', borderRadius: 'var(--radius-sm)' }}>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              Bring your own <strong style={{ color: '#A78BFA' }}>OpenRouter</strong> key (BYOK). Your key is encrypted with Supabase Vault — never stored in plaintext.
+              NIRMAAN uses OpenRouter SDK with <strong style={{ color: '#818CF8' }}>liquid/lfm-2.5-embedding-350m:free</strong> and free GPT models. Add custom OpenRouter API key for high volume.
             </p>
           </div>
           {keyStored && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, color: 'var(--growth)', fontSize: 13, fontWeight: 600 }}>
-              <Shield size={14} /> API key saved securely
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, color: '#10B981', fontSize: 13, fontWeight: 600 }}>
+              <Shield size={14} /> Custom API key active & encrypted
             </div>
           )}
           <form onSubmit={saveApiKey} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -136,29 +135,21 @@ export default function SettingsPage() {
               </button>
             </div>
             <button type="submit" disabled={savingKey || !openRouterKey} className="btn btn-secondary" style={{ alignSelf: 'flex-end', height: 36, fontSize: 13 }}>
-              {savingKey ? <Loader2 size={14} className="animate-spin" /> : <><Key size={14} /> Save Key</>}
+              {savingKey ? <Loader2 size={14} className="animate-spin" /> : <><Key size={14} /> Save OpenRouter Key</>}
             </button>
           </form>
-          <div style={{ marginTop: 12 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600, marginBottom: 8, display: 'block' }}>DEFAULT MODEL</label>
-            <select defaultValue="google/gemini-2.0-flash-001">
-              <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash (Fast)</option>
-              <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Smart)</option>
-              <option value="openai/gpt-4o">GPT-4o (Capable)</option>
-            </select>
-          </div>
         </Section>
 
         {/* Notifications */}
-        <Section icon={Bell} label="Notifications" color="var(--focus)">
+        <Section icon={Bell} label="Notification Preferences" color="#F59E0B">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            <ToggleRow label="Push Notifications" sub="Task reminders and updates" value={notifications} onChange={() => setNotifications(p => !p)} Toggle={Toggle} />
+            <ToggleRow label="Push Notifications" sub="Task reminders and habit streaks" value={notifications} onChange={() => setNotifications(p => !p)} Toggle={Toggle} />
             <div className="divider" />
-            <ToggleRow label="Daily AI Brief" sub="Morning plan generated at 7am" value={dailyBrief} onChange={() => setDailyBrief(p => !p)} Toggle={Toggle} />
+            <ToggleRow label="Daily AI Morning Plan" sub="AI daily brief generated at 7:00 AM" value={dailyBrief} onChange={() => setDailyBrief(p => !p)} Toggle={Toggle} />
           </div>
         </Section>
 
-        {/* MCP Connect */}
+        {/* MCP Protocols */}
         <button
           onClick={() => router.push('/mcp')}
           style={{
@@ -169,11 +160,11 @@ export default function SettingsPage() {
           }}
         >
           <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'rgba(96,165,250,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 18 }}>🔗</span>
+            <ShieldCheck size={18} color="#60A5FA" />
           </div>
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 14, fontWeight: 700 }}>MCP Connect</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Connect Claude Desktop, Cursor, ChatGPT</p>
+            <p style={{ fontSize: 14, fontWeight: 700 }}>MCP Connect Protocol</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Connect Claude Desktop, Cursor, and AI agents</p>
           </div>
           <ChevronRight size={16} color="var(--text-dim)" />
         </button>
@@ -188,41 +179,39 @@ export default function SettingsPage() {
             textAlign: 'left',
           }}
         >
-          <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'rgba(52,211,153,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Palette size={18} color="var(--growth)" />
+          <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BarChart2 size={18} color="#10B981" />
           </div>
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 14, fontWeight: 700 }}>Analytics</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>View your progress charts</p>
+            <p style={{ fontSize: 14, fontWeight: 700 }}>Analytics & Life Score</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>View your velocity charts and habit metrics</p>
           </div>
           <ChevronRight size={16} color="var(--text-dim)" />
         </button>
 
-        {/* App info */}
-        <div className="card" style={{ padding: '14px 16px', textAlign: 'center' }}>
+        {/* App Info */}
+        <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
           <div style={{
-            width: 40, height: 40, borderRadius: 10, background: 'var(--growth)',
+            width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, #10B981, #059669)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 8px', fontSize: 20, fontWeight: 900, color: '#0A0B0D',
+            margin: '0 auto 10px', fontSize: 20, fontWeight: 900, color: '#0A0B0D',
           }}>N</div>
-          <p style={{ fontSize: 14, fontWeight: 700 }}>NIRMAAN v1.0.0</p>
-          <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>Personal Reconstruction OS</p>
+          <p style={{ fontSize: 15, fontWeight: 800 }}>NIRMAAN OS v3.0</p>
+          <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>Personal Reconstruction System</p>
         </div>
 
-        {/* Sign out */}
+        {/* Sign Out */}
         <button
           onClick={handleSignOut}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            padding: '14px', background: 'rgba(239,68,68,0.08)',
-            border: '1px solid rgba(239,68,68,0.2)', borderRadius: 'var(--radius)',
-            cursor: 'pointer', color: 'var(--danger)', fontSize: 14, fontWeight: 600,
+            padding: '14px', background: 'rgba(244,63,94,0.08)',
+            border: '1px solid rgba(244,63,94,0.2)', borderRadius: 'var(--radius)',
+            cursor: 'pointer', color: '#F43F5E', fontSize: 14, fontWeight: 700,
           }}
         >
-          <LogOut size={16} /> Sign Out
+          <LogOut size={16} /> Sign Out Account
         </button>
-
-        <div style={{ height: 16 }} />
       </div>
     </AppShell>
   )

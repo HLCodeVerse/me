@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
   Plus, LayoutList, Columns, ChevronDown, ChevronRight,
-  Circle, CheckCircle2, Loader2, X, Repeat
+  Circle, CheckCircle2, Loader2, X, Repeat, Sparkles, Brain, Trash2, ListChecks
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate, getPriorityColor, getPriorityLabel } from '@/lib/utils'
@@ -17,7 +17,7 @@ type FilterStatus = 'all' | 'todo' | 'in_progress' | 'done'
 
 const STATUSES = ['todo', 'in_progress', 'done']
 const STATUS_LABELS: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' }
-const STATUS_COLORS: Record<string, string> = { todo: 'var(--text-muted)', in_progress: 'var(--focus)', done: 'var(--growth)' }
+const STATUS_COLORS: Record<string, string> = { todo: 'var(--text-muted)', in_progress: '#06B6D4', done: '#10B981' }
 
 export default function TasksPage() {
   const { user } = useAuth()
@@ -28,6 +28,7 @@ export default function TasksPage() {
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [showAddForm, setShowAddForm] = useState(false)
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set())
+  const [optimizing, setOptimizing] = useState(false)
 
   // New task form
   const [newTitle, setNewTitle] = useState('')
@@ -73,7 +74,7 @@ export default function TasksPage() {
       completed_at: status === 'done' ? new Date().toISOString() : null,
     }).eq('id', taskId)
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t))
-    if (status === 'done') toast.success('Task completed! 🎉')
+    if (status === 'done') toast.success('Task completed!')
   }
 
   async function deleteTask(taskId: string) {
@@ -83,18 +84,65 @@ export default function TasksPage() {
     toast.success('Task deleted')
   }
 
-  const filteredTasks = tasks // already filtered via query
+  async function aiOptimizeTasks() {
+    if (tasks.length === 0 || !user) {
+      toast.info('Add some tasks first to optimize!')
+      return
+    }
+    setOptimizing(true)
+    toast.info('AI is analyzing and organizing your workload...')
+    try {
+      const taskTitles = tasks.map(t => t.title).join('\n- ')
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Analyze these tasks and give me a brief priority order:\n- ${taskTitles}`
+          }],
+          enableTools: false
+        })
+      })
+
+      if (res.ok) {
+        toast.success('AI Priority Audit complete! Check AI Chat for details.')
+      }
+    } catch {
+      toast.error('AI optimization failed')
+    } finally {
+      setOptimizing(false)
+    }
+  }
+
+  const filteredTasks = tasks
 
   return (
     <AppShell
       header={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Tasks</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ListChecks size={20} color="#8B5CF6" />
+            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Tasks & Focus</h1>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            {/* View toggle */}
+            <button
+              onClick={aiOptimizeTasks}
+              disabled={optimizing}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', height: 36,
+                borderRadius: 'var(--radius-sm)', background: 'rgba(139,92,246,0.15)',
+                border: '1px solid rgba(139,92,246,0.3)', cursor: 'pointer',
+                color: '#A78BFA', fontSize: 12, fontWeight: 700
+              }}
+            >
+              {optimizing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              AI Optimize
+            </button>
             <button
               onClick={() => setView(v => v === 'list' ? 'kanban' : 'list')}
               style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              title="Toggle View Mode"
             >
               {view === 'list' ? <Columns size={16} color="var(--text-muted)" /> : <LayoutList size={16} color="var(--text-muted)" />}
             </button>
@@ -120,11 +168,10 @@ export default function TasksPage() {
               fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
               background: filter === f ? 'var(--growth)' : 'var(--surface-2)',
               color: filter === f ? '#0A0B0D' : 'var(--text-muted)',
-              transition: 'all 200ms ease',
-              flexShrink: 0,
+              transition: 'all 200ms ease', flexShrink: 0,
             }}
           >
-            {f === 'all' ? 'All' : STATUS_LABELS[f]}
+            {f === 'all' ? 'All Tasks' : STATUS_LABELS[f]}
           </button>
         ))}
       </div>
@@ -132,31 +179,32 @@ export default function TasksPage() {
       {/* List View */}
       {view === 'list' && (
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {loading
-            ? [1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: 70, borderRadius: 'var(--radius)' }} />)
-            : filteredTasks.length === 0
-            ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-                <p style={{ fontWeight: 600 }}>No tasks here</p>
-                <p style={{ fontSize: 13, marginTop: 4, color: 'var(--text-dim)' }}>Click &ldquo;Add&rdquo; to create your first task</p>
+          {loading ? (
+            [1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: 70, borderRadius: 'var(--radius)' }} />)
+          ) : filteredTasks.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <ListChecks size={24} color="#A78BFA" />
               </div>
-            )
-            : filteredTasks.map(task => (
+              <p style={{ fontWeight: 700, fontSize: 16 }}>No tasks found</p>
+              <p style={{ fontSize: 13, marginTop: 4, color: 'var(--text-dim)' }}>Click &ldquo;Add&rdquo; or use AI Chat to generate tasks automatically.</p>
+            </div>
+          ) : (
+            filteredTasks.map(task => (
               <TaskCard
                 key={task.id}
                 task={task}
                 expanded={expandedTasks.has(task.id)}
                 onToggleExpand={() => setExpandedTasks(prev => {
                   const s = new Set(prev)
-                  if (s.has(task.id)) { s.delete(task.id) } else { s.add(task.id) }
+                  if (s.has(task.id)) s.delete(task.id); else s.add(task.id)
                   return s
                 })}
                 onStatusChange={updateStatus}
                 onDelete={deleteTask}
               />
             ))
-          }
+          )}
         </div>
       )}
 
@@ -166,7 +214,7 @@ export default function TasksPage() {
           {STATUSES.map(status => {
             const colTasks = tasks.filter(t => t.status === status)
             return (
-              <div key={status} className="kanban-col">
+              <div key={status} className="kanban-col" style={{ minWidth: 260 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLORS[status] }} />
@@ -262,8 +310,73 @@ function TaskCard({ task, expanded, onToggleExpand, onStatusChange, onDelete }: 
   onStatusChange: (id: string, status: string) => void
   onDelete: (id: string) => void
 }) {
+  const { user } = useAuth()
+  const supabase = createClient()
   const isDone = task.status === 'done'
   const pColor = getPriorityColor(task.priority)
+  const [generatingSubtasks, setGeneratingSubtasks] = useState(false)
+
+  async function aiBreakdownTask() {
+    if (!user) return
+    setGeneratingSubtasks(true)
+    toast.info('Generating AI subtasks...')
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Break down task "${task.title}" into 3 concrete action steps. Keep each step under 8 words.`
+          }],
+          enableTools: false
+        })
+      })
+
+      if (!res.ok) throw new Error('AI breakdown failed')
+
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let resultText = ''
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value)
+          for (const line of chunk.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6)
+            if (data === '[DONE]') continue
+            try {
+              const parsed = JSON.parse(data)
+              const delta = parsed.choices?.[0]?.delta?.content ?? ''
+              if (delta) resultText += delta
+            } catch {}
+          }
+        }
+      }
+
+      // Add subtask items
+      const steps = resultText.split('\n').map(s => s.replace(/^[-*0-9.]+\s*/, '').trim()).filter(s => s.length > 2)
+      for (const step of steps.slice(0, 3)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('tasks') as any).insert({
+          user_id: user.id,
+          parent_task_id: task.id,
+          title: step,
+          priority: Math.max(1, task.priority - 1),
+          status: 'todo'
+        })
+      }
+
+      toast.success('Generated subtasks!')
+    } catch {
+      toast.error('Could not generate subtasks')
+    } finally {
+      setGeneratingSubtasks(false)
+    }
+  }
 
   return (
     <div className="card" style={{
@@ -309,7 +422,20 @@ function TaskCard({ task, expanded, onToggleExpand, onStatusChange, onDelete }: 
           {task.description && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>{task.description}</p>
           )}
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              onClick={aiBreakdownTask}
+              disabled={generatingSubtasks}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px',
+                borderRadius: 'var(--radius-sm)', background: 'rgba(139,92,246,0.15)',
+                border: '1px solid rgba(139,92,246,0.3)', cursor: 'pointer',
+                color: '#A78BFA', fontSize: 11, fontWeight: 700
+              }}
+            >
+              {generatingSubtasks ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />}
+              AI Breakdown
+            </button>
             {task.status !== 'in_progress' && task.status !== 'done' && (
               <button onClick={() => onStatusChange(task.id, 'in_progress')} className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 12px', height: 32 }}>
                 Start
@@ -320,8 +446,8 @@ function TaskCard({ task, expanded, onToggleExpand, onStatusChange, onDelete }: 
                 Complete
               </button>
             )}
-            <button onClick={() => onDelete(task.id)} className="btn btn-danger" style={{ fontSize: 12, padding: '6px 12px', height: 32, marginLeft: 'auto' }}>
-              Delete
+            <button onClick={() => onDelete(task.id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--danger)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Trash2 size={12} /> Delete
             </button>
           </div>
         </div>

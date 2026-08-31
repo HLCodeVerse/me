@@ -4,14 +4,14 @@ import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
-import { Plus, Target, X, Loader2, Circle } from 'lucide-react'
+import { Plus, Target, X, Loader2, Circle, Brain, Compass, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Goal, LifeArea } from '@/lib/supabase/database.types'
 
 const STATUS_COLORS: Record<string, string> = {
-  active: 'var(--growth)',
-  on_hold: 'var(--focus)',
-  completed: 'var(--info)',
+  active: '#10B981',
+  on_hold: '#F59E0B',
+  completed: '#06B6D4',
   archived: 'var(--text-dim)',
 }
 
@@ -23,6 +23,7 @@ export default function GoalsPage() {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [selectedArea, setSelectedArea] = useState<string | null>(null)
+  const [generatingRoadmapId, setGeneratingRoadmapId] = useState<string | null>(null)
 
   // Form
   const [title, setTitle] = useState('')
@@ -56,7 +57,7 @@ export default function GoalsPage() {
       status: 'active', priority: 2,
     })
     if (error) { toast.error('Failed to add goal'); setSaving(false); return }
-    toast.success('Goal added! 🎯')
+    toast.success('Goal added!')
     setShowAdd(false); setTitle(''); setDesc(''); setAreaId(''); setTargetDate('')
     setSaving(false)
     load()
@@ -67,9 +68,71 @@ export default function GoalsPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('goals') as any).update({ status: newStatus }).eq('id', goal.id)
     setGoals(prev => prev.map(g => g.id === goal.id ? { ...g, status: newStatus } : g))
+    toast.success(newStatus === 'completed' ? 'Goal marked as completed!' : 'Goal reactivated')
   }
 
-  // Group goals by life area
+  async function generateGoalRoadmap(goal: Goal) {
+    if (!user) return
+    setGeneratingRoadmapId(goal.id)
+    toast.info(`AI is generating action roadmap for "${goal.title}"...`)
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Generate 3 concrete action tasks to achieve this goal: "${goal.title}". Keep task titles concise under 8 words.`
+          }],
+          enableTools: false
+        })
+      })
+
+      if (!res.ok) throw new Error('Roadmap generation failed')
+
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let roadmapText = ''
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value)
+          for (const line of chunk.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6)
+            if (data === '[DONE]') continue
+            try {
+              const parsed = JSON.parse(data)
+              const delta = parsed.choices?.[0]?.delta?.content ?? ''
+              if (delta) roadmapText += delta
+            } catch {}
+          }
+        }
+      }
+
+      // Convert generated roadmap lines to tasks linked to this goal
+      const tasksCreated = roadmapText.split('\n').map(s => s.replace(/^[-*0-9.]+\s*/, '').trim()).filter(s => s.length > 2)
+      for (const tTitle of tasksCreated.slice(0, 3)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('tasks') as any).insert({
+          user_id: user.id,
+          goal_id: goal.id,
+          title: tTitle,
+          priority: 2,
+          status: 'todo'
+        })
+      }
+
+      toast.success('AI Roadmap tasks created!')
+    } catch {
+      toast.error('Could not generate goal roadmap')
+    } finally {
+      setGeneratingRoadmapId(null)
+    }
+  }
+
   const grouped: Record<string, Goal[]> = {}
   for (const g of goals) {
     const areaName = areas.find(a => a.id === g.life_area_id)?.name ?? 'General'
@@ -85,9 +148,12 @@ export default function GoalsPage() {
     <AppShell
       header={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Goals</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Target size={20} color="#10B981" />
+            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Goals & Vision</h1>
+          </div>
           <button onClick={() => setShowAdd(true)} className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 13 }}>
-            <Plus size={15} /> Add
+            <Plus size={15} /> Add Goal
           </button>
         </div>
       }
@@ -99,11 +165,11 @@ export default function GoalsPage() {
           style={{
             padding: '6px 14px', borderRadius: 99, border: 'none', cursor: 'pointer',
             fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
-            background: !selectedArea ? 'var(--growth)' : 'var(--surface-2)',
+            background: !selectedArea ? '#10B981' : 'var(--surface-2)',
             color: !selectedArea ? '#0A0B0D' : 'var(--text-muted)',
           }}
         >
-          All
+          All Areas
         </button>
         {areas.map(area => (
           <button
@@ -117,85 +183,103 @@ export default function GoalsPage() {
               display: 'flex', alignItems: 'center', gap: 5,
             }}
           >
-            <span>{area.icon}</span> {area.name}
+            <Compass size={13} color={area.color} /> {area.name}
           </button>
         ))}
       </div>
 
       <div style={{ marginTop: 20 }}>
-        {loading
-          ? [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 'var(--radius)', marginBottom: 10 }} />)
-          : Object.entries(filtered).map(([areaName, areaGoals]) => {
-            const area = areas.find(a => a.name === areaName)
-            return (
-              <div key={areaName} style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  {area && <span style={{ fontSize: 18 }}>{area.icon}</span>}
-                  <span style={{ fontSize: 14, fontWeight: 700, color: area?.color ?? 'var(--text)' }}>{areaName}</span>
-                  <span className="badge badge-muted">{areaGoals.length}</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {areaGoals.map(goal => (
-                    <div
-                      key={goal.id}
-                      className="card"
-                      style={{
-                        padding: '14px 16px',
-                        opacity: goal.status === 'completed' ? 0.6 : 1,
-                        borderLeft: `3px solid ${area?.color ?? 'var(--border)'}`,
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        <button
-                          onClick={() => toggleGoalStatus(goal)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, marginTop: 2 }}
-                        >
-                          {goal.status === 'completed'
-                            ? <Target size={18} color="var(--growth)" />
-                            : <Circle size={18} color={area?.color ?? 'var(--text-dim)'} strokeWidth={1.5} />
-                          }
-                        </button>
-                        <div style={{ flex: 1 }}>
-                          <p style={{
-                            fontSize: 14, fontWeight: 600,
-                            textDecoration: goal.status === 'completed' ? 'line-through' : 'none',
-                            color: 'var(--text)',
-                          }}>
-                            {goal.title}
-                          </p>
-                          {goal.description && (
-                            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.5 }}>{goal.description}</p>
-                          )}
-                          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+        {loading ? (
+          [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 'var(--radius)', marginBottom: 10 }} />)
+        ) : Object.entries(filtered).map(([areaName, areaGoals]) => {
+          const area = areas.find(a => a.name === areaName)
+          return (
+            <div key={areaName} style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Compass size={16} color={area?.color ?? '#10B981'} />
+                <span style={{ fontSize: 14, fontWeight: 800, color: area?.color ?? 'var(--text)' }}>{areaName}</span>
+                <span className="badge badge-muted">{areaGoals.length}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {areaGoals.map(goal => (
+                  <div
+                    key={goal.id}
+                    className="card"
+                    style={{
+                      padding: '16px',
+                      opacity: goal.status === 'completed' ? 0.6 : 1,
+                      borderLeft: `3px solid ${area?.color ?? 'var(--border)'}`,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                      <button
+                        onClick={() => toggleGoalStatus(goal)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, marginTop: 2 }}
+                      >
+                        {goal.status === 'completed'
+                          ? <CheckCircle2 size={20} color="#10B981" />
+                          : <Circle size={20} color={area?.color ?? 'var(--text-dim)'} strokeWidth={1.5} />
+                        }
+                      </button>
+                      <div style={{ flex: 1 }}>
+                        <p style={{
+                          fontSize: 15, fontWeight: 700,
+                          textDecoration: goal.status === 'completed' ? 'line-through' : 'none',
+                          color: 'var(--text)',
+                        }}>
+                          {goal.title}
+                        </p>
+                        {goal.description && (
+                          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>{goal.description}</p>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <span style={{
-                              fontSize: 11, fontWeight: 700, padding: '2px 8px',
+                              fontSize: 10, fontWeight: 800, padding: '2px 8px',
                               borderRadius: 99, background: STATUS_COLORS[goal.status] + '20',
-                              color: STATUS_COLORS[goal.status],
+                              color: STATUS_COLORS[goal.status], textTransform: 'uppercase'
                             }}>
                               {goal.status.replace('_', ' ')}
                             </span>
                             {goal.target_date && (
                               <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                                Target: {new Date(goal.target_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                Target: {new Date(goal.target_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                               </span>
                             )}
                           </div>
+                          {goal.status !== 'completed' && (
+                            <button
+                              onClick={() => generateGoalRoadmap(goal)}
+                              disabled={generatingRoadmapId === goal.id}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                                borderRadius: 'var(--radius-sm)', background: 'rgba(167,139,250,0.15)',
+                                border: '1px solid rgba(167,139,250,0.3)', cursor: 'pointer',
+                                color: '#A78BFA', fontSize: 11, fontWeight: 700
+                              }}
+                            >
+                              {generatingRoadmapId === goal.id ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />}
+                              AI Roadmap
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            )
-          })
-        }
+            </div>
+          )
+        })}
 
         {!loading && Object.keys(filtered).length === 0 && (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
-            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>No goals yet</h3>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Target size={28} color="#10B981" />
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>No goals defined yet</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 20 }}>
-              Set a goal for each life area to track your progress
+              Create goals for each life area to direct your focus and track outcomes.
             </p>
             <button onClick={() => setShowAdd(true)} className="btn btn-primary">
               <Plus size={16} /> Add First Goal
@@ -230,7 +314,7 @@ export default function GoalsPage() {
                   <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600, marginBottom: 6, display: 'block' }}>LIFE AREA</label>
                   <select value={areaId} onChange={e => setAreaId(e.target.value)}>
                     <option value="">General</option>
-                    {areas.map(a => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                    {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </div>
                 <div>

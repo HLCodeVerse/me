@@ -100,6 +100,96 @@ export interface Database {
         }
         Update: Partial<Database['public']['Tables']['todos']['Insert']>
       }
+      habits: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          icon: string | null
+          color: string | null
+          frequency: string
+          target_count: number
+          archived: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          icon?: string | null
+          color?: string | null
+          frequency?: string
+          target_count?: number
+          archived?: boolean
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['habits']['Insert']>
+      }
+      habit_logs: {
+        Row: {
+          id: string
+          habit_id: string
+          user_id: string
+          logged_at: string
+          count: number
+          note: string | null
+        }
+        Insert: {
+          id?: string
+          habit_id: string
+          user_id: string
+          logged_at?: string
+          count?: number
+          note?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['habit_logs']['Insert']>
+      }
+      notes: {
+        Row: {
+          id: string
+          user_id: string
+          title: string | null
+          content: string
+          is_pinned: boolean
+          tags: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title?: string | null
+          content: string
+          is_pinned?: boolean
+          tags?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['notes']['Insert']>
+      }
+      reminders: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          remind_at: string
+          is_recurring: boolean
+          recurrence_rule: string | null
+          is_sent: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          remind_at: string
+          is_recurring?: boolean
+          recurrence_rule?: string | null
+          is_sent?: boolean
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['reminders']['Insert']>
+      }
       goals: {
         Row: {
           id: string
@@ -334,6 +424,10 @@ export interface Database {
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Task = Database['public']['Tables']['tasks']['Row']
 export type Todo = Database['public']['Tables']['todos']['Row']
+export type Habit = Database['public']['Tables']['habits']['Row']
+export type HabitLog = Database['public']['Tables']['habit_logs']['Row']
+export type Note = Database['public']['Tables']['notes']['Row']
+export type Reminder = Database['public']['Tables']['reminders']['Row']
 export type Goal = Database['public']['Tables']['goals']['Row']
 export type LifeArea = Database['public']['Tables']['life_areas']['Row']
 export type JournalEntry = Database['public']['Tables']['journal_entries']['Row']
