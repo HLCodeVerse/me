@@ -388,22 +388,8 @@ export default function AIPage() {
     }
   }
 
-  const regenerateLastMessage = () => {
-    if (messages.length < 2 || streaming) return
-    const lastUserMsgIndex = [...messages].reverse().findIndex(m => m.role === 'user')
-    if (lastUserMsgIndex !== -1) {
-      const index = messages.length - 1 - lastUserMsgIndex
-      const lastUserMsg = messages[index]
-      sendMessage(undefined, lastUserMsg.content)
-    }
-  }
-
   const allModels = [...FREE_MODELS, ...PAID_MODELS]
   const currentModel = allModels.find(m => m.id === selectedModel) ?? FREE_MODELS[0]
-
-  const filteredConversations = conversations.filter(c =>
-    c.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
 
   return (
     <AppShell
@@ -593,6 +579,15 @@ export default function AIPage() {
             ))}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Action Notifications Pill Row */}
+          {pendingActions.length > 0 && (
+            <div style={{ padding: '0 12px 6px', display: 'flex', gap: 6 }}>
+              {pendingActions.map((act, i) => (
+                <span key={i} className="badge badge-emerald" style={{ fontSize: 11 }}>{act}</span>
+              ))}
+            </div>
+          )}
 
           {/* Quick Context Pill Carousel */}
           <div style={{ padding: '0 12px 6px', display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>

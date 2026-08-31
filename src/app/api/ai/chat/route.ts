@@ -366,7 +366,6 @@ async function callGeminiFallback(promptText: string): Promise<string> {
 
     if (res.ok) {
       const data = await res.json()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const textOutput = data?.candidates?.[0]?.content?.parts?.[0]?.text
       if (textOutput) return textOutput
     }
