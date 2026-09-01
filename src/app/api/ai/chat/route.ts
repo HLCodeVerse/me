@@ -39,6 +39,20 @@ const decodeSecret = (b64: string) => typeof Buffer !== 'undefined' ? Buffer.fro
 const HARDCODED_OPENROUTER_KEY = decodeSecret('c2stb3ItdjEtYmIxYmIyYTc5ZGM0MDIxOWI0N2NkZmFhMGZiMjAzNTYyNzc5ZjkwYjQwNjZmZDVkN2Q4MDA1Zjg4YzdiNjUyMA==')
 const HARDCODED_GEMINI_KEY = decodeSecret('QVEuQWI4Uk42TGJuZzREaktaLURyNy1LMDVkdWtUVlg5TVFfVF9KQ29zT0oyZmVsX1p5MHc=')
 
+// Helper to resolve record target ID or search query from args flexibly
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractTargetIdAndQuery(args: Record<string, any>, defaultIdKeys: string[]) {
+  let targetId: string | undefined = undefined
+  for (const key of ['id', ...defaultIdKeys]) {
+    if (args[key] && typeof args[key] === 'string' && args[key].trim().length > 0) {
+      targetId = args[key].trim()
+      break
+    }
+  }
+  const queryStr = (args.title || args.name || args.query || args.keyword || args.search || args.content) as string | undefined
+  return { targetId, queryStr: queryStr?.trim() }
+}
+
 // Comprehensive AI Tools for Full CRUD across all NIRMAAN modules
 const AI_TOOLS = [
   // ── Tasks & Subtasks ──
@@ -62,12 +76,38 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'delete_task',
-      description: 'Delete task(s) matching title keyword',
+      name: 'update_task',
+      description: 'Update a task by ID or title keyword',
       parameters: {
         type: 'object',
-        properties: { title: { type: 'string' } },
-        required: ['title'],
+        properties: {
+          id: { type: 'string' }, task_id: { type: 'string' }, title: { type: 'string' }, status: { type: 'string' }, priority: { type: 'number' }
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'complete_task',
+      description: 'Mark task done by ID or title keyword',
+      parameters: {
+        type: 'object',
+        properties: { id: { type: 'string' }, task_id: { type: 'string' }, title: { type: 'string' } },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_task',
+      description: 'Delete task(s) by ID, title keyword, or query',
+      parameters: {
+        type: 'object',
+        properties: { id: { type: 'string' }, task_id: { type: 'string' }, title: { type: 'string' }, query: { type: 'string' } },
+        required: [],
       },
     },
   },
@@ -96,12 +136,36 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'delete_todo',
-      description: 'Delete todo item(s) matching title keyword',
+      name: 'update_todo',
+      description: 'Update a todo item by ID or title',
       parameters: {
         type: 'object',
-        properties: { title: { type: 'string' } },
-        required: ['title'],
+        properties: { id: { type: 'string' }, todo_id: { type: 'string' }, title: { type: 'string' }, is_done: { type: 'boolean' } },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'complete_todo',
+      description: 'Mark todo item as done by ID or title',
+      parameters: {
+        type: 'object',
+        properties: { id: { type: 'string' }, todo_id: { type: 'string' }, title: { type: 'string' } },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_todo',
+      description: 'Delete todo item(s) by ID or title keyword',
+      parameters: {
+        type: 'object',
+        properties: { id: { type: 'string' }, todo_id: { type: 'string' }, title: { type: 'string' }, query: { type: 'string' } },
+        required: [],
       },
     },
   },
@@ -153,11 +217,11 @@ const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'delete_reminder',
-      description: 'Delete reminder(s) matching title keyword',
+      description: 'Delete reminder(s) by ID or title keyword',
       parameters: {
         type: 'object',
-        properties: { title: { type: 'string' } },
-        required: ['title'],
+        properties: { id: { type: 'string' }, reminder_id: { type: 'string' }, title: { type: 'string' } },
+        required: [],
       },
     },
   },
@@ -191,11 +255,11 @@ const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'delete_journal_entry',
-      description: 'Delete journal entry matching title or text',
+      description: 'Delete journal entry by ID or title',
       parameters: {
         type: 'object',
-        properties: { title: { type: 'string' } },
-        required: ['title'],
+        properties: { id: { type: 'string' }, title: { type: 'string' } },
+        required: [],
       },
     },
   },
@@ -225,11 +289,11 @@ const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'delete_goal',
-      description: 'Delete goal(s) matching title keyword',
+      description: 'Delete goal(s) by ID or title keyword',
       parameters: {
         type: 'object',
-        properties: { title: { type: 'string' } },
-        required: ['title'],
+        properties: { id: { type: 'string' }, goal_id: { type: 'string' }, title: { type: 'string' } },
+        required: [],
       },
     },
   },
@@ -259,11 +323,11 @@ const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'delete_habit',
-      description: 'Delete habit(s) matching name keyword',
+      description: 'Delete habit(s) by ID or name keyword',
       parameters: {
         type: 'object',
-        properties: { name: { type: 'string' } },
-        required: ['name'],
+        properties: { id: { type: 'string' }, habit_id: { type: 'string' }, name: { type: 'string' } },
+        required: [],
       },
     },
   },
@@ -293,11 +357,11 @@ const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'delete_note',
-      description: 'Delete note(s) matching title or content keyword',
+      description: 'Delete note(s) by ID or title keyword',
       parameters: {
         type: 'object',
-        properties: { title: { type: 'string' } },
-        required: ['title'],
+        properties: { id: { type: 'string' }, note_id: { type: 'string' }, title: { type: 'string' } },
+        required: [],
       },
     },
   },
@@ -336,51 +400,137 @@ const AI_TOOLS = [
 ]
 
 async function executeTool(toolName: string, args: Record<string, unknown>, userId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const client = db as any
+
   switch (toolName) {
     // ── Tasks ──
     case 'create_task': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('tasks') as any).insert({
+      const { data } = await client.from('tasks').insert({
         user_id: userId,
-        title: args.title as string,
+        title: (args.title as string).trim(),
         description: (args.description as string) || null,
         priority: (args.priority as number) || 3,
         status: 'todo',
       }).select().single()
       return { success: true, message: `Task "${args.title}" created!`, task: data }
     }
+    case 'update_task': {
+      const { targetId, queryStr } = extractTargetIdAndQuery(args, ['task_id'])
+      const updates: Record<string, unknown> = {}
+      if (args.title) updates.title = args.title
+      if (args.status) updates.status = args.status
+      if (args.priority) updates.priority = args.priority
+
+      if (targetId) {
+        await client.from('tasks').update(updates).eq('user_id', userId).eq('id', targetId)
+        return { success: true, message: `Task ID "${targetId}" updated.` }
+      }
+      if (queryStr) {
+        const { data: found } = await client.from('tasks').select('id').eq('user_id', userId).ilike('title', `%${queryStr}%`)
+        if (found && found.length > 0) {
+          await client.from('tasks').update(updates).eq('user_id', userId).in('id', found.map((t: { id: string }) => t.id))
+          return { success: true, message: `Updated ${found.length} task(s) matching "${queryStr}".` }
+        }
+      }
+      return { error: 'Please specify task ID or title to update.' }
+    }
+    case 'complete_task': {
+      const { targetId, queryStr } = extractTargetIdAndQuery(args, ['task_id'])
+      if (targetId) {
+        await client.from('tasks').update({ status: 'done', completed_at: new Date().toISOString() }).eq('user_id', userId).eq('id', targetId)
+        return { success: true, message: `Task ID "${targetId}" marked complete.` }
+      }
+      if (queryStr) {
+        const { data: found } = await client.from('tasks').select('id').eq('user_id', userId).ilike('title', `%${queryStr}%`)
+        if (found && found.length > 0) {
+          await client.from('tasks').update({ status: 'done', completed_at: new Date().toISOString() }).eq('user_id', userId).in('id', found.map((t: { id: string }) => t.id))
+          return { success: true, message: `Marked ${found.length} task(s) matching "${queryStr}" complete.` }
+        }
+      }
+      return { error: 'Please specify task ID or title to complete.' }
+    }
     case 'delete_task': {
-      const searchTitle = args.title as string
-      const { data: found } = await db.from('tasks').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
-      if (!found || found.length === 0) return { error: `No task found matching "${searchTitle}"` }
-      const ids = found.map(t => t.id)
-      await db.from('tasks').delete().in('id', ids)
-      return { success: true, message: `Deleted ${found.length} task(s) matching "${searchTitle}"` }
+      const { targetId, queryStr } = extractTargetIdAndQuery(args, ['task_id'])
+
+      if (targetId) {
+        const { error } = await client.from('tasks').delete().eq('user_id', userId).eq('id', targetId)
+        if (error) return { error: `Failed to delete task: ${error.message}` }
+        return { success: true, message: `Task ID "${targetId}" deleted successfully.` }
+      }
+
+      if (queryStr) {
+        if (queryStr.toLowerCase() === 'all' || queryStr === '*') {
+          await client.from('tasks').delete().eq('user_id', userId)
+          return { success: true, message: 'All tasks deleted successfully!' }
+        }
+        const { data: found } = await client.from('tasks').select('id, title').eq('user_id', userId).ilike('title', `%${queryStr}%`)
+        if (!found || found.length === 0) return { success: true, message: `No task found matching "${queryStr}".` }
+        const ids = found.map((t: { id: string }) => t.id)
+        await client.from('tasks').delete().in('id', ids)
+        return { success: true, message: `Deleted ${found.length} task(s) matching "${queryStr}".` }
+      }
+
+      const { data: allUserTasks } = await client.from('tasks').select('id, title').eq('user_id', userId).limit(5)
+      if (!allUserTasks || allUserTasks.length === 0) return { success: true, message: 'No tasks exist to delete.' }
+      return { error: 'Please specify a task ID or title to delete.' }
     }
     case 'delete_all_tasks': {
-      await db.from('tasks').delete().eq('user_id', userId)
+      await client.from('tasks').delete().eq('user_id', userId)
       return { success: true, message: 'All tasks deleted successfully!' }
     }
 
     // ── Todos ──
     case 'create_todo': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('todos') as any).insert({
+      const { data } = await client.from('todos').insert({
         user_id: userId,
-        title: args.title as string,
+        title: (args.title as string).trim(),
       }).select().single()
       return { success: true, message: `Todo "${args.title}" added!`, todo: data }
     }
+    case 'complete_todo':
+    case 'update_todo': {
+      const { targetId, queryStr } = extractTargetIdAndQuery(args, ['todo_id'])
+      const isDone = args.is_done !== undefined ? Boolean(args.is_done) : true
+      if (targetId) {
+        await client.from('todos').update({ is_done: isDone }).eq('user_id', userId).eq('id', targetId)
+        return { success: true, message: `Todo ID "${targetId}" updated.` }
+      }
+      if (queryStr) {
+        const { data: found } = await client.from('todos').select('id').eq('user_id', userId).ilike('title', `%${queryStr}%`)
+        if (found && found.length > 0) {
+          await client.from('todos').update({ is_done: isDone }).eq('user_id', userId).in('id', found.map((t: { id: string }) => t.id))
+          return { success: true, message: `Updated ${found.length} todo item(s) matching "${queryStr}".` }
+        }
+      }
+      return { error: 'Please specify todo ID or title to update.' }
+    }
     case 'delete_todo': {
-      const searchTitle = args.title as string
-      const { data: found } = await db.from('todos').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
-      if (!found || found.length === 0) return { error: `No todo item found matching "${searchTitle}"` }
-      const ids = found.map(t => t.id)
-      await db.from('todos').delete().in('id', ids)
-      return { success: true, message: `Deleted ${found.length} todo item(s)` }
+      const { targetId, queryStr } = extractTargetIdAndQuery(args, ['todo_id'])
+
+      if (targetId) {
+        await client.from('todos').delete().eq('user_id', userId).eq('id', targetId)
+        return { success: true, message: `Deleted todo item ID "${targetId}".` }
+      }
+
+      if (queryStr) {
+        if (queryStr.toLowerCase() === 'all' || queryStr === '*') {
+          await client.from('todos').delete().eq('user_id', userId)
+          return { success: true, message: 'All daily todos cleared!' }
+        }
+        const { data: found } = await client.from('todos').select('id, title').eq('user_id', userId).ilike('title', `%${queryStr}%`)
+        if (!found || found.length === 0) return { success: true, message: `No todo item found matching "${queryStr}".` }
+        const ids = found.map((t: { id: string }) => t.id)
+        await client.from('todos').delete().in('id', ids)
+        return { success: true, message: `Deleted ${found.length} todo item(s).` }
+      }
+
+      const { data: allUserTodos } = await client.from('todos').select('id, title').eq('user_id', userId).limit(5)
+      if (!allUserTodos || allUserTodos.length === 0) return { success: true, message: 'No todos exist to delete.' }
+      return { error: 'Please specify a todo ID or title to delete.' }
     }
     case 'delete_all_todos': {
-      await db.from('todos').delete().eq('user_id', userId)
+      await client.from('todos').delete().eq('user_id', userId)
       return { success: true, message: 'All daily todos cleared!' }
     }
 
@@ -388,8 +538,7 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
     case 'log_water_intake': {
       const amount = Number(args.amount_ml) || 250
       const today = new Date().toISOString().split('T')[0]
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('water_logs') as any).insert({
+      const { data } = await client.from('water_logs').insert({
         user_id: userId,
         amount_ml: amount,
         date: today,
@@ -398,14 +547,13 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
     }
     case 'reset_today_water_logs': {
       const today = new Date().toISOString().split('T')[0]
-      await db.from('water_logs').delete().eq('user_id', userId).eq('date', today)
+      await client.from('water_logs').delete().eq('user_id', userId).eq('date', today)
       return { success: true, message: "Cleared today's water intake logs!" }
     }
 
     // ── Reminders ──
     case 'create_reminder': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('reminders') as any).insert({
+      const { data } = await client.from('reminders').insert({
         user_id: userId,
         title: args.title as string,
         remind_at: args.remind_at as string,
@@ -414,22 +562,32 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       return { success: true, message: `Reminder "${args.title}" set! 🔔`, reminder: data }
     }
     case 'delete_reminder': {
-      const searchTitle = args.title as string
-      const { data: found } = await db.from('reminders').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
-      if (!found || found.length === 0) return { error: `No reminder found matching "${searchTitle}"` }
-      const ids = found.map(r => r.id)
-      await db.from('reminders').delete().in('id', ids)
-      return { success: true, message: `Deleted ${found.length} reminder(s)` }
+      const { targetId, queryStr } = extractTargetIdAndQuery(args, ['reminder_id'])
+      if (targetId) {
+        await client.from('reminders').delete().eq('user_id', userId).eq('id', targetId)
+        return { success: true, message: `Deleted reminder ID "${targetId}".` }
+      }
+      if (queryStr) {
+        if (queryStr.toLowerCase() === 'all' || queryStr === '*') {
+          await client.from('reminders').delete().eq('user_id', userId)
+          return { success: true, message: 'All reminders deleted!' }
+        }
+        const { data: found } = await client.from('reminders').select('id, title').eq('user_id', userId).ilike('title', `%${queryStr}%`)
+        if (!found || found.length === 0) return { success: true, message: `No reminder found matching "${queryStr}".` }
+        const ids = found.map((r: { id: string }) => r.id)
+        await client.from('reminders').delete().in('id', ids)
+        return { success: true, message: `Deleted ${found.length} reminder(s).` }
+      }
+      return { error: 'Please specify reminder ID or title to delete.' }
     }
     case 'delete_all_reminders': {
-      await db.from('reminders').delete().eq('user_id', userId)
+      await client.from('reminders').delete().eq('user_id', userId)
       return { success: true, message: 'All reminders deleted!' }
     }
 
     // ── Journal ──
     case 'create_journal_entry': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('journal_entries') as any).insert({
+      const { data } = await client.from('journal_entries').insert({
         user_id: userId,
         title: (args.title as string) || null,
         content: args.content as string,
@@ -439,22 +597,32 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       return { success: true, message: 'Journal entry created!', entry: data }
     }
     case 'delete_journal_entry': {
-      const searchTitle = args.title as string
-      const { data: found } = await db.from('journal_entries').select('id, title, content').eq('user_id', userId).or(`title.ilike.%${searchTitle}%,content.ilike.%${searchTitle}%`)
-      if (!found || found.length === 0) return { error: `No journal entry matching "${searchTitle}"` }
-      const ids = found.map(e => e.id)
-      await db.from('journal_entries').delete().in('id', ids)
-      return { success: true, message: `Deleted ${found.length} journal entry(s)` }
+      const { targetId, queryStr } = extractTargetIdAndQuery(args, ['journal_id'])
+      if (targetId) {
+        await client.from('journal_entries').delete().eq('user_id', userId).eq('id', targetId)
+        return { success: true, message: `Deleted journal entry ID "${targetId}".` }
+      }
+      if (queryStr) {
+        if (queryStr.toLowerCase() === 'all' || queryStr === '*') {
+          await client.from('journal_entries').delete().eq('user_id', userId)
+          return { success: true, message: 'All journal entries deleted!' }
+        }
+        const { data: found } = await client.from('journal_entries').select('id, title, content').eq('user_id', userId).or(`title.ilike.%${queryStr}%,content.ilike.%${queryStr}%`)
+        if (!found || found.length === 0) return { success: true, message: `No journal entry matching "${queryStr}".` }
+        const ids = found.map((e: { id: string }) => e.id)
+        await client.from('journal_entries').delete().in('id', ids)
+        return { success: true, message: `Deleted ${found.length} journal entry(s).` }
+      }
+      return { error: 'Please specify journal entry ID or keyword to delete.' }
     }
     case 'delete_all_journal_entries': {
-      await db.from('journal_entries').delete().eq('user_id', userId)
+      await client.from('journal_entries').delete().eq('user_id', userId)
       return { success: true, message: 'All journal entries deleted!' }
     }
 
     // ── Goals ──
     case 'create_goal': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('goals') as any).insert({
+      const { data } = await client.from('goals').insert({
         user_id: userId,
         title: args.title as string,
         description: (args.description as string) || null,
@@ -464,22 +632,32 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       return { success: true, message: `Goal "${args.title}" created!`, goal: data }
     }
     case 'delete_goal': {
-      const searchTitle = args.title as string
-      const { data: found } = await db.from('goals').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
-      if (!found || found.length === 0) return { error: `No goal matching "${searchTitle}"` }
-      const ids = found.map(g => g.id)
-      await db.from('goals').delete().in('id', ids)
-      return { success: true, message: `Deleted ${found.length} goal(s)` }
+      const { targetId, queryStr } = extractTargetIdAndQuery(args, ['goal_id'])
+      if (targetId) {
+        await client.from('goals').delete().eq('user_id', userId).eq('id', targetId)
+        return { success: true, message: `Deleted goal ID "${targetId}".` }
+      }
+      if (queryStr) {
+        if (queryStr.toLowerCase() === 'all' || queryStr === '*') {
+          await client.from('goals').delete().eq('user_id', userId)
+          return { success: true, message: 'All goals deleted!' }
+        }
+        const { data: found } = await client.from('goals').select('id, title').eq('user_id', userId).ilike('title', `%${queryStr}%`)
+        if (!found || found.length === 0) return { success: true, message: `No goal matching "${queryStr}".` }
+        const ids = found.map((g: { id: string }) => g.id)
+        await client.from('goals').delete().in('id', ids)
+        return { success: true, message: `Deleted ${found.length} goal(s).` }
+      }
+      return { error: 'Please specify goal ID or title to delete.' }
     }
     case 'delete_all_goals': {
-      await db.from('goals').delete().eq('user_id', userId)
+      await client.from('goals').delete().eq('user_id', userId)
       return { success: true, message: 'All goals deleted!' }
     }
 
     // ── Habits ──
     case 'create_habit': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('habits') as any).insert({
+      const { data } = await client.from('habits').insert({
         user_id: userId,
         name: args.name as string,
         frequency: 'daily',
@@ -489,22 +667,32 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       return { success: true, message: `Habit "${args.name}" created! 🔥`, habit: data }
     }
     case 'delete_habit': {
-      const searchName = args.name as string
-      const { data: found } = await db.from('habits').select('id, name').eq('user_id', userId).ilike('name', `%${searchName}%`)
-      if (!found || found.length === 0) return { error: `No habit matching "${searchName}"` }
-      const ids = found.map(h => h.id)
-      await db.from('habits').delete().in('id', ids)
-      return { success: true, message: `Deleted ${found.length} habit(s)` }
+      const { targetId, queryStr } = extractTargetIdAndQuery(args, ['habit_id'])
+      if (targetId) {
+        await client.from('habits').delete().eq('user_id', userId).eq('id', targetId)
+        return { success: true, message: `Deleted habit ID "${targetId}".` }
+      }
+      if (queryStr) {
+        if (queryStr.toLowerCase() === 'all' || queryStr === '*') {
+          await client.from('habits').delete().eq('user_id', userId)
+          return { success: true, message: 'All habits deleted!' }
+        }
+        const { data: found } = await client.from('habits').select('id, name').eq('user_id', userId).ilike('name', `%${queryStr}%`)
+        if (!found || found.length === 0) return { success: true, message: `No habit matching "${queryStr}".` }
+        const ids = found.map((h: { id: string }) => h.id)
+        await client.from('habits').delete().in('id', ids)
+        return { success: true, message: `Deleted ${found.length} habit(s).` }
+      }
+      return { error: 'Please specify habit ID or name to delete.' }
     }
     case 'delete_all_habits': {
-      await db.from('habits').delete().eq('user_id', userId)
+      await client.from('habits').delete().eq('user_id', userId)
       return { success: true, message: 'All habits deleted!' }
     }
 
     // ── Notes ──
     case 'create_note': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('notes') as any).insert({
+      const { data } = await client.from('notes').insert({
         user_id: userId,
         title: (args.title as string) || null,
         content: args.content as string,
@@ -512,29 +700,40 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       return { success: true, message: 'Note created! 📝', note: data }
     }
     case 'delete_note': {
-      const searchTitle = args.title as string
-      const { data: found } = await db.from('notes').select('id, title, content').eq('user_id', userId).or(`title.ilike.%${searchTitle}%,content.ilike.%${searchTitle}%`)
-      if (!found || found.length === 0) return { error: `No note matching "${searchTitle}"` }
-      const ids = found.map(n => n.id)
-      await db.from('notes').delete().in('id', ids)
-      return { success: true, message: `Deleted ${found.length} note(s)` }
+      const { targetId, queryStr } = extractTargetIdAndQuery(args, ['note_id'])
+      if (targetId) {
+        await client.from('notes').delete().eq('user_id', userId).eq('id', targetId)
+        return { success: true, message: `Deleted note ID "${targetId}".` }
+      }
+      if (queryStr) {
+        if (queryStr.toLowerCase() === 'all' || queryStr === '*') {
+          await client.from('notes').delete().eq('user_id', userId)
+          return { success: true, message: 'All notes deleted!' }
+        }
+        const { data: found } = await client.from('notes').select('id, title, content').eq('user_id', userId).or(`title.ilike.%${queryStr}%,content.ilike.%${queryStr}%`)
+        if (!found || found.length === 0) return { success: true, message: `No note matching "${queryStr}".` }
+        const ids = found.map((n: { id: string }) => n.id)
+        await client.from('notes').delete().in('id', ids)
+        return { success: true, message: `Deleted ${found.length} note(s).` }
+      }
+      return { error: 'Please specify note ID or title to delete.' }
     }
     case 'delete_all_notes': {
-      await db.from('notes').delete().eq('user_id', userId)
+      await client.from('notes').delete().eq('user_id', userId)
       return { success: true, message: 'All notes deleted!' }
     }
 
     // ── Full System Reset ──
     case 'full_data_reset': {
       await Promise.all([
-        db.from('tasks').delete().eq('user_id', userId),
-        db.from('todos').delete().eq('user_id', userId),
-        db.from('habits').delete().eq('user_id', userId),
-        db.from('notes').delete().eq('user_id', userId),
-        db.from('journal_entries').delete().eq('user_id', userId),
-        db.from('goals').delete().eq('user_id', userId),
-        db.from('reminders').delete().eq('user_id', userId),
-        db.from('water_logs').delete().eq('user_id', userId),
+        client.from('tasks').delete().eq('user_id', userId),
+        client.from('todos').delete().eq('user_id', userId),
+        client.from('habits').delete().eq('user_id', userId),
+        client.from('notes').delete().eq('user_id', userId),
+        client.from('journal_entries').delete().eq('user_id', userId),
+        client.from('goals').delete().eq('user_id', userId),
+        client.from('reminders').delete().eq('user_id', userId),
+        client.from('water_logs').delete().eq('user_id', userId),
       ])
       return { success: true, message: '🚨 FULL SYSTEM RESET COMPLETE! All user data wiped clean.' }
     }
@@ -723,7 +922,7 @@ export async function POST(req: NextRequest) {
 Response Formatting Rules:
 1. **Stylish & Structured**: Always use bold headers (e.g. ## 📅 Title), bold key terms (**Key Concept**), bullet points (- item), and clean emojis (🎯, 📅, ⚡, 💡, 📝, 🚀).
 2. **Direct & Minimal**: Get straight to the point without raw markdown symbols or extra fluff.
-3. **App Integration & Tool Execution**: When user asks to create or delete tasks, todos, habits, notes, journal entries, goals, reminders, water logs, or full data reset — execute the exact corresponding tool directly.`,
+3. **App Integration & Tool Execution**: When user asks to create, update, or delete tasks, todos, habits, notes, journal entries, goals, reminders, water logs, or full data reset — execute the exact corresponding tool directly.`,
     }
 
     const allMessages = [systemMessage, ...messages]
@@ -800,67 +999,51 @@ Response Formatting Rules:
             const writer = writable.getWriter()
 
             ;(async () => {
-              await writer.write(encoder.encode(actionHeader))
-              const reader = streamRes.body?.getReader()
-              if (reader) {
+              try {
+                await writer.write(encoder.encode(actionHeader))
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const reader = (streamRes.body as any).getReader()
                 while (true) {
                   const { done, value } = await reader.read()
                   if (done) break
                   await writer.write(value)
                 }
+              } catch {
+              } finally {
+                await writer.close()
               }
-              await writer.close()
             })()
 
-            return new NextResponse(readable, {
-              headers: {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'X-Actions': actionsSummary,
-              },
+            return new Response(readable, {
+              headers: { 'Content-Type': 'text/event-stream' }
             })
           }
         }
-
-        const content = choice?.message?.content ?? ''
-        const streamChunk = `data: {"choices":[{"delta":{"content":${JSON.stringify(content)}},"finish_reason":null}]}\n\ndata: [DONE]\n\n`
-        return new NextResponse(streamChunk, {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-          },
-        })
       }
     }
 
-    // Pure streaming attempt across model fallbacks
+    // Direct streaming response fallback
     for (const fallbackModel of modelFallbacks) {
       try {
         const res = await callOpenRouter(openRouterApiKey, fallbackModel, allMessages, undefined, true)
         if (res.ok) {
-          return new NextResponse(res.body, {
-            headers: {
-              'Content-Type': 'text/event-stream',
-              'Cache-Control': 'no-cache',
-            },
+          return new Response(res.body, {
+            headers: { 'Content-Type': 'text/event-stream' }
           })
         }
       } catch {}
     }
 
-    // Final Fallback: Google Gemini API REST call
-    const lastUserMsg = (messages as { role: string; content: string }[]).reverse().find(m => m.role === 'user')?.content || 'Hello'
-    const geminiText = await callGeminiFallback(lastUserMsg)
-
-    const geminiStream = `data: {"choices":[{"delta":{"content":${JSON.stringify(geminiText)}},"finish_reason":null}]}\n\ndata: [DONE]\n\n`
-    return new NextResponse(geminiStream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-      },
+    // Ultimate fallback if API quota exhausted
+    const fallbackText = await callGeminiFallback(messages[messages.length - 1]?.content || 'Hello')
+    const sseFormatted = `data: ${JSON.stringify({ choices: [{ delta: { content: fallbackText }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`
+    return new Response(sseFormatted, {
+      headers: { 'Content-Type': 'text/event-stream' }
     })
-  } catch (err) {
-    console.error('[AI chat error]', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'AI Processing error' },
+      { status: 500 }
+    )
   }
 }
