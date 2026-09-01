@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
   User, Key, Bell, LogOut, ChevronRight, Eye, EyeOff,
-  Loader2, Check, Shield, ShieldCheck, BarChart2, Cpu, Settings,
+  Loader2, Check, ShieldCheck, BarChart2, Cpu, Settings,
   Sun, Moon, Zap, Database, Download, RefreshCw
 } from 'lucide-react'
 import { toast } from 'sonner'
