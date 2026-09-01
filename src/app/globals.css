@@ -387,3 +387,16 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 }
 .animate-fade-in { animation: fadeIn 250ms ease-out both; }
 
+/* ── Absolute Sidebar Elimination ──────────────────────── */
+aside, .desktop-sidebar, .sidebar {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+
