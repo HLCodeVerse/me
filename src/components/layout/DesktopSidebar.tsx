@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -46,9 +47,25 @@ const NAV_GROUPS = [
 export default function DesktopSidebar() {
   const pathname = usePathname()
   const { profile } = useAuth()
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Fail-safe: Never render DesktopSidebar DOM nodes on screens < 1024px
+  if (isMobile) {
+    return null
+  }
 
   const lifeScore = profile?.life_score ?? 85
   const name = profile?.display_name || profile?.username || 'Builder'
+
 
   return (
     <aside

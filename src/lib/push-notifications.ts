@@ -29,11 +29,21 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 export function initPWAAutoUpdate(): void {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
 
-  navigator.serviceWorker.register('/sw.js').then((registration) => {
-    // Check for updates periodically every 10 minutes
+  // Unregister legacy broken service workers if needed & force update
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const reg of registrations) {
+      reg.update().catch(() => {})
+    }
+  })
+
+  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then((registration) => {
+    // Force immediate check on launch
+    registration.update().catch(() => {})
+
+    // Check for updates periodically every 3 minutes
     setInterval(() => {
       registration.update().catch(() => {})
-    }, 10 * 60 * 1000)
+    }, 3 * 60 * 1000)
 
     registration.addEventListener('updatefound', () => {
       const newWorker = registration.installing
@@ -41,11 +51,12 @@ export function initPWAAutoUpdate(): void {
 
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          newWorker.postMessage({ type: 'SKIP_WAITING' })
+          newWorker.postMessage({ type: 'CLEAR_CACHE' })
           toast.info('New NIRMAAN version deployed! Updating...', {
             action: {
               label: 'Refresh Now',
               onClick: () => {
-                newWorker.postMessage({ type: 'SKIP_WAITING' })
                 window.location.reload()
               },
             },

@@ -1,17 +1,29 @@
 // Service Worker for NIRMAAN Background Push Notifications & PWA Auto-Updates
 /* eslint-disable no-restricted-globals */
 
+const CACHE_NAME = 'nirmaan-cache-v2.1'
+
 self.addEventListener('install', (event) => {
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          console.log('[SW] Purging legacy cache:', cacheName)
+          return caches.delete(cacheName)
+        })
+      )
+    }).then(() => self.clients.claim())
+  )
 })
 
 // Listen for messages from client (e.g. force SW update when new code is deployed)
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (event.data && (event.data.type === 'SKIP_WAITING' || event.data.type === 'CLEAR_CACHE')) {
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
     self.skipWaiting()
   }
 })
@@ -68,3 +80,4 @@ self.addEventListener('notificationclick', (event) => {
     })
   )
 })
+
