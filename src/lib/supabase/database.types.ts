@@ -59,6 +59,7 @@ export interface Database {
           title: string
           description: string | null
           due_date: string | null
+          due_time: string | null
           priority: number
           status: string
           recurrence_rule: string | null
@@ -73,6 +74,7 @@ export interface Database {
           title: string
           description?: string | null
           due_date?: string | null
+          due_time?: string | null
           priority?: number
           status?: string
           recurrence_rule?: string | null
@@ -88,6 +90,7 @@ export interface Database {
           title: string
           is_done: boolean
           due_date: string | null
+          due_time: string | null
           created_at: string
         }
         Insert: {
@@ -96,6 +99,7 @@ export interface Database {
           title: string
           is_done?: boolean
           due_date?: string | null
+          due_time?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['todos']['Insert']>

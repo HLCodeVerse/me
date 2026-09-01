@@ -20,6 +20,8 @@ export default function GlobalMediaPlayer() {
     volume,
     isMuted,
     loopMode,
+    playbackRate,
+    sleepTimerEnd,
     togglePlay,
     nextTrack,
     prevTrack,
@@ -35,6 +37,7 @@ export default function GlobalMediaPlayer() {
       if (audioRef.current.src !== currentTrack.url) {
         audioRef.current.src = currentTrack.url
       }
+      audioRef.current.playbackRate = playbackRate || 1.0
       if (isPlaying) {
         audioRef.current.play().catch(() => {})
       } else {
@@ -43,13 +46,24 @@ export default function GlobalMediaPlayer() {
     } else {
       audioRef.current.pause()
     }
-  }, [currentTrack, isPlaying])
+  }, [currentTrack, isPlaying, playbackRate])
 
   // Volume & Mute Sync
   useEffect(() => {
     if (!audioRef.current) return
     audioRef.current.volume = isMuted ? 0 : volume
   }, [volume, isMuted])
+
+  // Sleep Timer Check Loop
+  useEffect(() => {
+    if (!sleepTimerEnd || !isPlaying) return
+    const interval = setInterval(() => {
+      if (Date.now() >= sleepTimerEnd) {
+        if (isPlaying) togglePlay()
+      }
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [sleepTimerEnd, isPlaying, togglePlay])
 
   // Live Audio Visualizer Canvas Effect
   useEffect(() => {
@@ -69,8 +83,8 @@ export default function GlobalMediaPlayer() {
         const w = (canvas.width / bars) - 2
 
         const grad = ctx.createLinearGradient(0, canvas.height, 0, 0)
-        grad.addColorStop(0, '#7C3AED')
-        grad.addColorStop(1, '#3B82F6')
+        grad.addColorStop(0, '#FFD700')
+        grad.addColorStop(1, '#F59E0B')
 
         ctx.fillStyle = grad
         ctx.fillRect(x, canvas.height - h, w, h)
@@ -102,18 +116,18 @@ export default function GlobalMediaPlayer() {
     <div
       style={{
         position: 'fixed',
-        bottom: 'calc(58px + env(safe-area-inset-bottom, 0px))',
+        bottom: 'calc(62px + env(safe-area-inset-bottom, 0px))',
         left: 0,
         right: 0,
         zIndex: 90,
-        background: 'var(--surface)',
-        borderTop: '1px solid var(--border)',
-        boxShadow: '0 -10px 30px rgba(0,0,0,0.3)',
-        backdropFilter: 'blur(16px)',
+        background: 'linear-gradient(180deg, #0A0B0D 0%, #121318 100%)',
+        borderTop: '1px solid rgba(245, 158, 11, 0.35)',
+        boxShadow: '0 -10px 35px rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(20px)',
         padding: '8px 16px',
         maxWidth: 768,
         margin: '0 auto',
-        borderRadius: 'var(--radius-card) var(--radius-card) 0 0',
+        borderRadius: '16px 16px 0 0',
       }}
     >
       <audio
@@ -123,37 +137,37 @@ export default function GlobalMediaPlayer() {
       />
 
       {/* Progress Bar Top Line */}
-      <div style={{ position: 'relative', width: '100%', height: 3, marginBottom: 8, background: 'var(--surface-3)', borderRadius: 99, overflow: 'hidden' }}>
+      <div style={{ position: 'relative', width: '100%', height: 3, marginBottom: 8, background: '#1A1C24', borderRadius: 99, overflow: 'hidden' }}>
         <div
           style={{
             height: '100%',
             width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%`,
-            background: 'var(--primary-gradient)',
+            background: 'linear-gradient(90deg, #FFD700, #F59E0B)',
             transition: 'width 0.1s linear',
           }}
         />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        {/* Left: Track Info & Canvas Visualizer */}
+        {/* Left: Track Info & Cover */}
         <div
           onClick={() => router.push('/player')}
           style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1, minWidth: 0 }}
         >
-          <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, background: 'var(--primary-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+          <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, background: 'linear-gradient(135deg, #FFD700, #F59E0B)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
             {currentTrack.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={currentTrack.coverUrl} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <Music size={20} color="#FFFFFF" />
+              <Music size={20} color="#000000" />
             )}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <p style={{ fontSize: 13, fontWeight: 800, color: '#FFFFFF', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {currentTrack.title}
             </p>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {currentTrack.artist || 'Local Device Audio'}
+            <p style={{ fontSize: 11, color: '#FFD700', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 }}>
+              {currentTrack.artist || 'Local Audio File'} • {currentTrack.category}
             </p>
           </div>
         </div>
@@ -161,15 +175,15 @@ export default function GlobalMediaPlayer() {
         {/* Center: Frequency Visualizer Canvas */}
         <canvas
           ref={canvasRef}
-          width={48}
-          height={20}
+          width={44}
+          height={18}
           style={{ borderRadius: 4, opacity: isPlaying ? 1 : 0.3 }}
         />
 
         {/* Right: Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button onClick={prevTrack} className="btn-ghost btn-icon" style={{ width: 32, height: 32 }}>
-            <SkipBack size={16} />
+            <SkipBack size={16} color="#FFFFFF" />
           </button>
           <button
             onClick={togglePlay}
@@ -177,24 +191,24 @@ export default function GlobalMediaPlayer() {
               width: 36,
               height: 36,
               borderRadius: '50%',
-              background: 'var(--primary-gradient)',
+              background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
               border: 'none',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#FFF',
-              boxShadow: '0 4px 12px rgba(124, 58, 237, 0.4)',
+              color: '#000000',
+              boxShadow: '0 4px 14px rgba(245, 158, 11, 0.45)',
             }}
           >
-            {isPlaying ? <Pause size={16} fill="#FFF" /> : <Play size={16} fill="#FFF" style={{ marginLeft: 2 }} />}
+            {isPlaying ? <Pause size={16} fill="#000000" color="#000000" /> : <Play size={16} fill="#000000" color="#000000" style={{ marginLeft: 2 }} />}
           </button>
           <button onClick={nextTrack} className="btn-ghost btn-icon" style={{ width: 32, height: 32 }}>
-            <SkipForward size={16} />
+            <SkipForward size={16} color="#FFFFFF" />
           </button>
 
           <Link href="/player" className="btn-ghost btn-icon" style={{ width: 32, height: 32 }}>
-            <Maximize2 size={15} color="var(--text-muted)" />
+            <Maximize2 size={15} color="#F59E0B" />
           </Link>
         </div>
       </div>

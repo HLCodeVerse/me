@@ -43,6 +43,7 @@ export default function TasksPage() {
   const [newTitle, setNewTitle] = useState('')
   const [newPriority, setNewPriority] = useState(3)
   const [newDueDate, setNewDueDate] = useState('')
+  const [newDueTime, setNewDueTime] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -82,11 +83,12 @@ export default function TasksPage() {
       description: cleanDescText || null,
       priority: newPriority,
       due_date: newDueDate ? new Date(newDueDate).toISOString() : null,
+      due_time: newDueTime || null,
       status: 'todo',
     })
     if (error) { toast.error('Failed to add task'); setSaving(false); return }
     toast.success('Task added!')
-    setNewTitle(''); setNewDesc(''); setNewDueDate(''); setNewPriority(3)
+    setNewTitle(''); setNewDesc(''); setNewDueDate(''); setNewDueTime(''); setNewPriority(3)
     setShowAddForm(false)
     setSaving(false)
     fetchTasks()
