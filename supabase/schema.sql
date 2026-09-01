@@ -183,6 +183,15 @@ create table if not exists daily_plans (
   unique(user_id, date)
 );
 
+-- ─── WATER LOGS ───────────────────────────────────────────
+create table if not exists water_logs (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid not null references profiles(id) on delete cascade,
+  amount_ml  int not null,
+  logged_at  timestamptz default now(),
+  date       date default CURRENT_DATE
+);
+
 -- ─── STREAKS ───────────────────────────────────────────────
 create table if not exists streaks (
   id               uuid primary key default uuid_generate_v4(),

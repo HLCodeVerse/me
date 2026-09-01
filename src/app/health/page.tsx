@@ -1,49 +1,109 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
-import { Activity, Flame, CheckCircle2, Circle, Heart, Droplets, Brain, Loader2, Play } from 'lucide-react'
+import { Activity, Flame, CheckCircle2, Circle, Heart, Droplets, Brain, Loader2, Play, CupSoda, GlassWater } from 'lucide-react'
 import { toast } from 'sonner'
-
-interface Exercise {
-  id: string
-  name: string
-  reps: string
-  category: 'strength' | 'cardio' | 'flexibility'
-  completed: boolean
-}
+import type { Task, WaterLog } from '@/lib/supabase/database.types'
 
 export default function HealthPage() {
-  const [waterMl, setWaterMl] = useState(1750)
-  const targetWaterMl = 3000
+  const { user, loading } = useAuth()
+  const router = useRouter()
+  const supabase = createClient()
+
+  const [waterLogs, setWaterLogs] = useState<WaterLog[]>([])
+  const [exercises, setExercises] = useState<Task[]>([])
+  const [dataLoading, setDataLoading] = useState(true)
+  const [loggingWater, setLoggingWater] = useState(false)
 
   const [meditationMinutes, setMeditationMinutes] = useState(10)
   const [isMeditating, setIsMeditating] = useState(false)
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
 
-  const [exercises, setExercises] = useState<Exercise[]>([
-    { id: '1', name: 'Push-ups', reps: '3 sets x 20 reps', category: 'strength', completed: true },
-    { id: '2', name: 'Bodyweight Squats', reps: '3 sets x 25 reps', category: 'strength', completed: true },
-    { id: '3', name: 'Plank Hold', reps: '3 mins total', category: 'strength', completed: false },
-    { id: '4', name: 'Morning Cardio / Jog', reps: '20 mins', category: 'cardio', completed: false },
-    { id: '5', name: 'Full Body Stretching', reps: '10 mins', category: 'flexibility', completed: false },
-  ])
+  const targetWaterMl = 3000
 
-  function toggleExercise(id: string) {
-    setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: !ex.completed } : ex))
-    const target = exercises.find(e => e.id === id)
-    if (target && !target.completed) {
-      toast.success(`Completed "${target.name}"! 💪`)
+  useEffect(() => {
+    if (!loading && !user) router.replace('/auth')
+  }, [user, loading, router])
+
+  useEffect(() => {
+    if (!user) return
+    const loadData = async () => {
+      const today = new Date().toISOString().split('T')[0]
+
+      const [waterRes, tasksRes] = await Promise.all([
+        supabase
+          .from('water_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .order('logged_at', { ascending: false }),
+        supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+      ])
+
+      setWaterLogs(waterRes.data ?? [])
+      setExercises(tasksRes.data ?? [])
+      setDataLoading(false)
+    }
+    loadData()
+  }, [user, supabase])
+
+  const totalWaterMl = waterLogs.reduce((acc, log) => acc + log.amount_ml, 0)
+  const waterPct = Math.min(Math.round((totalWaterMl / targetWaterMl) * 100), 100)
+
+  async function addWaterIntake(amountMl: number) {
+    if (!user) return
+    setLoggingWater(true)
+    const today = new Date().toISOString().split('T')[0]
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from('water_logs') as any)
+        .insert({
+          user_id: user.id,
+          amount_ml: amountMl,
+          date: today,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      if (data) {
+        setWaterLogs(prev => [data, ...prev])
+        toast.success(`+${amountMl}ml logged! 💧`)
+      }
+    } catch {
+      // Client-side fallback if table missing
+      const fallbackLog: WaterLog = {
+        id: String(Date.now()),
+        user_id: user.id,
+        amount_ml: amountMl,
+        logged_at: new Date().toISOString(),
+        date: today,
+      }
+      setWaterLogs(prev => [fallbackLog, ...prev])
+      toast.success(`+${amountMl}ml logged! 💧`)
+    } finally {
+      setLoggingWater(false)
     }
   }
 
-  function addWater() {
-    if (waterMl >= targetWaterMl) {
-      toast.success('Daily hydration goal reached! 💧')
-      return
-    }
-    setWaterMl(prev => Math.min(prev + 250, targetWaterMl))
-    toast.info('+250ml added!')
+  async function toggleExercise(taskId: string, currentStatus: string) {
+    const newStatus = currentStatus === 'done' ? 'todo' : 'done'
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('tasks') as any)
+      .update({ status: newStatus, completed_at: newStatus === 'done' ? new Date().toISOString() : null })
+      .eq('id', taskId)
+
+    setExercises(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t))
+    toast.success(newStatus === 'done' ? 'Exercise completed! 💪' : 'Exercise reset')
   }
 
   function completeMeditation() {
@@ -51,39 +111,38 @@ export default function HealthPage() {
     setTimeout(() => {
       setIsMeditating(false)
       toast.success(`${meditationMinutes}-minute meditation session logged! 🧘‍♂️`)
-    }, 2000)
+    }, 1500)
   }
 
   async function aiHealthAdvice() {
+    if (!user) return
     setAiAnalyzing(true)
-    toast.info('AI Health Coach is generating personalized recovery tips...')
+    toast.info('AI Health Coach is generating tips...')
     try {
-      const completedList = exercises.filter(e => e.completed).map(e => e.name).join(', ')
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{
             role: 'user',
-            content: `Give me 2 quick recovery tips based on my health log: Exercises done: ${completedList || 'None yet'}, Water intake: ${waterMl}ml.`
+            content: `Analyze my health log: Total water logged today: ${totalWaterMl}ml out of ${targetWaterMl}ml goal.`
           }],
           enableTools: false
         })
       })
-
-      if (res.ok) {
-        toast.success('AI Health advice generated! Check AI Chat.')
-      }
+      if (res.ok) toast.success('AI Coach tips received!')
     } catch {
-      toast.error('AI Health Coach call failed')
+      toast.error('AI Coach call failed')
     } finally {
       setAiAnalyzing(false)
     }
   }
 
-  const completedCount = exercises.filter(e => e.completed).length
-  const progressPct = Math.round((completedCount / exercises.length) * 100)
-  const waterPct = Math.round((waterMl / targetWaterMl) * 100)
+  if (loading || !user || dataLoading) return <LoadingSkeleton />
+
+  const completedExercises = exercises.filter(e => e.status === 'done').length
+  const totalExercises = exercises.length > 0 ? exercises.length : 5
+  const exercisePct = Math.round((completedExercises / totalExercises) * 100)
 
   return (
     <AppShell
@@ -91,156 +150,258 @@ export default function HealthPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Activity size={20} color="#10B981" />
-            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Health & Wellness</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Health & Wellness</h1>
           </div>
           <button
             onClick={aiHealthAdvice}
             disabled={aiAnalyzing}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', height: 34,
-              borderRadius: 'var(--radius-sm)', background: 'rgba(16,185,129,0.15)',
-              border: '1px solid rgba(16,185,129,0.3)', cursor: 'pointer',
-              color: '#10B981', fontSize: 12, fontWeight: 700
-            }}
+            className="btn btn-primary"
+            style={{ padding: '6px 14px', fontSize: 13 }}
           >
-            {aiAnalyzing ? <Loader2 size={13} className="animate-spin" /> : <Brain size={13} />}
-            AI Coach
+            {aiAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
+            AI Coach Advice
           </button>
         </div>
       }
     >
-      <div style={{ paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 8 }}>
+        
+        {/* Upper Grid: Liquid Belly Hydration Tracker + Exercise Velocity */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
 
-        {/* Overview Stats Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          
-          {/* Exercise Velocity */}
-          <div className="card" style={{ padding: '16px', background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.02))', border: '1px solid rgba(16,185,129,0.25)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>Daily Exercises</span>
-              <Flame size={16} color="#10B981" />
-            </div>
-            <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>
-              {completedCount} <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>/ {exercises.length}</span>
-            </p>
-            <div className="progress-track" style={{ height: 5, marginTop: 8, background: 'var(--surface-3)', borderRadius: 99 }}>
-              <div className="progress-fill" style={{ width: `${progressPct}%`, background: '#10B981', height: '100%', borderRadius: 99 }} />
-            </div>
-          </div>
-
-          {/* Hydration Tracker */}
-          <div className="card" style={{ padding: '16px', background: 'linear-gradient(135deg, rgba(6,182,212,0.1), rgba(6,182,212,0.02))', border: '1px solid rgba(6,182,212,0.25)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>Hydration</span>
-              <Droplets size={16} color="#06B6D4" />
-            </div>
+          {/* Interactive Liquid Belly Hydration Card */}
+          <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20, position: 'relative', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>
-                {waterMl} <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>ml</span>
-              </p>
-              <button
-                onClick={addWater}
-                style={{
-                  fontSize: 11, padding: '3px 8px', borderRadius: 99,
-                  background: 'rgba(6,182,212,0.2)', border: '1px solid rgba(6,182,212,0.4)',
-                  color: '#06B6D4', fontWeight: 800, cursor: 'pointer'
-                }}
-              >
-                +250ml
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Droplets size={18} color="#3B82F6" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                    Hydration Tracker
+                  </h3>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+                    Daily Goal: {targetWaterMl} ml
+                  </p>
+                </div>
+              </div>
+              <span className="badge badge-info" style={{ fontSize: 12 }}>
+                {waterPct}% Hydrated
+              </span>
             </div>
-            <div className="progress-track" style={{ height: 5, marginTop: 8, background: 'var(--surface-3)', borderRadius: 99 }}>
-              <div className="progress-fill" style={{ width: `${waterPct}%`, background: '#06B6D4', height: '100%', borderRadius: 99 }} />
-            </div>
-          </div>
 
-        </div>
-
-        {/* Guided Meditation & Mindfulness Card */}
-        <div className="card glow-box-cyan" style={{ padding: '16px', background: 'rgba(6,182,212,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Heart size={18} color="#06B6D4" />
-              <h3 style={{ fontSize: 15, fontWeight: 800 }}>Mindfulness & Meditation</h3>
-            </div>
-            <span className="badge badge-cyan" style={{ fontSize: 11 }}>10 min session</span>
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
-            Take 10 minutes to reset your focus, reduce stress, and maintain mental clarity.
-          </p>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <select
-              value={meditationMinutes}
-              onChange={e => setMeditationMinutes(Number(e.target.value))}
-              style={{ height: 36, padding: '0 10px', fontSize: 12, width: 'auto' }}
-            >
-              <option value={5}>5 Minutes</option>
-              <option value={10}>10 Minutes</option>
-              <option value={15}>15 Minutes</option>
-              <option value={20}>20 Minutes</option>
-            </select>
-            <button
-              onClick={completeMeditation}
-              disabled={isMeditating}
-              className="btn btn-primary"
-              style={{ flex: 1, height: 36, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-            >
-              {isMeditating ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-              {isMeditating ? 'Logging Session...' : 'Start Meditation'}
-            </button>
-          </div>
-        </div>
-
-        {/* Exercise Checklist */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 800 }}>Daily Exercise List</h3>
-            <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 600 }}>{completedCount} of {exercises.length} completed</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {exercises.map(ex => (
-              <div
-                key={ex.id}
-                className="card"
-                onClick={() => toggleExercise(ex.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 14px', background: ex.completed ? 'rgba(16,185,129,0.06)' : 'var(--surface)',
-                  border: `1px solid ${ex.completed ? 'rgba(16,185,129,0.25)' : 'var(--border)'}`,
-                  cursor: 'pointer', transition: 'all 200ms ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
-                    {ex.completed ? (
-                      <CheckCircle2 size={20} color="#10B981" />
-                    ) : (
-                      <Circle size={20} color="var(--text-dim)" />
-                    )}
-                  </button>
-                  <div>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: ex.completed ? 'var(--text-muted)' : 'var(--text)', textDecoration: ex.completed ? 'line-through' : 'none' }}>
-                      {ex.name}
-                    </p>
-                    <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{ex.reps}</p>
-                  </div>
+            {/* Belly / Body Fluid Level Indicator Widget */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24, padding: '12px 0' }}>
+              {/* Graphic Flask / Belly Container */}
+              <div style={{
+                width: 90,
+                height: 140,
+                borderRadius: '40px 40px 24px 24px',
+                border: '3px solid #3B82F6',
+                position: 'relative',
+                overflow: 'hidden',
+                background: 'var(--surface-2)',
+                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.15)',
+                display: 'flex',
+                alignItems: 'flex-end',
+                flexShrink: 0,
+              }}>
+                {/* Liquid Fill Element */}
+                <div style={{
+                  width: '100%',
+                  height: `${waterPct}%`,
+                  background: 'linear-gradient(180deg, #60A5FA 0%, #2563EB 100%)',
+                  transition: 'height 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+                  position: 'relative',
+                }}>
+                  {/* Fluid Surface Wave Animation */}
+                  <div style={{
+                    position: 'absolute',
+                    top: -6,
+                    left: 0,
+                    right: 0,
+                    height: 12,
+                    background: 'rgba(255, 255, 255, 0.3)',
+                    borderRadius: '50%',
+                  }} />
                 </div>
 
-                <span style={{
-                  fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 99,
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                  background: ex.category === 'strength' ? 'rgba(16,185,129,0.15)' : ex.category === 'cardio' ? 'rgba(6,182,212,0.15)' : 'rgba(167,139,250,0.15)',
-                  color: ex.category === 'strength' ? '#10B981' : ex.category === 'cardio' ? '#06B6D4' : '#A78BFA'
+                {/* Centered Overlay Percentage */}
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 16,
+                  fontWeight: 800,
+                  color: waterPct > 50 ? '#FFFFFF' : 'var(--text-primary)',
+                  textShadow: waterPct > 50 ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
                 }}>
-                  {ex.category}
-                </span>
+                  {totalWaterMl}ml
+                </div>
               </div>
-            ))}
+
+              {/* Quick Drink Glass Taps */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Tap Glass to Drink:
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  <button
+                    onClick={() => addWaterIntake(100)}
+                    disabled={loggingWater}
+                    className="btn btn-secondary"
+                    style={{ padding: '10px 6px', flexDirection: 'column', gap: 4, borderRadius: 'var(--radius-btn)' }}
+                  >
+                    <GlassWater size={18} color="#3B82F6" />
+                    <span style={{ fontSize: 11, fontWeight: 600 }}>+100 ml</span>
+                  </button>
+                  <button
+                    onClick={() => addWaterIntake(250)}
+                    disabled={loggingWater}
+                    className="btn btn-secondary"
+                    style={{ padding: '10px 6px', flexDirection: 'column', gap: 4, borderRadius: 'var(--radius-btn)', border: '1px solid #3B82F6' }}
+                  >
+                    <CupSoda size={18} color="#3B82F6" />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6' }}>+250 ml</span>
+                  </button>
+                  <button
+                    onClick={() => addWaterIntake(500)}
+                    disabled={loggingWater}
+                    className="btn btn-secondary"
+                    style={{ padding: '10px 6px', flexDirection: 'column', gap: 4, borderRadius: 'var(--radius-btn)' }}
+                  >
+                    <Droplets size={18} color="#3B82F6" />
+                    <span style={{ fontSize: 11, fontWeight: 600 }}>+500 ml</span>
+                  </button>
+                </div>
+
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>
+                  {targetWaterMl - totalWaterMl > 0 ? `${targetWaterMl - totalWaterMl}ml remaining for daily target` : '🎉 Goal reached! Excellent hydration!'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Exercise Velocity & Mindfulness */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Daily Exercises
+                </span>
+                <Flame size={20} color="#10B981" />
+              </div>
+              <div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {completedExercises} <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>/ {totalExercises}</span>
+                </div>
+                <div style={{ height: 6, background: 'var(--surface-2)', borderRadius: 99, marginTop: 8, overflow: 'hidden' }}>
+                  <div style={{ width: `${exercisePct}%`, height: '100%', background: '#10B981', borderRadius: 99, transition: 'width 500ms ease' }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Guided Meditation */}
+            <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Heart size={18} color="#EF4444" />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Mindfulness & Reset</span>
+                </div>
+                <span className="badge badge-primary">10 min</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <select
+                  value={meditationMinutes}
+                  onChange={e => setMeditationMinutes(Number(e.target.value))}
+                  style={{ width: 110, padding: '8px 10px', fontSize: 13 }}
+                >
+                  <option value={5}>5 Mins</option>
+                  <option value={10}>10 Mins</option>
+                  <option value={15}>15 Mins</option>
+                </select>
+                <button
+                  onClick={completeMeditation}
+                  disabled={isMeditating}
+                  className="btn btn-primary"
+                  style={{ flex: 1, padding: '8px 14px', fontSize: 13 }}
+                >
+                  {isMeditating ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                  {isMeditating ? 'Logging...' : 'Start Session'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Exercises Checklist */}
+        <div className="card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+              Live Workout & Exercise Checklist
+            </h3>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              {completedExercises} completed
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {exercises.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                No active workouts found in tasks. Create exercise tasks in Tasks or ask NIRMAAN AI to add them!
+              </p>
+            ) : (
+              exercises.map(ex => {
+                const isDone = ex.status === 'done'
+                return (
+                  <div
+                    key={ex.id}
+                    onClick={() => toggleExercise(ex.id, ex.status)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '12px 14px',
+                      borderRadius: 'var(--radius-btn)',
+                      background: isDone ? 'rgba(16, 185, 129, 0.06)' : 'var(--surface-2)',
+                      border: `1px solid ${isDone ? '#10B981' : 'var(--border)'}`,
+                      cursor: 'pointer',
+                      transition: 'all 150ms ease',
+                    }}
+                  >
+                    {isDone ? (
+                      <CheckCircle2 size={18} color="#10B981" />
+                    ) : (
+                      <Circle size={18} color="var(--text-muted)" />
+                    )}
+                    <span style={{
+                      flex: 1,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: isDone ? 'var(--text-muted)' : 'var(--text-primary)',
+                      textDecoration: isDone ? 'line-through' : 'none',
+                    }}>
+                      {ex.title}
+                    </span>
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
 
       </div>
     </AppShell>
+  )
+}
+
+function LoadingSkeleton() {
+  return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg)', padding: '40px 24px' }}>
+      <div className="skeleton" style={{ height: 180, borderRadius: 'var(--radius-card)', marginBottom: 20 }} />
+      <div className="skeleton" style={{ height: 240, borderRadius: 'var(--radius-card)' }} />
+    </div>
   )
 }

@@ -15,7 +15,6 @@ function AuthorizeContent() {
   const redirectUri = searchParams.get('redirect_uri')
   const state = searchParams.get('state')
   const clientId = searchParams.get('client_id') || 'AI Assistant'
-  // PKCE params forwarded from the OAuth client (e.g. ChatGPT)
   const codeChallenge = searchParams.get('code_challenge')
   const codeChallengeMethod = searchParams.get('code_challenge_method') || 'S256'
 
@@ -128,8 +127,6 @@ function AuthorizeContent() {
     setApproving(true)
 
     try {
-      // Persist the auth code in the database so the token endpoint can validate it
-      // Send user_id explicitly since cookies may not be forwarded server-side on Vercel
       const res = await fetch('/api/mcp/oauth/code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,7 +135,6 @@ function AuthorizeContent() {
           client_id: clientId,
           redirect_uri: redirectUri,
           scope: 'mcp:read mcp:write',
-          // Forward PKCE params — stored in DB, verified at token exchange
           ...(codeChallenge ? { code_challenge: codeChallenge, code_challenge_method: codeChallengeMethod } : {}),
         }),
       })
@@ -174,7 +170,7 @@ function AuthorizeContent() {
   if (authLoading) {
     return (
       <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        <Loader2 size={32} className="animate-spin" color="var(--growth)" />
+        <Loader2 size={32} className="animate-spin" color="#7C3AED" />
       </div>
     )
   }
@@ -187,22 +183,22 @@ function AuthorizeContent() {
         flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
         padding: '24px', position: 'relative',
       }}>
-        <div className="card animate-fade-up" style={{ padding: '32px 28px', maxWidth: 440, width: '100%', textAlign: 'center' }}>
+        <div className="card animate-fade-in" style={{ padding: '32px 28px', maxWidth: 440, width: '100%', textAlign: 'center' }}>
           <div style={{
-            width: 60, height: 60, borderRadius: 20, background: 'rgba(239,68,68,0.1)',
-            border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 56, height: 56, borderRadius: 16, background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 16px',
           }}>
-            <LogIn size={28} color="var(--danger)" />
+            <LogIn size={26} color="#EF4444" />
           </div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8 }}>Authentication Required</h2>
-          <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 24 }}>
-            You must log in to your NIRMAAN OS account before generating API keys or authorizing <strong style={{ color: 'var(--text)' }}>{clientId}</strong>.
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>Authentication Required</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 24 }}>
+            You must log in to your NIRMAAN OS account before generating API keys or authorizing <strong style={{ color: 'var(--text-primary)' }}>{clientId}</strong>.
           </p>
           <button
             onClick={redirectToLogin}
             className="btn btn-primary"
-            style={{ width: '100%', height: 46, fontSize: 14, fontWeight: 700 }}
+            style={{ width: '100%', height: 44, fontSize: 14 }}
           >
             <LogIn size={16} />
             Log In to Continue
@@ -223,38 +219,30 @@ function AuthorizeContent() {
       padding: '24px',
       position: 'relative',
     }}>
-      {/* Background Glow */}
-      <div style={{
-        position: 'absolute', top: -150, left: '50%', transform: 'translateX(-50%)',
-        width: 450, height: 450, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(96,165,250,0.08), transparent 70%)',
-        pointerEvents: 'none',
-      }} />
-
-      <div className="card animate-fade-up" style={{ padding: '32px 28px', maxWidth: 440, width: '100%' }}>
+      <div className="card animate-fade-in" style={{ padding: '32px 28px', maxWidth: 440, width: '100%' }}>
         {/* Header Icon */}
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <div style={{
-            width: 60, height: 60, borderRadius: 20, background: 'linear-gradient(135deg, rgba(96,165,250,0.2), rgba(167,139,250,0.15))',
-            border: '1px solid rgba(96,165,250,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(96,165,250,0.15)',
+            width: 56, height: 56, borderRadius: 16, background: 'rgba(124, 58, 237, 0.1)',
+            border: '1px solid rgba(124, 58, 237, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px',
           }}>
-            <ShieldCheck size={30} color="var(--info)" />
+            <ShieldCheck size={28} color="#7C3AED" />
           </div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>Authorize MCP Connection</h2>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
-            <strong style={{ color: 'var(--text)' }}>{clientId}</strong> is requesting connection to your NIRMAAN OS account.
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Authorize MCP Connection</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.5 }}>
+            <strong style={{ color: 'var(--text-primary)' }}>{clientId}</strong> is requesting connection to your NIRMAAN OS account.
           </p>
         </div>
 
         {/* Permissions list */}
-        <div style={{ padding: '14px', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', marginBottom: 20 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.04em', marginBottom: 8 }}>
+        <div style={{ padding: '14px', background: 'var(--surface-2)', borderRadius: 'var(--radius-btn)', border: '1px solid var(--border)', marginBottom: 20 }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
             REQUESTED PERMISSIONS
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {['Tasks & Todos', 'Micro-Journal', 'Goals & Streaks', 'Life Score Metrics'].map(p => (
-              <span key={p} style={{ fontSize: 11, background: 'rgba(96,165,250,0.1)', color: 'var(--info)', padding: '3px 8px', borderRadius: 4, fontWeight: 600 }}>
+              <span key={p} className="badge badge-primary">
                 ✓ {p}
               </span>
             ))}
@@ -263,20 +251,20 @@ function AuthorizeContent() {
 
         {/* Created Raw Key Display */}
         {createdRawKey && (
-          <div style={{ marginBottom: 16, padding: '12px', background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 'var(--radius-sm)' }}>
+          <div style={{ marginBottom: 16, padding: '12px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 'var(--radius-btn)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <p style={{ fontSize: 11, color: 'var(--growth)', fontWeight: 700 }}>
+              <p style={{ fontSize: 12, color: '#059669', fontWeight: 600, margin: 0 }}>
                 🔑 Key Saved to DB! Copy now:
               </p>
               <button
                 onClick={handleCopyRawKey}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: 'var(--growth)', fontSize: 11, fontWeight: 600 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#059669', fontSize: 11, fontWeight: 600 }}
               >
                 {copiedKey ? <Check size={13} /> : <Copy size={13} />}
                 {copiedKey ? 'Copied' : 'Copy Key'}
               </button>
             </div>
-            <code style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--growth)', wordBreak: 'break-all', display: 'block' }}>
+            <code style={{ fontSize: 12, fontFamily: 'monospace', color: '#059669', wordBreak: 'break-all', display: 'block' }}>
               {createdRawKey}
             </code>
           </div>
@@ -284,16 +272,16 @@ function AuthorizeContent() {
 
         {/* API Key Selection */}
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.04em', marginBottom: 8, display: 'block' }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, display: 'block' }}>
             SELECT OR GENERATE API KEY
           </label>
 
           {loading ? (
-            <div className="skeleton" style={{ height: 44, borderRadius: 'var(--radius-sm)' }} />
+            <div className="skeleton" style={{ height: 44, borderRadius: 'var(--radius-btn)' }} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {apiKeys.length === 0 ? (
-                <p style={{ fontSize: 12, color: 'var(--text-dim)', padding: '4px 0' }}>No active API key found. Generate one below:</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '4px 0' }}>No active API key found. Generate one below:</p>
               ) : (
                 apiKeys.map(k => (
                   <div
@@ -301,43 +289,43 @@ function AuthorizeContent() {
                     onClick={() => setSelectedKeyId(k.id)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                      borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-                      background: selectedKeyId === k.id ? 'rgba(52,211,153,0.1)' : 'var(--surface-2)',
-                      border: `1px solid ${selectedKeyId === k.id ? 'var(--growth)' : 'var(--border)'}`,
+                      borderRadius: 'var(--radius-btn)', cursor: 'pointer',
+                      background: selectedKeyId === k.id ? 'rgba(124, 58, 237, 0.08)' : 'var(--surface-2)',
+                      border: `1px solid ${selectedKeyId === k.id ? '#7C3AED' : 'var(--border)'}`,
                       transition: 'all 150ms ease',
                     }}
                   >
-                    <Key size={14} color={selectedKeyId === k.id ? 'var(--growth)' : 'var(--text-dim)'} />
+                    <Key size={14} color={selectedKeyId === k.id ? '#7C3AED' : 'var(--text-secondary)'} />
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: selectedKeyId === k.id ? 'var(--growth)' : 'var(--text)' }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: selectedKeyId === k.id ? '#7C3AED' : 'var(--text-primary)', margin: 0 }}>
                         {k.name}
                       </p>
-                      <p style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'monospace' }}>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace', margin: '2px 0 0' }}>
                         {k.key_prefix}••••••••
                       </p>
                     </div>
-                    {selectedKeyId === k.id && <Check size={16} color="var(--growth)" />}
+                    {selectedKeyId === k.id && <Check size={16} color="#7C3AED" />}
                   </div>
                 ))
               )}
 
-              {/* Generate Key Inline Form */}
-              <form onSubmit={handleCreateKey} style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+              {/* Generate Key Form */}
+              <form onSubmit={handleCreateKey} style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                 <input
                   placeholder="Key name (e.g. ChatGPT Connector)"
                   value={newKeyName}
                   onChange={e => setNewKeyName(e.target.value)}
-                  style={{ flex: 1, fontSize: 12, height: 38 }}
+                  style={{ flex: 1, fontSize: 13, height: 38 }}
                 />
                 <button
                   type="submit"
                   disabled={creatingKey || !newKeyName.trim()}
                   className="btn btn-primary"
-                  style={{ height: 38, padding: '0 12px', fontSize: 12, flexShrink: 0 }}
+                  style={{ height: 38, padding: '0 14px', fontSize: 12, flexShrink: 0 }}
                 >
-                  {creatingKey ? <Loader2 size={13} className="animate-spin" /> : (
+                  {creatingKey ? <Loader2 size={14} className="animate-spin" /> : (
                     <>
-                      <Plus size={13} />
+                      <Plus size={14} />
                       Generate
                     </>
                   )}

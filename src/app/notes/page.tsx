@@ -150,77 +150,78 @@ export default function NotesPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <StickyNote size={20} color="#06B6D4" />
-            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Notes & Scratchpad</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Notes & Scratchpad</h1>
           </div>
-          <button onClick={() => setShowForm(true)} className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 13 }}>
+          <button onClick={() => setShowForm(true)} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 13 }}>
             <Plus size={15} /> New Note
           </button>
         </div>
       }
     >
-      <div style={{ paddingTop: 16 }}>
+      <div style={{ paddingTop: 8 }}>
         {/* Search */}
         <div style={{ position: 'relative', marginBottom: 16 }}>
-          <Search size={15} color="var(--text-dim)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
           <input
             placeholder="Search notes..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ paddingLeft: 36 }}
+            style={{ paddingLeft: 38 }}
           />
         </div>
 
         {loading ? (
-          [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 90, borderRadius: 'var(--radius)', marginBottom: 10 }} />)
+          [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 90, borderRadius: 'var(--radius-card)', marginBottom: 12 }} />)
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(6,182,212,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(6,182,212,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <StickyNote size={28} color="#06B6D4" />
             </div>
-            <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Capture your ideas</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 280, margin: '0 auto 24px' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>Capture your ideas</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, maxWidth: 300, margin: '0 auto 20px' }}>
               Keep thoughts, code snippets, and research notes organized.
             </p>
             <button onClick={() => setShowForm(true)} className="btn btn-primary">
-              <Plus size={16} /> Create Note
+              <Plus size={15} /> Create Note
             </button>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
             {filtered.map(note => (
               <div
                 key={note.id}
-                className="card card-hover"
+                className="card"
                 onClick={() => setSelectedNote(note)}
                 style={{
-                  padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                  padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                   borderTop: note.is_pinned ? '3px solid #06B6D4' : '1px solid var(--border)',
+                  cursor: 'pointer',
                 }}
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <h4 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', flex: 1, paddingRight: 8 }}>
+                    <h4 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', flex: 1, paddingRight: 8, margin: 0 }}>
                       {note.title || note.content.slice(0, 30)}
                     </h4>
                     <button
                       onClick={e => { e.stopPropagation(); togglePin(note) }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
                     >
-                      <Pin size={15} color={note.is_pinned ? '#06B6D4' : 'var(--text-dim)'} fill={note.is_pinned ? '#06B6D4' : 'none'} />
+                      <Pin size={15} color={note.is_pinned ? '#06B6D4' : 'var(--text-muted)'} fill={note.is_pinned ? '#06B6D4' : 'none'} />
                     </button>
                   </div>
-                  <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
                     {note.content}
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     {new Date(note.updated_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
                   </span>
                   <button
                     onClick={e => { e.stopPropagation(); deleteNote(note.id) }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -235,14 +236,14 @@ export default function NotesPage() {
       {showForm && (
         <>
           <div className="overlay" onClick={() => setShowForm(false)} />
-          <div className="animate-scale-in" style={{
+          <div className="animate-fade-in" style={{
             position: 'fixed', inset: 0, zIndex: 110,
             background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-              <h3 style={{ fontSize: 18, fontWeight: 700 }}>Create Note</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Create Note</h3>
               <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} color="var(--text-muted)" />
+                <X size={20} color="var(--text-secondary)" />
               </button>
             </div>
             <form onSubmit={createNote} style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px' }}>
@@ -250,17 +251,17 @@ export default function NotesPage() {
                 placeholder="Note title (optional)..."
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                style={{ marginBottom: 12, fontSize: 16, fontWeight: 700 }}
+                style={{ marginBottom: 14, fontSize: 16, fontWeight: 600 }}
               />
               <textarea
                 placeholder="Start typing your note content..."
                 value={content}
                 onChange={e => setContent(e.target.value)}
                 required
-                style={{ flex: 1, resize: 'none', fontSize: 15, lineHeight: 1.7 }}
+                style={{ flex: 1, resize: 'none', fontSize: 14, lineHeight: 1.7 }}
               />
               <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-                <button type="submit" disabled={saving || !content.trim()} className="btn btn-primary" style={{ height: 44, padding: '0 24px' }}>
+                <button type="submit" disabled={saving || !content.trim()} className="btn btn-primary" style={{ padding: '10px 24px' }}>
                   {saving ? <Loader2 size={16} className="animate-spin" /> : 'Save Note'}
                 </button>
               </div>
@@ -273,38 +274,34 @@ export default function NotesPage() {
       {selectedNote && (
         <>
           <div className="overlay" onClick={() => setSelectedNote(null)} />
-          <div className="animate-scale-in" style={{
+          <div className="animate-fade-in" style={{
             position: 'fixed', inset: 0, zIndex: 110,
             background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
               <div>
-                <p style={{ fontSize: 16, fontWeight: 700 }}>{selectedNote.title || 'Untitled Note'}</p>
-                <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Updated {new Date(selectedNote.updated_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{selectedNote.title || 'Untitled Note'}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>Updated {new Date(selectedNote.updated_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button
                   onClick={() => summarizeNoteWithAI(selectedNote)}
                   disabled={summarizing}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-                    borderRadius: 'var(--radius-sm)', background: 'rgba(6,182,212,0.15)',
-                    border: '1px solid rgba(6,182,212,0.3)', cursor: 'pointer',
-                    color: '#06B6D4', fontSize: 12, fontWeight: 700
-                  }}
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: 12, border: '1px solid #06B6D4', color: '#06B6D4' }}
                 >
                   {summarizing ? <Loader2 size={13} className="animate-spin" /> : <Brain size={13} />}
                   AI Summarize
                 </button>
                 <button onClick={() => setSelectedNote(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                  <X size={20} color="var(--text-muted)" />
+                  <X size={20} color="var(--text-secondary)" />
                 </button>
               </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }}>
               <pre style={{
-                whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 15,
-                lineHeight: 1.8, color: 'var(--text)'
+                whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 14,
+                lineHeight: 1.8, color: 'var(--text-primary)'
               }}>
                 {selectedNote.content}
               </pre>

@@ -147,6 +147,81 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'log_water_intake',
+      description: 'Log water consumption in ml for today (e.g. 100, 200, 250, 500)',
+      parameters: {
+        type: 'object',
+        properties: {
+          amount_ml: { type: 'number', description: 'Amount of water in ml' },
+        },
+        required: ['amount_ml'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_note',
+      description: 'Create a new note for the user',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Note title (optional)' },
+          content: { type: 'string', description: 'Note content' },
+          tags: { type: 'array', items: { type: 'string' }, description: 'Tags (optional)' },
+        },
+        required: ['content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_reminder',
+      description: 'Create a reminder for a specific time',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Reminder title' },
+          remind_at: { type: 'string', description: 'ISO date time string' },
+        },
+        required: ['title', 'remind_at'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_habit',
+      description: 'Create a new habit to track',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Habit name' },
+          frequency: { type: 'string', description: 'daily or weekly', enum: ['daily', 'weekly'] },
+          target_count: { type: 'number', description: 'Target times per period' },
+        },
+        required: ['name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'navigate_to',
+      description: 'Guide or navigate the user to a specific app module/page',
+      parameters: {
+        type: 'object',
+        properties: {
+          page: { type: 'string', description: 'Page path e.g. /tasks, /todos, /health, /journal, /notes, /habits, /goals' },
+        },
+        required: ['page'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_dashboard_summary',
       description: 'Get current user stats: tasks, todos, streaks, life score',
       parameters: { type: 'object', properties: {}, required: [] },
@@ -164,6 +239,52 @@ const AI_TOOLS = [
 
 async function executeTool(toolName: string, args: Record<string, unknown>, userId: string) {
   switch (toolName) {
+    case 'log_water_intake': {
+      const amount = Number(args.amount_ml) || 250
+      const today = new Date().toISOString().split('T')[0]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (db.from('water_logs') as any).insert({
+        user_id: userId,
+        amount_ml: amount,
+        date: today,
+      }).select().single()
+      return { success: true, message: `Logged ${amount}ml of water! 💧`, log: data }
+    }
+    case 'create_note': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (db.from('notes') as any).insert({
+        user_id: userId,
+        title: (args.title as string) || null,
+        content: args.content as string,
+        tags: (args.tags as string[]) || [],
+      }).select().single()
+      return { success: true, message: 'Note created! 📝', note: data }
+    }
+    case 'create_reminder': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (db.from('reminders') as any).insert({
+        user_id: userId,
+        title: args.title as string,
+        remind_at: args.remind_at as string,
+        is_sent: false,
+      }).select().single()
+      return { success: true, message: `Reminder "${args.title}" set! 🔔`, reminder: data }
+    }
+    case 'create_habit': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (db.from('habits') as any).insert({
+        user_id: userId,
+        name: args.name as string,
+        frequency: (args.frequency as string) || 'daily',
+        target_count: (args.target_count as number) || 1,
+        archived: false,
+      }).select().single()
+      return { success: true, message: `Habit "${args.name}" created! 🔥`, habit: data }
+    }
+    case 'navigate_to': {
+      const pagePath = (args.page as string) || '/dashboard'
+      return { success: true, message: `Navigating to ${pagePath}`, navigate: pagePath }
+    }
     case 'create_task': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (db.from('tasks') as any).insert({

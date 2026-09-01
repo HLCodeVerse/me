@@ -9,33 +9,27 @@ import {
 } from 'lucide-react'
 
 const QUICK_NAV = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Home',   color: '#10B981' },
-  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',  color: '#F59E0B' },
-  { href: '/ai',        icon: Bot,             label: 'AI OS',  color: '#818CF8' },
-  { href: '/habits',    icon: Flame,           label: 'Habits', color: '#F43F5E' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#7C3AED' },
+  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',     color: '#F59E0B' },
+  { href: '/ai',        icon: Bot,             label: 'AI Chat',   color: '#7C3AED' },
+  { href: '/habits',    icon: Flame,           label: 'Habits',    color: '#EF4444' },
 ]
 
 const ALL_MODULES = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',   color: '#10B981', category: 'Daily OS' },
-  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',       color: '#F59E0B', category: 'Daily OS' },
-  { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#818CF8', category: 'Daily OS' },
-  { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#F43F5E', category: 'Daily OS' },
-  { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4', category: 'Daily OS' },
-  { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B', category: 'Daily OS' },
-  { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#A78BFA', category: 'Daily OS' },
-  { href: '/goals',     icon: Target,          label: 'Goals',       color: '#10B981', category: 'Growth & Vision' },
-  { href: '/analytics', icon: BarChart2,       label: 'Analytics',   color: '#10B981', category: 'Growth & Vision' },
-  { href: '/learn',     icon: GraduationCap,   label: 'Learn Hub',   color: '#60A5FA', category: 'Growth & Vision' },
-  { href: '/ai',        icon: Bot,             label: 'AI Chat OS',  color: '#818CF8', category: 'Intelligence' },
-  { href: '/mcp',       icon: ShieldCheck,     label: 'MCP Connect', color: '#10B981', category: 'Intelligence' },
-  { href: '/settings',  icon: Settings,        label: 'Settings',    color: '#8892A4', category: 'Intelligence' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',   color: '#7C3AED' },
+  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',       color: '#F59E0B' },
+  { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#3B82F6' },
+  { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#EF4444' },
+  { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4' },
+  { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B' },
+  { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#8B5CF6' },
+  { href: '/goals',     icon: Target,          label: 'Goals',       color: '#10B981' },
+  { href: '/analytics', icon: BarChart2,       label: 'Analytics',   color: '#3B82F6' },
+  { href: '/learn',     icon: GraduationCap,   label: 'Learning hub',color: '#8B5CF6' },
+  { href: '/ai',        icon: Bot,             label: 'AI chat OS',  color: '#7C3AED' },
+  { href: '/mcp',       icon: ShieldCheck,     label: 'MCP connect', color: '#10B981' },
+  { href: '/settings',  icon: Settings,        label: 'Settings',    color: '#6B7280' },
 ]
-
-function hexToRgb(hex: string): string {
-  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  if (!r) return '255,255,255'
-  return `${parseInt(r[1], 16)},${parseInt(r[2], 16)},${parseInt(r[3], 16)}`
-}
 
 export default function BottomNav() {
   const pathname = usePathname()
@@ -43,18 +37,20 @@ export default function BottomNav() {
 
   return (
     <>
-      <nav className="bottom-nav" style={{
-        background: 'rgba(10,11,13,0.92)',
-        backdropFilter: 'blur(24px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+      <nav className="md:hidden" style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 64,
+        background: 'var(--surface)',
         borderTop: '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
-        paddingTop: 6,
-        paddingLeft: 6,
-        paddingRight: 6,
-        boxShadow: '0 -8px 32px rgba(0,0,0,0.6)',
+        zIndex: 50,
+        boxShadow: 'var(--shadow-hero)',
+        padding: '0 8px',
       }}>
         {QUICK_NAV.map(({ href, icon: Icon, label, color }) => {
           const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
@@ -67,36 +63,16 @@ export default function BottomNav() {
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: 3,
-                padding: '6px 10px',
-                borderRadius: 12,
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-btn)',
                 textDecoration: 'none',
-                transition: 'all 150ms',
-                flex: 1,
-                background: isActive ? `rgba(${hexToRgb(color)},0.12)` : 'transparent',
-                border: `1px solid ${isActive ? `rgba(${hexToRgb(color)},0.25)` : 'transparent'}`,
-                position: 'relative',
+                color: isActive ? color : 'var(--text-secondary)',
+                fontWeight: isActive ? 600 : 500,
+                fontSize: 11,
               }}
             >
-              {isActive && (
-                <div style={{
-                  position: 'absolute', top: -2, left: '50%', transform: 'translateX(-50%)',
-                  width: 20, height: 2, borderRadius: 99,
-                  background: color, boxShadow: `0 0 10px ${color}`,
-                }} />
-              )}
-              <Icon
-                size={19}
-                color={isActive ? color : 'var(--text-dim)'}
-                strokeWidth={isActive ? 2.5 : 1.8}
-              />
-              <span style={{
-                fontSize: 10,
-                fontWeight: isActive ? 700 : 500,
-                color: isActive ? color : 'var(--text-dim)',
-                lineHeight: 1,
-              }}>
-                {label}
-              </span>
+              <Icon size={18} color={isActive ? color : 'var(--text-secondary)'} />
+              <span>{label}</span>
             </Link>
           )
         })}
@@ -109,38 +85,40 @@ export default function BottomNav() {
             flexDirection: 'column',
             alignItems: 'center',
             gap: 3,
-            padding: '6px 10px',
-            borderRadius: 12,
-            background: showDrawer ? 'rgba(167,139,250,0.15)' : 'transparent',
-            border: `1px solid ${showDrawer ? 'rgba(167,139,250,0.3)' : 'transparent'}`,
+            padding: '6px 12px',
+            borderRadius: 'var(--radius-btn)',
+            background: 'transparent',
+            border: 'none',
             cursor: 'pointer',
-            flex: 1,
+            color: showDrawer ? '#7C3AED' : 'var(--text-secondary)',
+            fontSize: 11,
+            fontWeight: showDrawer ? 600 : 500,
           }}
         >
-          <Menu size={19} color={showDrawer ? '#A78BFA' : 'var(--text-dim)'} />
-          <span style={{ fontSize: 10, fontWeight: showDrawer ? 700 : 500, color: showDrawer ? '#A78BFA' : 'var(--text-dim)' }}>
-            More
-          </span>
+          <Menu size={18} color={showDrawer ? '#7C3AED' : 'var(--text-secondary)'} />
+          <span>More</span>
         </button>
       </nav>
 
       {/* Slide-Up Navigation Drawer */}
       {showDrawer && (
         <>
-          <div className="overlay" onClick={() => setShowDrawer(false)} style={{ zIndex: 120 }} />
-          <div className="animate-slide-up" style={{
+          <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.4)', zIndex: 120 }}
+            onClick={() => setShowDrawer(false)}
+          />
+          <div style={{
             position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 130,
-            background: 'rgba(14,17,23,0.96)', backdropFilter: 'blur(24px)',
-            borderTop: '1px solid var(--border-2)',
-            borderRadius: '24px 24px 0 0', padding: '20px 18px 36px',
+            background: 'var(--surface)',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            borderTop: '1px solid var(--border)',
+            padding: '20px 18px 36px',
             maxHeight: '80vh', overflowY: 'auto',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>All App Modules</span>
-                <span className="badge badge-purple" style={{ fontSize: 10 }}>12 Apps</span>
-              </div>
-              <button onClick={() => setShowDrawer(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>All App Modules</span>
+              <button onClick={() => setShowDrawer(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
                 <X size={20} />
               </button>
             </div>
@@ -155,19 +133,13 @@ export default function BottomNav() {
                     onClick={() => setShowDrawer(false)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
-                      background: isActive ? `rgba(${hexToRgb(color)},0.15)` : 'var(--surface-2)',
-                      border: `1px solid ${isActive ? `rgba(${hexToRgb(color)},0.3)` : 'var(--border)'}`,
-                      borderRadius: 'var(--radius)', textDecoration: 'none',
+                      background: isActive ? 'rgba(124, 58, 237, 0.08)' : 'var(--surface-2)',
+                      border: `1px solid ${isActive ? '#7C3AED' : 'var(--border)'}`,
+                      borderRadius: 'var(--radius-btn)', textDecoration: 'none',
                     }}
                   >
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 8,
-                      background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      <Icon size={16} color={color} />
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{label}</span>
+                    <Icon size={16} color={color} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: isActive ? '#7C3AED' : 'var(--text-primary)' }}>{label}</span>
                   </Link>
                 )
               })}

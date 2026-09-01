@@ -413,6 +413,23 @@ export interface Database {
         }
         Update: Partial<Database['public']['Tables']['api_keys']['Insert']>
       }
+      water_logs: {
+        Row: {
+          id: string
+          user_id: string
+          amount_ml: number
+          logged_at: string
+          date: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          amount_ml: number
+          logged_at?: string
+          date?: string
+        }
+        Update: Partial<Database['public']['Tables']['water_logs']['Insert']>
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -439,3 +456,4 @@ export type LessonProgress = Database['public']['Tables']['lesson_progress']['Ro
 export type Streak = Database['public']['Tables']['streaks']['Row']
 export type DailyPlan = Database['public']['Tables']['daily_plans']['Row']
 export type ApiKey = Database['public']['Tables']['api_keys']['Row']
+export type WaterLog = Database['public']['Tables']['water_logs']['Row']

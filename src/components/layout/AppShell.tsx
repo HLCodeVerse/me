@@ -1,13 +1,14 @@
 'use client'
 
-import { ReactNode, useState, useRef } from 'react'
+import { ReactNode, useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import BottomNav from './BottomNav'
+import { usePathname } from 'next/navigation'
+import AppHeader from './AppHeader'
 import DesktopSidebar from './DesktopSidebar'
+import BottomNav from './BottomNav'
 import {
-  Menu, X, LayoutDashboard, CheckSquare, ListTodo, BookOpen, Bot, Flame,
-  StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, ShieldCheck, Activity
+  LayoutDashboard, CheckSquare, ListTodo, BookOpen, Bot, Flame,
+  StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, X, ShieldCheck, Activity, Zap
 } from 'lucide-react'
 
 interface AppShellProps {
@@ -17,138 +18,88 @@ interface AppShellProps {
 }
 
 const ALL_MODULES = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',   color: '#10B981' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',   color: '#7C3AED' },
   { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',       color: '#F59E0B' },
-  { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#818CF8' },
-  { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#F43F5E' },
+  { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#3B82F6' },
+  { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#EF4444' },
   { href: '/health',    icon: Activity,        label: 'Health',      color: '#10B981' },
   { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4' },
   { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B' },
-  { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#A78BFA' },
+  { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#8B5CF6' },
   { href: '/goals',     icon: Target,          label: 'Goals',       color: '#10B981' },
-  { href: '/analytics', icon: BarChart2,       label: 'Analytics',   color: '#10B981' },
-  { href: '/learn',     icon: GraduationCap,   label: 'Learn Hub',   color: '#60A5FA' },
-  { href: '/ai',        icon: Bot,             label: 'AI Chat OS',  color: '#818CF8' },
-  { href: '/mcp',       icon: ShieldCheck,     label: 'MCP Connect', color: '#10B981' },
-  { href: '/settings',  icon: Settings,        label: 'Settings',    color: '#8892A4' },
+  { href: '/analytics', icon: BarChart2,       label: 'Analytics',   color: '#3B82F6' },
+  { href: '/learn',     icon: GraduationCap,   label: 'Learning hub',color: '#8B5CF6' },
+  { href: '/ai',        icon: Bot,             label: 'AI chat OS',  color: '#7C3AED' },
+  { href: '/mcp',       icon: ShieldCheck,     label: 'MCP connect', color: '#10B981' },
+  { href: '/settings',  icon: Settings,        label: 'Settings',    color: '#6B7280' },
 ]
-
-const NAV_SEQUENCE = ALL_MODULES.map(m => m.href)
 
 export default function AppShell({ children, header, noPadding }: AppShellProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const [showDrawer, setShowDrawer] = useState(false)
 
-  // Touch Swipe Gesture State
-  const touchStartX = useRef<number | null>(null)
-  const touchStartY = useRef<number | null>(null)
-
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null || touchStartY.current === null) return
-
-    const deltaX = e.changedTouches[0].clientX - touchStartX.current
-    const deltaY = e.changedTouches[0].clientY - touchStartY.current
-
-    // Check if horizontal swipe is prominent (deltaX > 75px, deltaY < 50px)
-    if (Math.abs(deltaX) > 75 && Math.abs(deltaY) < 50) {
-      const currentIndex = NAV_SEQUENCE.indexOf(pathname)
-      if (currentIndex !== -1) {
-        if (deltaX < 0 && currentIndex < NAV_SEQUENCE.length - 1) {
-          // Swipe left -> Next page
-          router.push(NAV_SEQUENCE[currentIndex + 1])
-        } else if (deltaX > 0 && currentIndex > 0) {
-          // Swipe right -> Previous page
-          router.push(NAV_SEQUENCE[currentIndex - 1])
-        }
-      }
-    }
-
-    touchStartX.current = null
-    touchStartY.current = null
-  }
-
   return (
-    <div
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}
-    >
+    <div className="app-layout">
+      {/* Desktop Sidebar (≥768px) */}
       <DesktopSidebar />
-      <div className="app-layout" style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
-        {header && (
-          <header
-            className="app-header"
-            style={{
-              position: 'sticky',
-              top: 0,
-              zIndex: 40,
-              background: 'rgba(10, 11, 13, 0.92)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              borderBottom: '1px solid var(--border)',
-              padding: '0 16px',
-              height: '60px',
-              display: 'flex',
-              alignItems: 'center',
-              width: '100%',
-              gap: 12,
-            }}
-          >
-            {/* Mobile Top Header Menu Drawer Trigger */}
-            <button
-              onClick={() => setShowDrawer(true)}
-              className="btn-icon"
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'var(--surface-2)', border: '1px solid var(--border)',
-                borderRadius: 8, padding: 6, cursor: 'pointer', color: 'var(--text)',
-                marginRight: 4,
-              }}
-              title="Open Navigation Menu"
-            >
-              <Menu size={18} />
-            </button>
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
-              {header}
-            </div>
-          </header>
-        )}
-        <main
-          className="pb-nav"
-          style={{
-            flex: 1,
-            padding: noPadding ? '0 0 calc(90px + env(safe-area-inset-bottom, 0px))' : '0 16px calc(90px + env(safe-area-inset-bottom, 0px))',
-            width: '100%',
-          }}
-        >
+
+      {/* Main Content Area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh' }}>
+        {header ? header : <AppHeader onOpenMobileDrawer={() => setShowDrawer(true)} />}
+        
+        <main style={{
+          flex: 1,
+          padding: noPadding ? 0 : '24px',
+          maxWidth: noPadding ? '100%' : 1440,
+          width: '100%',
+          margin: '0 auto',
+          paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+        }}>
           {children}
         </main>
       </div>
 
-      {/* Slide-Up Navigation Drawer accessible from anywhere */}
+      {/* Off-Canvas Navigation Drawer for Mobile (<768px) */}
       {showDrawer && (
         <>
-          <div className="overlay" onClick={() => setShowDrawer(false)} style={{ zIndex: 120 }} />
-          <div className="animate-slide-up" style={{
-            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 130,
-            background: 'rgba(14,17,23,0.96)', backdropFilter: 'blur(24px)',
-            borderTop: '1px solid var(--border-2)',
-            borderRadius: '24px 24px 0 0', padding: '20px 18px 36px',
-            maxHeight: '82vh', overflowY: 'auto',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>Easy Life Navigation</span>
-                <span className="badge badge-emerald" style={{ fontSize: 10 }}>12 Apps</span>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(17, 24, 39, 0.4)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 100,
+            }}
+            onClick={() => setShowDrawer(false)}
+          />
+          <div style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 110,
+            background: 'var(--surface)',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            borderTop: '1px solid var(--border)',
+            padding: '20px 20px 36px',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            boxShadow: 'var(--shadow-float)',
+          }} className="animate-fade-in">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
+                  <Zap size={16} fill="#FFF" />
+                </div>
+                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>NIRMAAN Navigation</span>
               </div>
-              <button onClick={() => setShowDrawer(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                <X size={20} />
+              <button
+                onClick={() => setShowDrawer(false)}
+                className="btn-ghost btn-icon"
+                style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)' }}
+              >
+                <X size={18} color="var(--text-secondary)" />
               </button>
             </div>
 
@@ -161,20 +112,20 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
                     href={href}
                     onClick={() => setShowDrawer(false)}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
-                      background: isActive ? `${color}20` : 'var(--surface-2)',
-                      border: `1px solid ${isActive ? color : 'var(--border)'}`,
-                      borderRadius: 'var(--radius)', textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '12px 14px',
+                      background: isActive ? 'rgba(124, 58, 237, 0.08)' : 'var(--surface-2)',
+                      border: `1px solid ${isActive ? '#7C3AED' : 'var(--border)'}`,
+                      borderRadius: 'var(--radius-btn)',
+                      textDecoration: 'none',
                     }}
                   >
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 8,
-                      background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      <Icon size={16} color={color} />
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: isActive ? color : 'var(--text)' }}>{label}</span>
+                    <Icon size={18} color={color} />
+                    <span style={{ fontSize: 13, fontWeight: isActive ? 600 : 500, color: isActive ? '#7C3AED' : 'var(--text-primary)' }}>
+                      {label}
+                    </span>
                   </Link>
                 )
               })}
@@ -183,6 +134,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
         </>
       )}
 
+      {/* Bottom Nav for Mobile */}
       <BottomNav />
     </div>
   )

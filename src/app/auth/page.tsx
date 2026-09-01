@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { Phone, Lock, ArrowRight, Loader2, User } from 'lucide-react'
+import { Phone, Lock, ArrowRight, Loader2, User, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Profile } from '@/lib/supabase/database.types'
 
@@ -29,7 +29,6 @@ function AuthContent() {
   }, [user, router, nextUrl])
 
   useEffect(() => {
-    // Clear any stale Supabase local storage tokens on auth page load
     if (typeof window !== 'undefined') {
       try {
         Object.keys(localStorage).forEach(k => {
@@ -86,37 +85,37 @@ function AuthContent() {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Background Glow */}
+      {/* Background Glow Accent */}
       <div style={{
         position: 'absolute', top: -200, right: -200,
         width: 500, height: 500, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(52,211,153,0.06), transparent 70%)',
+        background: 'radial-gradient(circle, rgba(124, 58, 237, 0.06), transparent 70%)',
         pointerEvents: 'none',
       }} />
 
       {/* Header Logo */}
-      <div className="animate-fade-up" style={{ textAlign: 'center', marginBottom: 36 }}>
+      <div className="animate-fade-in" style={{ textAlign: 'center', marginBottom: 32 }}>
         <div style={{
-          width: 56, height: 56, borderRadius: 16, background: 'var(--growth)',
+          width: 54, height: 54, borderRadius: 16, background: 'var(--primary-gradient)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 16px', fontSize: 28, fontWeight: 900, color: '#0A0B0D',
-          boxShadow: 'var(--glow-growth)',
+          margin: '0 auto 16px', color: '#FFFFFF',
+          boxShadow: 'var(--shadow-hero)',
         }}>
-          N
+          <Zap size={28} fill="#FFFFFF" />
         </div>
-        <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>NIRMAAN</h1>
-        <p style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', margin: 0 }}>NIRMAAN</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
           {mode === 'login' ? 'Direct Mobile Login' : 'Direct Mobile Registration'}
         </p>
       </div>
 
       {/* Main Card */}
-      <div className="animate-fade-up delay-100 card" style={{ padding: '28px 24px', maxWidth: 400, margin: '0 auto', width: '100%' }}>
-        {/* Mode Selector (Login vs Register) */}
+      <div className="animate-fade-in card" style={{ padding: '28px 24px', maxWidth: 400, margin: '0 auto', width: '100%' }}>
+        {/* Mode Selector */}
         <div style={{
           display: 'flex',
           background: 'var(--surface-2)',
-          borderRadius: 'var(--radius-sm)',
+          borderRadius: 'var(--radius-btn)',
           padding: 4,
           marginBottom: 24,
         }}>
@@ -125,10 +124,11 @@ function AuthContent() {
               key={m}
               onClick={() => setMode(m)}
               style={{
-                flex: 1, padding: '8px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                background: mode === m ? 'var(--surface-3)' : 'transparent',
-                color: mode === m ? 'var(--text)' : 'var(--text-muted)',
-                fontSize: 14, fontWeight: 600, transition: 'all 200ms ease',
+                flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer',
+                background: mode === m ? 'var(--surface)' : 'transparent',
+                color: mode === m ? '#7C3AED' : 'var(--text-secondary)',
+                fontSize: 13, fontWeight: 600, transition: 'all 150ms ease',
+                boxShadow: mode === m ? 'var(--shadow-card)' : 'none',
               }}
             >
               {m === 'login' ? 'Login' : 'Register'}
@@ -136,20 +136,20 @@ function AuthContent() {
           ))}
         </div>
 
-        {/* Direct Mobile Form */}
-        <form onSubmit={handleDirectAuth} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Form */}
+        <form onSubmit={handleDirectAuth} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {mode === 'signup' && (
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6, display: 'block', letterSpacing: '0.04em' }}>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>
                 YOUR NAME
               </label>
               <div style={{ position: 'relative' }}>
-                <User size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+                <User size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   placeholder="e.g. Alex"
                   value={displayName}
                   onChange={e => setDisplayName(e.target.value)}
-                  style={{ paddingLeft: 36 }}
+                  style={{ paddingLeft: 38 }}
                   required
                 />
               </div>
@@ -157,34 +157,34 @@ function AuthContent() {
           )}
 
           <div>
-            <label style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6, display: 'block', letterSpacing: '0.04em' }}>
+            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>
               MOBILE NUMBER
             </label>
             <div style={{ position: 'relative' }}>
-              <Phone size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+              <Phone size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
                 type="tel"
                 placeholder="9876543210"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                style={{ paddingLeft: 36 }}
+                style={{ paddingLeft: 38 }}
                 required
               />
             </div>
           </div>
 
           <div>
-            <label style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6, display: 'block', letterSpacing: '0.04em' }}>
+            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>
               PASSWORD
             </label>
             <div style={{ position: 'relative' }}>
-              <Lock size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+              <Lock size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
                 type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                style={{ paddingLeft: 36 }}
+                style={{ paddingLeft: 38 }}
                 required
               />
             </div>
@@ -194,7 +194,7 @@ function AuthContent() {
             type="submit"
             disabled={loading}
             className="btn btn-primary"
-            style={{ marginTop: 8, height: 44 }}
+            style={{ marginTop: 8, height: 44, fontSize: 14 }}
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : (
               <>
@@ -206,8 +206,8 @@ function AuthContent() {
         </form>
       </div>
 
-      <p className="animate-fade-up delay-200" style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text-dim)' }}>
-        NIRMAAN Personal OS · Direct Authentication
+      <p style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: 'var(--text-muted)' }}>
+        NIRMAAN Personal OS • Personal Growth & Reconstruction
       </p>
     </div>
   )
