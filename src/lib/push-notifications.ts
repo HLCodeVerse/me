@@ -50,21 +50,9 @@ export function initPWAAutoUpdate(): void {
   }
 }
 
-export async function autoPromptNotificationPermission(userId: string): Promise<void> {
-  if (typeof window === 'undefined' || !('Notification' in window) || !userId) return
-
-  if (Notification.permission === 'default') {
-    toast('Enable Web Push Notifications 🔔', {
-      description: 'Receive automated alerts for tasks and reminders in real-time.',
-      action: {
-        label: 'Enable Now',
-        onClick: () => {
-          subscribeToPushNotifications(userId)
-        },
-      },
-      duration: 12000,
-    })
-  }
+export async function autoPromptNotificationPermission(_userId: string): Promise<void> {
+  // Disabled auto-prompt notification toast on app load per user directive
+  return
 }
 
 export async function subscribeToPushNotifications(userId: string): Promise<boolean> {
