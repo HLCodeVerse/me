@@ -662,13 +662,13 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
 
   // ── Notes ──
   if (toolName === 'create_note') {
-    const { data, error } = await db.from('notes').insert({
+    const { data: note, error } = await db.from('notes').insert({
       user_id: userId,
       title: args.title?.trim() || null,
       content: args.content.trim(),
     }).select('id, title').single()
     if (error) return mcpError(id, -32603, `Failed to create note: ${error.message}`)
-    return mcpOk(id, `📝 Note saved!`)
+    return mcpOk(id, `📝 Note saved: "${note.title || 'Untitled note'}"`)
   }
 
   if (toolName === 'delete_note') {
