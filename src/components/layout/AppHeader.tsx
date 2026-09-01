@@ -1,16 +1,14 @@
 'use client'
 
-import { Search, Bell, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Search, Bell, Menu } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { getGreeting } from '@/lib/utils'
 
 interface AppHeaderProps {
   onOpenMobileDrawer?: () => void
-  isSidebarCollapsed?: boolean
-  onToggleSidebar?: () => void
 }
 
-export default function AppHeader({ onOpenMobileDrawer, isSidebarCollapsed, onToggleSidebar }: AppHeaderProps) {
+export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
   const { profile } = useAuth()
   const name = profile?.display_name?.split(' ')[0] ?? profile?.username ?? 'Builder'
 
@@ -28,12 +26,11 @@ export default function AppHeader({ onOpenMobileDrawer, isSidebarCollapsed, onTo
       zIndex: 30,
       width: '100%',
     }}>
-      {/* Left: Menu Toggle & Greeting */}
+      {/* Left: Navigation Menu Drawer Toggle & Greeting */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {/* Mobile Hamburger Button (visible on <1024px) */}
         <button
           onClick={onOpenMobileDrawer}
-          className="btn-ghost btn-icon lg:hidden"
+          className="btn-ghost btn-icon"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -45,29 +42,10 @@ export default function AppHeader({ onOpenMobileDrawer, isSidebarCollapsed, onTo
             cursor: 'pointer',
             background: 'rgba(245, 158, 11, 0.1)',
           }}
-          aria-label="Open Mobile Navigation Menu"
+          aria-label="Open Navigation Menu"
+          title="Open NIRMAAN Navigation Menu"
         >
           <Menu size={20} color="#FFD700" />
-        </button>
-
-        {/* Desktop Sidebar Toggle Button (visible on ≥1024px) */}
-        <button
-          onClick={onToggleSidebar}
-          className="btn-ghost btn-icon hidden lg:inline-flex"
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '1px solid rgba(245, 158, 11, 0.35)',
-            borderRadius: 'var(--radius-btn)',
-            width: 40,
-            height: 40,
-            cursor: 'pointer',
-            background: 'rgba(245, 158, 11, 0.1)',
-          }}
-          title={isSidebarCollapsed ? 'Expand Sidebar Menu' : 'Hide Sidebar Menu'}
-          aria-label="Toggle Desktop Sidebar Menu"
-        >
-          {isSidebarCollapsed ? <PanelLeftOpen size={20} color="#FFD700" /> : <PanelLeftClose size={20} color="#FFD700" />}
         </button>
 
         <div>
