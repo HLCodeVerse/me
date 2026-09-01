@@ -78,6 +78,88 @@ function extractTargetIdAndQuery(args: Record<string, any>, defaultIdKeys: strin
 
 // Comprehensive AI Tools for Full CRUD across all NIRMAAN modules
 const AI_TOOLS = [
+  // ── Overview & Data Fetching ──
+  {
+    type: 'function',
+    function: {
+      name: 'get_life_dashboard',
+      description: 'Fetch complete user dashboard overview: profile, pending tasks, todos, water logs, goals',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_tasks',
+      description: 'List user tasks — filter by status (todo, in_progress, done) or return all tasks',
+      parameters: {
+        type: 'object',
+        properties: { status: { type: 'string' } },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_todos',
+      description: 'List user daily todos — filter by completed status (true/false) or return all todos',
+      parameters: {
+        type: 'object',
+        properties: { is_done: { type: 'boolean' } },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_goals',
+      description: 'List all life goals for the user',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_habits',
+      description: 'List all daily habits and today completion logs',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_reminders',
+      description: 'List all scheduled reminders for the user',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_notes',
+      description: 'List user notes and scratchpad entries',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_journal_entries',
+      description: 'List micro-journal entries and mood reflections',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_today_water_intake',
+      description: 'Get today total water consumption in ml',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+
   // ── Tasks & Subtasks ──
   {
     type: 'function',
@@ -231,7 +313,7 @@ const AI_TOOLS = [
       description: 'Create a reminder for a specific time',
       parameters: {
         type: 'object',
-        properties: { title: { type: 'string' }, remind_at: { type: 'string' } },
+        properties: { title: { type: 'string' }, remind_at: { type: 'string' }, repeat_rule: { type: 'string' } },
         required: ['title', 'remind_at'],
       },
     },
@@ -427,6 +509,69 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
   const client = db as any
 
   switch (toolName) {
+    // ── Overview & Data Fetching ──
+    case 'get_life_dashboard': {
+      const today = new Date().toISOString().split('T')[0]
+      const [profileRes, tasksRes, todosRes, waterRes, goalsRes] = await Promise.all([
+        client.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        client.from('tasks').select('*').eq('user_id', userId).order('priority', { ascending: false }).limit(20),
+        client.from('todos').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(20),
+        client.from('water_logs').select('amount_ml').eq('user_id', userId).eq('date', today),
+        client.from('goals').select('*').eq('user_id', userId).limit(10),
+      ])
+      return {
+        success: true,
+        profile: profileRes.data,
+        tasks: tasksRes.data ?? [],
+        todos: todosRes.data ?? [],
+        water_logs: waterRes.data ?? [],
+        goals: goalsRes.data ?? [],
+      }
+    }
+    case 'list_tasks': {
+      let query = client.from('tasks').select('*').eq('user_id', userId).order('priority', { ascending: false })
+      if (args.status) query = query.eq('status', args.status)
+      const { data } = await query
+      return { success: true, count: data?.length ?? 0, tasks: data ?? [] }
+    }
+    case 'list_todos': {
+      let query = client.from('todos').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+      if (args.is_done !== undefined) query = query.eq('is_done', Boolean(args.is_done))
+      const { data } = await query
+      return { success: true, count: data?.length ?? 0, todos: data ?? [] }
+    }
+    case 'list_goals': {
+      const { data } = await client.from('goals').select('*').eq('user_id', userId)
+      return { success: true, count: data?.length ?? 0, goals: data ?? [] }
+    }
+    case 'list_habits': {
+      const today = new Date().toISOString().split('T')[0]
+      const [habitsRes, logsRes] = await Promise.all([
+        client.from('habits').select('*').eq('user_id', userId).eq('archived', false),
+        client.from('habit_logs').select('*').eq('user_id', userId).eq('logged_at', today),
+      ])
+      return { success: true, habits: habitsRes.data ?? [], today_logs: logsRes.data ?? [] }
+    }
+    case 'list_reminders': {
+      const { data } = await client.from('reminders').select('*').eq('user_id', userId).order('remind_at', { ascending: true })
+      return { success: true, count: data?.length ?? 0, reminders: data ?? [] }
+    }
+    case 'list_notes': {
+      const { data } = await client.from('notes').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+      return { success: true, count: data?.length ?? 0, notes: data ?? [] }
+    }
+    case 'list_journal_entries': {
+      const { data } = await client.from('journal_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(20)
+      return { success: true, count: data?.length ?? 0, journal_entries: data ?? [] }
+    }
+    case 'get_today_water_intake': {
+      const today = new Date().toISOString().split('T')[0]
+      const { data } = await client.from('water_logs').select('amount_ml').eq('user_id', userId).eq('date', today)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const totalMl = (data ?? []).reduce((acc: number, curr: any) => acc + (curr.amount_ml || 0), 0)
+      return { success: true, today_total_ml: totalMl }
+    }
+
     // ── Tasks ──
     case 'create_task': {
       const { data } = await client.from('tasks').insert({
@@ -940,14 +1085,52 @@ export async function POST(req: NextRequest) {
     const openRouterApiKey = process.env.OPENROUTER_API_KEY || HARDCODED_OPENROUTER_KEY
     const xaiApiKey = clientGrokKey || req.headers.get('x-ai-api-key') || process.env.XAI_API_KEY || process.env.GROK_API_KEY
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = db as any
+    const [tasksRes, todosRes, goalsRes] = await Promise.all([
+      client.from('tasks').select('id, title, priority, status, due_date').eq('user_id', userId).neq('status', 'done').order('priority', { ascending: false }).limit(10),
+      client.from('todos').select('id, title, is_done, due_date').eq('user_id', userId).eq('is_done', false).order('created_at', { ascending: false }).limit(10),
+      client.from('goals').select('id, title, status').eq('user_id', userId).limit(5),
+    ])
+
+    const activeTasks = tasksRes.data ?? []
+    const activeTodos = todosRes.data ?? []
+    const activeGoals = goalsRes.data ?? []
+
+    const tasksSummary = activeTasks.length > 0
+      ? activeTasks.map((t: { title: string; priority: number; status: string }) => `- "${t.title}" (Priority ${t.priority}, Status: ${t.status})`).join('\n')
+      : 'No pending tasks.'
+
+    const todosSummary = activeTodos.length > 0
+      ? activeTodos.map((t: { title: string }) => `- "${t.title}"`).join('\n')
+      : 'No pending todos.'
+
+    const goalsSummary = activeGoals.length > 0
+      ? activeGoals.map((g: { title: string; status: string }) => `- "${g.title}" (${g.status})`).join('\n')
+      : 'No goals recorded.'
+
     const systemMessage = {
       role: 'system',
       content: `You are NIRMAAN AI — an intelligent, ultra-stylish personal AI assistant inside the NIRMAAN app.
 
-Response Formatting Rules:
-1. **Stylish & Structured**: Always use bold headers (e.g. ## 📅 Title), bold key terms (**Key Concept**), bullet points (- item), and clean emojis (🎯, 📅, ⚡, 💡, 📝, 🚀).
-2. **Direct & Minimal**: Get straight to the point without raw markdown symbols or extra fluff.
-3. **App Integration & Tool Execution**: When user asks to create, update, or delete tasks, todos, habits, notes, journal entries, goals, reminders, water logs, or full data reset — execute the exact corresponding tool directly.`,
+YOUR LIVE USER DATA SNAPSHOT:
+[ACTIVE TASKS]:
+${tasksSummary}
+
+[PENDING TODOS]:
+${todosSummary}
+
+[ACTIVE GOALS]:
+${goalsSummary}
+
+CRITICAL RULES:
+1. **FULL DATABASE ACCESS**: You HAVE full direct access to view, list, create, update, complete, and delete user data across all tables.
+2. **NEVER REFUSE**: NEVER state "I don't have a function to view your tasks" or "I cannot retrieve your todos". You ALREADY have the user's tasks, todos, and goals above in context, and you CAN also execute tool functions (list_tasks, list_todos, list_goals, etc.) anytime!
+3. **WHEN USER ASKS FOR TASKS OR TODOS**: Immediately present their tasks or todos cleanly formatted using the live snapshot above or call list_tasks/list_todos tool functions!
+4. **STYLISH RESPONSE FORMATTING**:
+   - Always use bold section headers (e.g. ## 📋 Your Active Tasks).
+   - Use clean bullet points (- item) with status emojis (✅, 🎯, ⚡, 📌).
+   - Keep answers direct, minimal, and ultra-stylish.`,
     }
 
     const allMessages = [systemMessage, ...messages]
