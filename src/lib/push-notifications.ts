@@ -25,6 +25,64 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 }
 
+// Automatically detect when new code is pushed/deployed and update PWA SW instantly
+export function initPWAAutoUpdate(): void {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
+
+  navigator.serviceWorker.register('/sw.js').then((registration) => {
+    // Check for updates periodically every 10 minutes
+    setInterval(() => {
+      registration.update().catch(() => {})
+    }, 10 * 60 * 1000)
+
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing
+      if (!newWorker) return
+
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          toast.info('New NIRMAAN version deployed! Updating...', {
+            action: {
+              label: 'Refresh Now',
+              onClick: () => {
+                newWorker.postMessage({ type: 'SKIP_WAITING' })
+                window.location.reload()
+              },
+            },
+            duration: 10000,
+          })
+        }
+      })
+    })
+  }).catch(() => {})
+
+  let refreshing = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true
+      window.location.reload()
+    }
+  })
+}
+
+// Automatically prompt user for push notification permission on web app open if default
+export async function autoPromptNotificationPermission(userId: string): Promise<void> {
+  if (typeof window === 'undefined' || !('Notification' in window) || !userId) return
+
+  if (Notification.permission === 'default') {
+    toast('Enable Background Push Notifications 🔔', {
+      description: 'Receive automated alerts for tasks and reminders even when NIRMAAN is closed.',
+      action: {
+        label: 'Enable Now',
+        onClick: () => {
+          subscribeToPushNotifications(userId)
+        },
+      },
+      duration: 12000,
+    })
+  }
+}
+
 export async function subscribeToPushNotifications(userId: string): Promise<boolean> {
   if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
     toast.error('Push notifications are not supported on this browser/device.')

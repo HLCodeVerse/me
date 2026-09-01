@@ -1,8 +1,10 @@
 'use client'
 
-import { ReactNode, useState } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { initPWAAutoUpdate, autoPromptNotificationPermission } from '@/lib/push-notifications'
 import AppHeader from './AppHeader'
 import DesktopSidebar from './DesktopSidebar'
 import BottomNav from './BottomNav'
@@ -36,7 +38,15 @@ const ALL_MODULES = [
 
 export default function AppShell({ children, header, noPadding }: AppShellProps) {
   const pathname = usePathname()
+  const { user } = useAuth()
   const [showDrawer, setShowDrawer] = useState(false)
+
+  useEffect(() => {
+    initPWAAutoUpdate()
+    if (user?.id) {
+      autoPromptNotificationPermission(user.id)
+    }
+  }, [user])
 
   return (
     <div className="app-layout">

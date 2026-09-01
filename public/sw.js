@@ -1,4 +1,4 @@
-// Service Worker for NIRMAAN Background Push Notifications
+// Service Worker for NIRMAAN Background Push Notifications & PWA Auto-Updates
 /* eslint-disable no-restricted-globals */
 
 self.addEventListener('install', (event) => {
@@ -7,6 +7,13 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim())
+})
+
+// Listen for messages from client (e.g. force SW update when new code is deployed)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
 })
 
 // Listen for incoming WebPush notifications from the server
