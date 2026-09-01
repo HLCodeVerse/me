@@ -9,6 +9,8 @@ import AppHeader from './AppHeader'
 import DesktopSidebar from './DesktopSidebar'
 import BottomNav from './BottomNav'
 import GlobalMediaPlayer from '@/components/media/GlobalMediaPlayer'
+import SplashScreen from '@/components/common/SplashScreen'
+import { initDoubleBackToExit } from '@/lib/back-button-handler'
 import {
   LayoutDashboard, CheckSquare, ListTodo, BookOpen, Bot, Flame,
   StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, X, ShieldCheck, Activity, Zap, Disc
@@ -48,10 +50,16 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
     if (user?.id) {
       autoPromptNotificationPermission(user.id)
     }
-  }, [user])
+    const cleanupBack = initDoubleBackToExit(pathname)
+    return () => {
+      if (cleanupBack) cleanupBack()
+    }
+  }, [user, pathname])
 
   return (
     <div className="app-layout">
+      {/* Animated SplashScreen on First Mount */}
+      <SplashScreen />
       {/* Desktop Sidebar (≥768px) */}
       <DesktopSidebar />
 

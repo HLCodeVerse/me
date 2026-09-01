@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NIRMAAN</string>
+    <string name="title_activity_main">NIRMAAN</string>
+    <string name="package_name">com.nirmaan.app</string>
+    <string name="custom_url_scheme">com.nirmaan.app</string>
+</resources>
