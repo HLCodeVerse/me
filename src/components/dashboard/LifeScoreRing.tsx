@@ -15,10 +15,10 @@ export default function LifeScoreRing({ score, size = 180, strokeWidth = 10 }: L
   const offset = circumference - (animated / 100) * circumference
 
   const getColor = (s: number) => {
-    if (s >= 80) return '#34D399'
-    if (s >= 60) return '#60A5FA'
-    if (s >= 40) return '#F59E0B'
-    return '#EF4444'
+    if (s >= 80) return '#10B981' // Green
+    if (s >= 60) return '#FFD700' // Gold
+    if (s >= 40) return '#FACC15' // Yellow
+    return '#EF4444'             // Red
   }
 
   useEffect(() => {

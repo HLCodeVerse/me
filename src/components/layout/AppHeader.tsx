@@ -15,8 +15,8 @@ export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
   return (
     <header style={{
       height: 72,
-      background: 'var(--surface)',
-      borderBottom: '1px solid var(--border)',
+      background: '#0A0B0D',
+      borderBottom: '1px solid rgba(245, 158, 11, 0.3)',
       padding: '0 24px',
       display: 'flex',
       alignItems: 'center',
@@ -28,30 +28,31 @@ export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
     }}>
       {/* Left: Mobile Hamburger & Greeting */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {/* Mobile Hamburger Button */}
+        {/* Mobile/Tablet Hamburger Button (visible on <1024px) */}
         <button
           onClick={onOpenMobileDrawer}
-          className="btn-ghost btn-icon md:hidden"
+          className="btn-ghost btn-icon lg:hidden"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            border: '1px solid var(--border)',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
             borderRadius: 'var(--radius-btn)',
             width: 40,
             height: 40,
             cursor: 'pointer',
+            background: 'rgba(245, 158, 11, 0.1)',
           }}
           aria-label="Open Navigation Menu"
         >
-          <Menu size={20} color="var(--text-primary)" />
+          <Menu size={20} color="#FFD700" />
         </button>
 
         <div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
             {getGreeting()}, {name}! 👋
           </h2>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+          <p style={{ fontSize: 13, color: '#9CA3AF', margin: '2px 0 0' }}>
             Let&apos;s make today count and build your best life.
           </p>
         </div>
@@ -60,8 +61,8 @@ export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
       {/* Right: Search, Notifications, Avatar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {/* Search Bar */}
-        <div style={{ position: 'relative', width: 240 }} className="hidden sm:block">
-          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+        <div style={{ position: 'relative', width: 240 }} className="hidden md:block">
+          <Search size={16} color="#F59E0B" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
           <input
             type="text"
             placeholder="Search anything..."
@@ -70,21 +71,22 @@ export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
               height: 38,
               fontSize: 13,
               borderRadius: 'var(--radius-btn)',
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border)',
+              background: '#121318',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              color: '#FFFFFF',
             }}
           />
         </div>
 
         {/* Search Icon button for small screens */}
-        <button className="btn-ghost btn-icon sm:hidden" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)', width: 38, height: 38 }}>
-          <Search size={18} color="var(--text-secondary)" />
+        <button className="btn-ghost btn-icon md:hidden" style={{ border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: 'var(--radius-btn)', width: 38, height: 38 }}>
+          <Search size={18} color="#F59E0B" />
         </button>
 
         {/* Notification Bell */}
         <div style={{ position: 'relative' }}>
-          <button className="btn-ghost btn-icon" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)', width: 38, height: 38, position: 'relative' }}>
-            <Bell size={18} color="var(--text-secondary)" />
+          <button className="btn-ghost btn-icon" style={{ border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: 'var(--radius-btn)', width: 38, height: 38, position: 'relative' }}>
+            <Bell size={18} color="#FFFFFF" />
             <span style={{
               position: 'absolute',
               top: 4,
@@ -92,14 +94,14 @@ export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
               background: '#EF4444',
               color: '#FFFFFF',
               fontSize: 10,
-              fontWeight: 700,
+              fontWeight: 800,
               width: 16,
               height: 16,
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '2px solid var(--surface)',
+              border: '2px solid #0A0B0D',
             }}>
               3
             </span>
@@ -112,14 +114,15 @@ export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
             width: 38,
             height: 38,
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #7C3AED, #3B82F6)',
+            background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#FFFFFF',
+            color: '#000000',
             fontSize: 14,
-            fontWeight: 700,
+            fontWeight: 800,
             overflow: 'hidden',
+            boxShadow: '0 2px 10px rgba(245, 158, 11, 0.4)',
           }}>
             {name[0]?.toUpperCase() ?? 'U'}
           </div>
@@ -132,10 +135,12 @@ export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
             height: 10,
             borderRadius: '50%',
             background: '#10B981',
-            border: '2px solid var(--surface)',
+            border: '2px solid #0A0B0D',
+            boxShadow: '0 0 6px #10B981',
           }} />
         </div>
       </div>
     </header>
   )
 }
+

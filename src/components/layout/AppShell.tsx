@@ -26,21 +26,21 @@ interface AppShellProps {
 }
 
 const ALL_MODULES = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#7C3AED' },
-  { href: '/tasks', icon: CheckSquare, label: 'Tasks', color: '#F59E0B' },
-  { href: '/todos', icon: ListTodo, label: 'Todos', color: '#3B82F6' },
-  { href: '/habits', icon: Flame, label: 'Habits', color: '#EF4444' },
-  { href: '/health', icon: Activity, label: 'Health', color: '#10B981' },
-  { href: '/player', icon: Disc, label: 'Media Player', color: '#7C3AED' },
-  { href: '/notes', icon: StickyNote, label: 'Notes', color: '#06B6D4' },
-  { href: '/reminders', icon: Bell, label: 'Reminders', color: '#F59E0B' },
-  { href: '/journal', icon: BookOpen, label: 'Journal', color: '#8B5CF6' },
-  { href: '/goals', icon: Target, label: 'Goals', color: '#10B981' },
-  { href: '/analytics', icon: BarChart2, label: 'Analytics', color: '#3B82F6' },
-  { href: '/learn', icon: GraduationCap, label: 'Learning hub', color: '#8B5CF6' },
-  { href: '/ai', icon: Bot, label: 'AI chat OS', color: '#7C3AED' },
-  { href: '/mcp', icon: ShieldCheck, label: 'MCP connect', color: '#10B981' },
-  { href: '/settings', icon: Settings, label: 'Settings', color: '#6B7280' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',    color: '#FFD700' },
+  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',        color: '#EF4444' },
+  { href: '/todos',     icon: ListTodo,        label: 'Todos',        color: '#FACC15' },
+  { href: '/habits',    icon: Flame,           label: 'Habits',       color: '#EF4444' },
+  { href: '/health',    icon: Activity,        label: 'Health',       color: '#10B981' },
+  { href: '/player',    icon: Disc,            label: 'Media Player', color: '#F59E0B' },
+  { href: '/notes',     icon: StickyNote,      label: 'Notes',        color: '#FACC15' },
+  { href: '/reminders', icon: Bell,            label: 'Reminders',    color: '#EF4444' },
+  { href: '/journal',   icon: BookOpen,        label: 'Journal',      color: '#10B981' },
+  { href: '/goals',     icon: Target,          label: 'Goals',        color: '#10B981' },
+  { href: '/analytics', icon: BarChart2,       label: 'Analytics',    color: '#FACC15' },
+  { href: '/learn',     icon: GraduationCap,   label: 'Learning hub', color: '#FFD700' },
+  { href: '/ai',        icon: Bot,             label: 'AI chat OS',   color: '#FFD700' },
+  { href: '/mcp',       icon: ShieldCheck,     label: 'MCP connect',  color: '#10B981' },
+  { href: '/settings',  icon: Settings,        label: 'Settings',     color: '#FFFFFF' },
 ]
 
 export default function AppShell({ children, header, noPadding }: AppShellProps) {
@@ -79,7 +79,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
 
       {/* Animated SplashScreen on First Mount */}
       <SplashScreen />
-      {/* Desktop Sidebar (≥768px) */}
+      {/* Desktop Sidebar (≥1024px) */}
       <DesktopSidebar />
 
       {/* Main Content Area */}
@@ -101,15 +101,15 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
       {/* Persistent Global Floating Media Player */}
       <GlobalMediaPlayer />
 
-      {/* Off-Canvas Navigation Drawer for Mobile (<768px) */}
+      {/* Off-Canvas Navigation Drawer for Mobile (<1024px) */}
       {showDrawer && (
         <>
           <div
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(17, 24, 39, 0.4)',
-              backdropFilter: 'blur(4px)',
+              background: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(6px)',
               zIndex: 100,
             }}
             onClick={() => setShowDrawer(false)}
@@ -120,28 +120,28 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
             left: 0,
             right: 0,
             zIndex: 110,
-            background: 'var(--surface)',
+            background: '#0A0B0D',
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
-            borderTop: '1px solid var(--border)',
+            borderTop: '1px solid rgba(245, 158, 11, 0.35)',
             padding: '20px 20px 36px',
             maxHeight: '85vh',
             overflowY: 'auto',
-            boxShadow: 'var(--shadow-float)',
+            boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.9)',
           }} className="animate-fade-in">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
-                  <Zap size={16} fill="#FFF" />
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg, #FFD700, #F59E0B)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000' }}>
+                  <Zap size={18} fill="#000" color="#000" />
                 </div>
-                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>NIRMAAN Navigation</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>NIRMAAN OS Navigation</span>
               </div>
               <button
                 onClick={() => setShowDrawer(false)}
                 className="btn-ghost btn-icon"
-                style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)' }}
+                style={{ border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-btn)' }}
               >
-                <X size={18} color="var(--text-secondary)" />
+                <X size={18} color="#FFFFFF" />
               </button>
             </div>
 
@@ -158,14 +158,14 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
                       alignItems: 'center',
                       gap: 10,
                       padding: '12px 14px',
-                      background: isActive ? 'rgba(124, 58, 237, 0.08)' : 'var(--surface-2)',
-                      border: `1px solid ${isActive ? '#7C3AED' : 'var(--border)'}`,
+                      background: isActive ? 'rgba(245, 158, 11, 0.15)' : '#121318',
+                      border: `1px solid ${isActive ? '#F59E0B' : 'rgba(245, 158, 11, 0.2)'}`,
                       borderRadius: 'var(--radius-btn)',
                       textDecoration: 'none',
                     }}
                   >
                     <Icon size={18} color={color} />
-                    <span style={{ fontSize: 13, fontWeight: isActive ? 600 : 500, color: isActive ? '#7C3AED' : 'var(--text-primary)' }}>
+                    <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? '#FFD700' : '#FFFFFF' }}>
                       {label}
                     </span>
                   </Link>
@@ -181,3 +181,4 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
     </div>
   )
 }
+

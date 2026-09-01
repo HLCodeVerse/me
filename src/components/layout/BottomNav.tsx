@@ -9,27 +9,27 @@ import {
 } from 'lucide-react'
 
 const QUICK_NAV = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#7C3AED' },
-  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',     color: '#F59E0B' },
-  { href: '/player',    icon: Disc,            label: 'Player',    color: '#7C3AED' },
-  { href: '/ai',        icon: Bot,             label: 'AI Chat',   color: '#7C3AED' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#FFD700' },
+  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',     color: '#EF4444' },
+  { href: '/player',    icon: Disc,            label: 'Player',    color: '#F59E0B' },
+  { href: '/ai',        icon: Bot,             label: 'AI Chat',   color: '#FFD700' },
 ]
 
 const ALL_MODULES = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',   color: '#7C3AED' },
-  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',       color: '#F59E0B' },
-  { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#3B82F6' },
-  { href: '/player',    icon: Disc,            label: 'Media Player',color: '#7C3AED' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',   color: '#FFD700' },
+  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',       color: '#EF4444' },
+  { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#FACC15' },
+  { href: '/player',    icon: Disc,            label: 'Media Player',color: '#F59E0B' },
   { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#EF4444' },
-  { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4' },
-  { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B' },
-  { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#8B5CF6' },
+  { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#FACC15' },
+  { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#EF4444' },
+  { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#10B981' },
   { href: '/goals',     icon: Target,          label: 'Goals',       color: '#10B981' },
-  { href: '/analytics', icon: BarChart2,       label: 'Analytics',   color: '#3B82F6' },
-  { href: '/learn',     icon: GraduationCap,   label: 'Learning hub',color: '#8B5CF6' },
-  { href: '/ai',        icon: Bot,             label: 'AI chat OS',  color: '#7C3AED' },
+  { href: '/analytics', icon: BarChart2,       label: 'Analytics',   color: '#FACC15' },
+  { href: '/learn',     icon: GraduationCap,   label: 'Learning hub',color: '#FFD700' },
+  { href: '/ai',        icon: Bot,             label: 'AI chat OS',  color: '#FFD700' },
   { href: '/mcp',       icon: ShieldCheck,     label: 'MCP connect', color: '#10B981' },
-  { href: '/settings',  icon: Settings,        label: 'Settings',    color: '#6B7280' },
+  { href: '/settings',  icon: Settings,        label: 'Settings',    color: '#FFFFFF' },
 ]
 
 export default function BottomNav() {
@@ -38,19 +38,19 @@ export default function BottomNav() {
 
   return (
     <>
-      <nav className="md:hidden" style={{
+      <nav className="lg:hidden" style={{
         position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
         height: 64,
-        background: 'var(--surface)',
-        borderTop: '1px solid var(--border)',
+        background: '#0A0B0D',
+        borderTop: '1px solid rgba(245, 158, 11, 0.35)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
         zIndex: 50,
-        boxShadow: 'var(--shadow-hero)',
+        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.8)',
         padding: '0 8px',
       }}>
         {QUICK_NAV.map(({ href, icon: Icon, label, color }) => {
@@ -67,12 +67,12 @@ export default function BottomNav() {
                 padding: '6px 12px',
                 borderRadius: 'var(--radius-btn)',
                 textDecoration: 'none',
-                color: isActive ? color : 'var(--text-secondary)',
-                fontWeight: isActive ? 600 : 500,
+                color: isActive ? color : '#9CA3AF',
+                fontWeight: isActive ? 700 : 500,
                 fontSize: 11,
               }}
             >
-              <Icon size={18} color={isActive ? color : 'var(--text-secondary)'} />
+              <Icon size={18} color={isActive ? color : '#9CA3AF'} />
               <span>{label}</span>
             </Link>
           )
@@ -91,12 +91,12 @@ export default function BottomNav() {
             background: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            color: showDrawer ? '#7C3AED' : 'var(--text-secondary)',
+            color: showDrawer ? '#FFD700' : '#9CA3AF',
             fontSize: 11,
-            fontWeight: showDrawer ? 600 : 500,
+            fontWeight: showDrawer ? 700 : 500,
           }}
         >
-          <Menu size={18} color={showDrawer ? '#7C3AED' : 'var(--text-secondary)'} />
+          <Menu size={18} color={showDrawer ? '#FFD700' : '#9CA3AF'} />
           <span>More</span>
         </button>
       </nav>
@@ -105,21 +105,22 @@ export default function BottomNav() {
       {showDrawer && (
         <>
           <div
-            style={{ position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.4)', zIndex: 120 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.8)', zIndex: 120, backdropFilter: 'blur(4px)' }}
             onClick={() => setShowDrawer(false)}
           />
           <div style={{
             position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 130,
-            background: 'var(--surface)',
+            background: '#0A0B0D',
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
-            borderTop: '1px solid var(--border)',
+            borderTop: '1px solid rgba(245, 158, 11, 0.35)',
             padding: '20px 18px 36px',
             maxHeight: '80vh', overflowY: 'auto',
+            boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.9)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>All App Modules</span>
-              <button onClick={() => setShowDrawer(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+              <span style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF' }}>All App Modules</span>
+              <button onClick={() => setShowDrawer(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#FFFFFF' }}>
                 <X size={20} />
               </button>
             </div>
@@ -134,13 +135,13 @@ export default function BottomNav() {
                     onClick={() => setShowDrawer(false)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
-                      background: isActive ? 'rgba(124, 58, 237, 0.08)' : 'var(--surface-2)',
-                      border: `1px solid ${isActive ? '#7C3AED' : 'var(--border)'}`,
+                      background: isActive ? 'rgba(245, 158, 11, 0.15)' : '#121318',
+                      border: `1px solid ${isActive ? '#F59E0B' : 'rgba(245, 158, 11, 0.2)'}`,
                       borderRadius: 'var(--radius-btn)', textDecoration: 'none',
                     }}
                   >
                     <Icon size={16} color={color} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: isActive ? '#7C3AED' : 'var(--text-primary)' }}>{label}</span>
+                    <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? '#FFD700' : '#FFFFFF' }}>{label}</span>
                   </Link>
                 )
               })}
@@ -151,3 +152,4 @@ export default function BottomNav() {
     </>
   )
 }
+
