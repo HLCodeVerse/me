@@ -13,6 +13,8 @@ import {
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
+import { subscribeToPushNotifications, sendTestPushNotification } from '@/lib/push-notifications'
+
 export default function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth()
   const { theme, setTheme } = useTheme()
@@ -30,6 +32,21 @@ export default function SettingsPage() {
   const [notifications, setNotifications] = useState(true)
   const [dailyBrief, setDailyBrief] = useState(true)
   const [clearingCache, setClearingCache] = useState(false)
+
+  async function handleToggleNotifications() {
+    if (!user) return
+    const nextState = !notifications
+    setNotifications(nextState)
+    if (nextState) {
+      const ok = await subscribeToPushNotifications(user.id)
+      if (!ok) setNotifications(false)
+    }
+  }
+
+  async function handleTestNotification() {
+    if (!user) return
+    await sendTestPushNotification(user.id)
+  }
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault()
@@ -290,11 +307,26 @@ export default function SettingsPage() {
         </Section>
 
         {/* Notifications */}
-        <Section icon={Bell} label="Notification Preferences" color="#F59E0B">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            <ToggleRow label="Push Notifications" sub="Task reminders and habit streaks" value={notifications} onChange={() => setNotifications(p => !p)} Toggle={Toggle} />
+        <Section icon={Bell} label="Device Push Notifications" color="#F59E0B">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ padding: '12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 'var(--radius-btn)' }}>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                Receive automatic device notifications for scheduled reminders, due tasks, and water intake alerts — <strong>even when NIRMAAN is closed</strong>.
+              </p>
+            </div>
+
+            <ToggleRow label="Enable Push Notifications" sub="Subscribes device to background WebPush notifications" value={notifications} onChange={handleToggleNotifications} Toggle={Toggle} />
             <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
             <ToggleRow label="Daily AI Morning Plan" sub="AI daily brief generated at 7:00 AM" value={dailyBrief} onChange={() => setDailyBrief(p => !p)} Toggle={Toggle} />
+
+            <button
+              type="button"
+              onClick={handleTestNotification}
+              className="btn btn-secondary"
+              style={{ height: 38, fontSize: 12, marginTop: 6 }}
+            >
+              <Bell size={14} color="#F59E0B" /> Send Test Push Notification
+            </button>
           </div>
         </Section>
 

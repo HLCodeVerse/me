@@ -9,6 +9,8 @@ import { toast } from 'sonner'
 import { stripMarkdown } from '@/lib/utils'
 import type { Reminder } from '@/lib/supabase/database.types'
 
+import { subscribeToPushNotifications, sendTestPushNotification } from '@/lib/push-notifications'
+
 export default function RemindersPage() {
   const { user, loading: authLoading } = useAuth()
   const supabase = createClient()
@@ -45,6 +47,16 @@ export default function RemindersPage() {
   }, [user, authLoading, supabase])
 
   useEffect(() => { loadReminders() }, [loadReminders])
+
+  async function handleEnablePush() {
+    if (!user) return
+    await subscribeToPushNotifications(user.id)
+  }
+
+  async function handleTestPush() {
+    if (!user) return
+    await sendTestPushNotification(user.id)
+  }
 
   async function createReminder(e: React.FormEvent) {
     e.preventDefault()
@@ -177,6 +189,25 @@ export default function RemindersPage() {
             {aiPrompting ? <Loader2 size={13} className="animate-spin" /> : <><Send size={13} /> AI Generate</>}
           </button>
         </form>
+
+        {/* Automatic Background Push Notification Banner */}
+        <div style={{ padding: '14px 16px', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(124, 58, 237, 0.08))', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: 'var(--radius-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Bell size={20} color="#F59E0B" />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Automatic Background Push Alerts</p>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '2px 0 0' }}>Receive alerts on your device even when NIRMAAN is closed.</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <button onClick={handleEnablePush} className="btn btn-primary" style={{ height: 32, fontSize: 11, padding: '0 10px' }}>
+              Enable Device Push
+            </button>
+            <button onClick={handleTestPush} className="btn btn-secondary" style={{ height: 32, fontSize: 11, padding: '0 10px' }}>
+              Test Alert
+            </button>
+          </div>
+        </div>
 
         {loading ? (
           [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 74, borderRadius: 'var(--radius-card)' }} />)
