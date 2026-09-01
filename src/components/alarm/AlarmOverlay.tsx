@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, Volume2, VolumeX, Clock, X, Check, Music } from 'lucide-react'
+import { Bell, VolumeX, Clock, Music } from 'lucide-react'
 import { triggerAlarmRingtone, stopAlarmRingtone } from '@/lib/alarm-engine'
 import { toast } from 'sonner'
 
@@ -161,7 +161,7 @@ export default function AlarmOverlay({
                     toast.info('Please select a device music file first!')
                     return
                   }
-                  setSelectedPreset(item.id as any)
+                  setSelectedPreset(item.id as 'chime' | 'pulse' | 'zen' | 'custom')
                 }}
                 style={{
                   padding: '6px 4px',

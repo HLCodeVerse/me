@@ -2,8 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useMediaStore } from '@/lib/media-store'
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Maximize2, Music } from 'lucide-react'
-import Link from 'next/link'
+import { Play, Pause, SkipBack, SkipForward, Maximize2, Music } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export default function GlobalMediaPlayer() {
@@ -19,16 +18,11 @@ export default function GlobalMediaPlayer() {
     duration,
     volume,
     isMuted,
-    shuffle,
     loopMode,
     togglePlay,
     nextTrack,
     prevTrack,
     seekTo,
-    setVolume,
-    toggleMute,
-    toggleShuffle,
-    cycleLoopMode,
     updateTime,
   } = useMediaStore()
 

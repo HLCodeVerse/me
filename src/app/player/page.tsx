@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import AppShell from '@/components/layout/AppShell'
-import { useMediaStore, MediaTrack } from '@/lib/media-store'
+import { useMediaStore, MediaTrack, SortOption } from '@/lib/media-store'
 import {
   Music, Play, Pause, SkipBack, SkipForward, Shuffle, Repeat,
-  Volume2, VolumeX, FolderPlus, Trash2, Search, ArrowUpDown,
-  ListMusic, Disc, Sparkles
+  Volume2, VolumeX, FolderPlus, Trash2, Search,
+  ListMusic, Disc
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -23,7 +23,6 @@ export default function PlayerPage() {
     loopMode,
     sortBy,
     searchQuery,
-    setTracks,
     addTracks,
     removeTrack,
     clearPlaylist,
@@ -40,8 +39,6 @@ export default function PlayerPage() {
     setSearchQuery,
   } = useMediaStore()
 
-  const [loadingFiles, setLoadingFiles] = useState(false)
-
   const currentTrack = tracks[currentTrackIndex]
 
   // Scan & Load Local Audio Files from Device
@@ -49,7 +46,6 @@ export default function PlayerPage() {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
-    setLoadingFiles(true)
     const newTracks: MediaTrack[] = []
 
     files.forEach((file, idx) => {
@@ -258,7 +254,7 @@ export default function PlayerPage() {
           <div style={{ display: 'flex', gap: 8 }}>
             <select
               value={sortBy}
-              onChange={e => setSortBy(e.target.value as any)}
+              onChange={e => setSortBy(e.target.value as SortOption)}
               style={{ height: 38, fontSize: 12, padding: '0 10px' }}
             >
               <option value="title">Sort: Title A-Z</option>
@@ -292,7 +288,7 @@ export default function PlayerPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {sortedTracks.map((track, idx) => {
+            {sortedTracks.map((track) => {
               const isCurrent = currentTrack?.id === track.id
               const realIndex = tracks.findIndex(t => t.id === track.id)
 
