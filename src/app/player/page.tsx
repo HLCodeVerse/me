@@ -9,6 +9,7 @@ import {
   Disc, Heart, Sparkles, SlidersHorizontal, Flame, Gauge, Clock, UploadCloud, Folder, Plus, X
 } from 'lucide-react'
 import { toast } from 'sonner'
+import Globe3D from '@/components/media/Globe3D'
 
 export default function PlayerPage() {
   const {

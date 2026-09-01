@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMediaStore } from '@/lib/media-store'
-import { Play, Pause, SkipBack, SkipForward, Maximize2, Music } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Maximize2, Music, X, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import Globe3D from './Globe3D'
 
 export default function GlobalMediaPlayer() {
   const router = useRouter()
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [isDismissed, setIsDismissed] = useState(false)
 
   const {
     tracks,
@@ -112,6 +114,37 @@ export default function GlobalMediaPlayer() {
     }
   }
 
+  // Render Restorable Pill Button when Dismissed
+  if (isDismissed) {
+    return (
+      <button
+        onClick={() => setIsDismissed(false)}
+        style={{
+          position: 'fixed',
+          bottom: 'calc(70px + env(safe-area-inset-bottom, 0px))',
+          right: 20,
+          zIndex: 95,
+          background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
+          color: '#000000',
+          border: 'none',
+          borderRadius: 30,
+          padding: '8px 14px',
+          fontWeight: 800,
+          fontSize: 12,
+          boxShadow: '0 8px 25px rgba(245, 158, 11, 0.5)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}
+      >
+        <Music size={14} color="#000000" />
+        <span>{currentTrack.title.slice(0, 15)}...</span>
+        <ChevronUp size={14} />
+      </button>
+    )
+  }
+
   return (
     <div
       style={{
@@ -172,24 +205,28 @@ export default function GlobalMediaPlayer() {
           </div>
         </div>
 
-        {/* Center: Frequency Visualizer Canvas */}
-        <canvas
-          ref={canvasRef}
-          width={44}
-          height={18}
-          style={{ borderRadius: 4, opacity: isPlaying ? 1 : 0.3 }}
-        />
+        {/* Center: 3D Globe when Paused vs Frequency Visualizer when Playing */}
+        {isPlaying ? (
+          <canvas
+            ref={canvasRef}
+            width={44}
+            height={18}
+            style={{ borderRadius: 4 }}
+          />
+        ) : (
+          <Globe3D size={32} glowColor="#FFD700" />
+        )}
 
-        {/* Right: Controls */}
+        {/* Right: Controls & Dismiss Hide Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button onClick={prevTrack} className="btn-ghost btn-icon" style={{ width: 32, height: 32 }}>
-            <SkipBack size={16} color="#FFFFFF" />
+          <button onClick={prevTrack} className="btn-ghost btn-icon" style={{ width: 30, height: 30 }}>
+            <SkipBack size={15} color="#FFFFFF" />
           </button>
           <button
             onClick={togglePlay}
             style={{
-              width: 36,
-              height: 36,
+              width: 34,
+              height: 34,
               borderRadius: '50%',
               background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
               border: 'none',
@@ -201,15 +238,25 @@ export default function GlobalMediaPlayer() {
               boxShadow: '0 4px 14px rgba(245, 158, 11, 0.45)',
             }}
           >
-            {isPlaying ? <Pause size={16} fill="#000000" color="#000000" /> : <Play size={16} fill="#000000" color="#000000" style={{ marginLeft: 2 }} />}
+            {isPlaying ? <Pause size={15} fill="#000000" color="#000000" /> : <Play size={15} fill="#000000" color="#000000" style={{ marginLeft: 2 }} />}
           </button>
-          <button onClick={nextTrack} className="btn-ghost btn-icon" style={{ width: 32, height: 32 }}>
-            <SkipForward size={16} color="#FFFFFF" />
+          <button onClick={nextTrack} className="btn-ghost btn-icon" style={{ width: 30, height: 30 }}>
+            <SkipForward size={15} color="#FFFFFF" />
           </button>
 
-          <Link href="/player" className="btn-ghost btn-icon" style={{ width: 32, height: 32 }}>
-            <Maximize2 size={15} color="#F59E0B" />
+          <Link href="/player" className="btn-ghost btn-icon" style={{ width: 30, height: 30 }}>
+            <Maximize2 size={14} color="#F59E0B" />
           </Link>
+
+          {/* Dismiss Hide Button */}
+          <button
+            onClick={() => setIsDismissed(true)}
+            className="btn-ghost btn-icon"
+            style={{ width: 30, height: 30, color: '#9CA3AF' }}
+            title="Hide Mini Player"
+          >
+            <X size={16} />
+          </button>
         </div>
       </div>
     </div>
