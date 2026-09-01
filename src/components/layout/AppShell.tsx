@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { initPWAAutoUpdate, autoPromptNotificationPermission } from '@/lib/push-notifications'
 import AppHeader from './AppHeader'
+import DesktopSidebar from './DesktopSidebar'
 import BottomNav from './BottomNav'
 import GlobalMediaPlayer from '@/components/media/GlobalMediaPlayer'
 import SplashScreen from '@/components/common/SplashScreen'
@@ -46,6 +47,8 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
   const pathname = usePathname()
   const { user } = useAuth()
   const [showDrawer, setShowDrawer] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     initNativeHardware()
@@ -54,6 +57,19 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
     if (user?.id) {
       autoPromptNotificationPermission(user.id)
     }
+
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('nirmaan_sidebar_collapsed')
+      if (stored === 'true') setIsSidebarCollapsed(true)
+    }
+
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024
+      setIsMobile(mobile)
+      if (!mobile) setShowDrawer(false)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
 
     function handleGlobalTap(e: MouseEvent) {
       const target = e.target as HTMLElement
@@ -65,10 +81,23 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
     window.addEventListener('click', handleGlobalTap)
     const cleanupBack = initDoubleBackToExit(pathname)
     return () => {
+      window.removeEventListener('resize', checkMobile)
       window.removeEventListener('click', handleGlobalTap)
       if (cleanupBack) cleanupBack()
     }
   }, [user, pathname])
+
+  function toggleSidebar() {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nirmaan_sidebar_collapsed', next ? 'true' : 'false')
+      }
+      return next
+    })
+  }
+
+  const desktopContentPadding = !isMobile ? (isSidebarCollapsed ? 74 : 260) : 0
 
   return (
     <div className="app-layout">
@@ -78,6 +107,12 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
       {/* Animated SplashScreen on First Mount */}
       <SplashScreen />
 
+      {/* Desktop Sidebar (≥1024px) */}
+      <DesktopSidebar
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+      />
+
       {/* Main Content Area */}
       <div style={{
         flex: 1,
@@ -85,12 +120,14 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
         flexDirection: 'column',
         width: '100%',
         minHeight: '100vh',
-        paddingLeft: 0,
-        marginLeft: 0,
+        paddingLeft: desktopContentPadding,
+        transition: 'padding-left 250ms cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
         {header ? header : (
           <AppHeader
             onOpenMobileDrawer={() => setShowDrawer(true)}
+            isSidebarCollapsed={isSidebarCollapsed}
+            onToggleSidebar={toggleSidebar}
           />
         )}
 
@@ -109,15 +146,15 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
       {/* Persistent Global Floating Media Player */}
       <GlobalMediaPlayer />
 
-      {/* Off-Canvas Universal Navigation Drawer (Available on ALL screens) */}
-      {showDrawer && (
+      {/* Off-Canvas Navigation Drawer for Mobile ONLY (<1024px) */}
+      {isMobile && showDrawer && (
         <>
           <div
             style={{
               position: 'fixed',
               inset: 0,
               background: 'rgba(0, 0, 0, 0.8)',
-              backdropFilter: 'blur(8px)',
+              backdropFilter: 'blur(6px)',
               zIndex: 100,
             }}
             onClick={() => setShowDrawer(false)}
@@ -132,33 +169,28 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             borderTop: '1px solid rgba(245, 158, 11, 0.35)',
-            padding: '24px 24px 40px',
+            padding: '20px 20px 36px',
             maxHeight: '85vh',
-            maxWidth: 768,
-            margin: '0 auto',
             overflowY: 'auto',
-            boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.95)',
+            boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.9)',
           }} className="animate-fade-in">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg, #FFD700, #F59E0B)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000' }}>
-                  <Zap size={20} fill="#000" color="#000" />
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg, #FFD700, #F59E0B)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000' }}>
+                  <Zap size={18} fill="#000" color="#000" />
                 </div>
-                <div>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', display: 'block' }}>NIRMAAN OS</span>
-                  <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>Universal Navigation</span>
-                </div>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>NIRMAAN OS Navigation</span>
               </div>
               <button
                 onClick={() => setShowDrawer(false)}
                 className="btn-ghost btn-icon"
                 style={{ border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-btn)' }}
               >
-                <X size={20} color="#FFFFFF" />
+                <X size={18} color="#FFFFFF" />
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {ALL_MODULES.map(({ href, icon: Icon, label, color }) => {
                 const isActive = pathname === href
                 return (
@@ -169,13 +201,12 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 12,
+                      gap: 10,
                       padding: '12px 14px',
                       background: isActive ? 'rgba(245, 158, 11, 0.15)' : '#121318',
                       border: `1px solid ${isActive ? '#F59E0B' : 'rgba(245, 158, 11, 0.2)'}`,
                       borderRadius: 'var(--radius-btn)',
                       textDecoration: 'none',
-                      transition: 'all 150ms ease',
                     }}
                   >
                     <Icon size={18} color={color} />
