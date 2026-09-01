@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [todos, setTodos] = useState<Todo[]>([])
   const [streak, setStreak] = useState<Streak | null>(null)
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null)
+  const [waterCount, setWaterCount] = useState<number>(0)
   const [dataLoading, setDataLoading] = useState(true)
   const [generatingPlan, setGeneratingPlan] = useState(false)
 
@@ -41,7 +42,7 @@ export default function DashboardPage() {
     const load = async () => {
       const today = new Date().toISOString().split('T')[0]
 
-      const [tasksRes, todosRes, streakRes, planRes] = await Promise.all([
+      const [tasksRes, todosRes, streakRes, planRes, waterRes] = await Promise.all([
         supabase
           .from('tasks')
           .select('*')
@@ -60,7 +61,6 @@ export default function DashboardPage() {
           .from('streaks')
           .select('*')
           .eq('user_id', user.id)
-          .eq('type', 'tasks')
           .maybeSingle(),
         supabase
           .from('daily_plans')
@@ -68,12 +68,21 @@ export default function DashboardPage() {
           .eq('user_id', user.id)
           .eq('date', today)
           .maybeSingle(),
+        supabase
+          .from('water_logs')
+          .select('amount_ml')
+          .eq('user_id', user.id)
+          .eq('date', today),
       ])
 
       setTodayTasks(tasksRes.data ?? [])
       setTodos(todosRes.data ?? [])
       setStreak(streakRes.data)
       setDailyPlan(planRes.data)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const totalWater = (waterRes.data ?? []).reduce((acc: number, curr: any) => acc + (curr.amount_ml || 0), 0)
+      setWaterCount(totalWater)
       setDataLoading(false)
     }
     load()
@@ -85,7 +94,7 @@ export default function DashboardPage() {
       .update({ status: 'done', completed_at: new Date().toISOString() })
       .eq('id', taskId)
     setTodayTasks(prev => prev.filter(t => t.id !== taskId))
-    toast.success('Task marked as done!')
+    toast.success('Task completed!')
   }
 
   async function generateAIDailyPlan() {
@@ -145,28 +154,28 @@ export default function DashboardPage() {
 
   if (loading || !user || dataLoading) return <LoadingSkeleton />
 
-  const lifeScore = profile?.life_score ?? 85
-  const streakCount = streak?.current_count ?? 7
+  const streakCount = streak?.current_count ?? profile?.current_streak ?? 1
+  const lifeScore = profile?.life_score ?? Math.min(65 + (streakCount * 2) + (waterCount > 1000 ? 10 : 0), 100)
 
   return (
     <AppShell>
       <div className="dashboard-grid animate-fade-in">
         {/* Main Content (Left Column) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* 1. Hero Productivity Index Card */}
+          {/* 1. Hero Productivity Index Card with Glow Ring */}
           <HeroProductivityCard
             score={lifeScore}
             streak={streakCount}
-            careerScore={78}
-            healthScore={85}
-            focusScore={70}
+            careerScore={Math.min(70 + todayTasks.length * 3, 100)}
+            healthScore={Math.min(60 + Math.round((waterCount / 3000) * 40), 100)}
+            focusScore={Math.min(75 + (streakCount * 3), 100)}
           />
 
-          {/* 2. 4 Stat Cards Grid */}
+          {/* 2. Stat Cards Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
             <StatCard
               label="Tasks Due"
-              value={todayTasks.length > 0 ? todayTasks.length : 5}
+              value={todayTasks.length}
               sublabel="Open tasks"
               icon={Target}
               iconColor="#7C3AED"
@@ -174,14 +183,14 @@ export default function DashboardPage() {
             />
             <StatCard
               label="Quick Todos"
-              value={todos.length > 0 ? todos.length : 4}
+              value={todos.length}
               sublabel="Remaining"
               icon={CheckCircle2}
               iconColor="#10B981"
               iconBg="rgba(16, 185, 129, 0.08)"
             />
             <StatCard
-              label="Day Streak"
+              label="Live Streak"
               value={streakCount}
               sublabel="Days active"
               icon={Flame}
@@ -220,7 +229,7 @@ export default function DashboardPage() {
           {/* Today's Schedule / Upcoming Events */}
           <UpcomingEventsList />
 
-          {/* Quick Actions 2x2 Grid */}
+          {/* Quick Actions Grid */}
           <QuickActionsGrid />
 
           {/* Motivation Quote Accent Card */}

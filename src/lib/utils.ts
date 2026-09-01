@@ -84,3 +84,14 @@ export function getGreeting() {
 export function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
+
+export function stripMarkdown(str: string): string {
+  if (!str) return ''
+  return str
+    .replace(/[\*\_~`#]/g, '') // strip markdown syntax symbols *, _, ~, `, #
+    .replace(/^[\s-*+>]+/, '') // strip bullet points and list markers at start of string
+    .replace(/^\[[ xX]\]\s*/, '') // strip todo checkboxes [ ] or [x]
+    .replace(/^[\d]+\.\s*/, '') // strip numbered list prefixes e.g. 1.
+    .replace(/["']/g, '') // strip surrounding quotes
+    .trim()
+}

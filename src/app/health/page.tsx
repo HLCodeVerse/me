@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
-import { Activity, Flame, CheckCircle2, Circle, Heart, Droplets, Brain, Loader2, Play, CupSoda, GlassWater } from 'lucide-react'
+import { Activity, Flame, CheckCircle2, Circle, Heart, Droplets, Brain, Loader2, Play, CupSoda, GlassWater, Sparkles, Send } from 'lucide-react'
 import { toast } from 'sonner'
+import { stripMarkdown } from '@/lib/utils'
 import type { Task, WaterLog } from '@/lib/supabase/database.types'
 
 export default function HealthPage() {
@@ -22,6 +23,7 @@ export default function HealthPage() {
   const [meditationMinutes, setMeditationMinutes] = useState(10)
   const [isMeditating, setIsMeditating] = useState(false)
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
+  const [aiPrompt, setAiPrompt] = useState('')
 
   const targetWaterMl = 3000
 
@@ -80,7 +82,6 @@ export default function HealthPage() {
         toast.success(`+${amountMl}ml logged! 💧`)
       }
     } catch {
-      // Client-side fallback if table missing
       const fallbackLog: WaterLog = {
         id: String(Date.now()),
         user_id: user.id,
@@ -114,10 +115,13 @@ export default function HealthPage() {
     }, 1500)
   }
 
-  async function aiHealthAdvice() {
+  async function handleAIHealthQuery(e: React.FormEvent) {
+    e.preventDefault()
     if (!user) return
+    const queryToUse = aiPrompt.trim() || `Give me 2 recovery tips for today (Hydration: ${totalWaterMl}ml).`
     setAiAnalyzing(true)
-    toast.info('AI Health Coach is generating tips...')
+    toast.info('AI Health Coach analyzing instruction...')
+
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -125,12 +129,16 @@ export default function HealthPage() {
         body: JSON.stringify({
           messages: [{
             role: 'user',
-            content: `Analyze my health log: Total water logged today: ${totalWaterMl}ml out of ${targetWaterMl}ml goal.`
+            content: `Analyze this health request: "${queryToUse}". Current water logged: ${totalWaterMl}ml out of ${targetWaterMl}ml goal. Return 2 concise plain text tips without markdown formatting.`
           }],
           enableTools: false
         })
       })
-      if (res.ok) toast.success('AI Coach tips received!')
+
+      if (res.ok) {
+        setAiPrompt('')
+        toast.success('AI Health advice received! Check AI Chat.')
+      }
     } catch {
       toast.error('AI Coach call failed')
     } finally {
@@ -152,19 +160,29 @@ export default function HealthPage() {
             <Activity size={20} color="#10B981" />
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Health & Wellness</h1>
           </div>
-          <button
-            onClick={aiHealthAdvice}
-            disabled={aiAnalyzing}
-            className="btn btn-primary"
-            style={{ padding: '6px 14px', fontSize: 13 }}
-          >
-            {aiAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
-            AI Coach Advice
-          </button>
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 8 }}>
+
+        {/* AI Custom Prompt Bar */}
+        <form onSubmit={handleAIHealthQuery} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
+          <Sparkles size={18} color="#10B981" style={{ flexShrink: 0 }} />
+          <input
+            placeholder="Ask AI Health Coach (e.g., 'Give me recovery tips for my leg workout')..."
+            value={aiPrompt}
+            onChange={e => setAiPrompt(e.target.value)}
+            style={{ flex: 1, border: 'none', background: 'transparent', padding: 0, fontSize: 13 }}
+          />
+          <button
+            type="submit"
+            disabled={aiAnalyzing}
+            className="btn btn-primary"
+            style={{ height: 34, padding: '0 12px', fontSize: 12, flexShrink: 0 }}
+          >
+            {aiAnalyzing ? <Loader2 size={13} className="animate-spin" /> : <><Send size={13} /> AI Coach</>}
+          </button>
+        </form>
         
         {/* Upper Grid: Liquid Belly Hydration Tracker + Exercise Velocity */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
@@ -349,7 +367,7 @@ export default function HealthPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {exercises.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
                 No active workouts found in tasks. Create exercise tasks in Tasks or ask NIRMAAN AI to add them!
               </p>
             ) : (
@@ -383,7 +401,7 @@ export default function HealthPage() {
                       color: isDone ? 'var(--text-muted)' : 'var(--text-primary)',
                       textDecoration: isDone ? 'line-through' : 'none',
                     }}>
-                      {ex.title}
+                      {stripMarkdown(ex.title)}
                     </span>
                   </div>
                 )

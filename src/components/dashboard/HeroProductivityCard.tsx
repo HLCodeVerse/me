@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Flame } from 'lucide-react'
+import { Flame, Sparkles } from 'lucide-react'
 
 interface HeroProductivityCardProps {
   score?: number
@@ -41,6 +41,13 @@ export default function HeroProductivityCard({
       flexDirection: 'column',
       gap: 20,
     }}>
+      {/* Ambient background particles accent */}
+      <div style={{
+        position: 'absolute', top: -60, right: -60, width: 220, height: 220,
+        borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.15), transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+
       {/* Background Graphic Mountain/Landscape Accent */}
       <svg
         style={{
@@ -73,7 +80,7 @@ export default function HeroProductivityCard({
 
         {/* Left: Productivity Ring */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          <div style={{ position: 'relative', width: ringSize, height: ringSize }}>
+          <div style={{ position: 'relative', width: ringSize, height: ringSize }} className="glow-pulse">
             <svg
               width={ringSize}
               height={ringSize}
@@ -116,7 +123,7 @@ export default function HeroProductivityCard({
               <span style={{ fontSize: 32, fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>
                 {Math.round(animatedScore)}
               </span>
-              <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255, 255, 255, 0.8)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 2 }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255, 255, 255, 0.85)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 2 }}>
                 LIFE SCORE
               </span>
             </div>
@@ -124,7 +131,7 @@ export default function HeroProductivityCard({
 
           {/* Footer status chip */}
           <span style={{
-            background: 'rgba(255, 255, 255, 0.15)',
+            background: 'rgba(255, 255, 255, 0.18)',
             backdropFilter: 'blur(10px)',
             padding: '4px 12px',
             borderRadius: 99,
@@ -135,7 +142,7 @@ export default function HeroProductivityCard({
             alignItems: 'center',
             gap: 4,
           }}>
-            Great Progress! 🚀
+            <Sparkles size={13} color="#F59E0B" /> Peak Momentum
           </span>
         </div>
 
@@ -146,18 +153,19 @@ export default function HeroProductivityCard({
               Productivity Overview
             </h3>
             {/* Streak Chip */}
-            <span style={{
-              background: 'rgba(255, 255, 255, 0.18)',
+            <span className="flame-pulse" style={{
+              background: 'rgba(255, 255, 255, 0.2)',
               padding: '4px 12px',
               borderRadius: 99,
               fontSize: 12,
-              fontWeight: 600,
+              fontWeight: 700,
               color: '#FFFFFF',
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
+              gap: 5,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}>
-              {streak} day streak <Flame size={14} fill="#F59E0B" color="#F59E0B" />
+              {streak} day streak <Flame size={15} fill="#F59E0B" color="#F59E0B" />
             </span>
           </div>
 
@@ -179,7 +187,7 @@ export default function HeroProductivityCard({
 function MetricRow({ label, score, color }: { label: string; score: number; color: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <span style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500, width: 56 }}>
+      <span style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.95)', fontWeight: 500, width: 56 }}>
         {label}
       </span>
       <div style={{ flex: 1, height: 6, background: 'rgba(255, 255, 255, 0.2)', borderRadius: 99, overflow: 'hidden' }}>

@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
-import { Plus, Flame, CheckCircle2, Loader2, X, Brain, Zap, Trash2 } from 'lucide-react'
+import { Plus, Flame, CheckCircle2, Loader2, X, Trash2, Sparkles, Send } from 'lucide-react'
 import { toast } from 'sonner'
+import { stripMarkdown } from '@/lib/utils'
 import type { Habit } from '@/lib/supabase/database.types'
 
 interface HabitWithLog extends Habit {
@@ -20,6 +21,7 @@ export default function HabitsPage() {
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [coaching, setCoaching] = useState(false)
+  const [aiPrompt, setAiPrompt] = useState('')
 
   // Form state
   const [name, setName] = useState('')
@@ -64,14 +66,16 @@ export default function HabitsPage() {
     e.preventDefault()
     if (!name.trim() || !user) return
     setSaving(true)
+    const cleanName = stripMarkdown(name.trim())
+
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from('habits') as any).insert({
         user_id: user.id,
-        name: name.trim(),
+        name: cleanName,
         frequency,
         target_count: targetCount,
-        color: '#F43F5E',
+        color: '#EF4444',
         archived: false,
       })
 
@@ -81,12 +85,77 @@ export default function HabitsPage() {
         toast.success('Habit created!')
         setName('')
         setShowAddModal(false)
-        loadHabits()
+ loadHabits()
       }
     } catch {
       toast.error('Could not save habit')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleAIHabitGenerate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!user) return
+    const promptToUse = aiPrompt.trim() || 'Create 1 daily habit for high focus'
+    setCoaching(true)
+    toast.info('AI is generating habit recommendation...')
+
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Suggest 1 habit name based on instruction: "${promptToUse}". Return ONLY plain text habit title under 6 words without markdown or formatting.`
+          }],
+          enableTools: false
+        })
+      })
+
+      if (!res.ok) throw new Error('AI Habit generation failed')
+
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let sugText = ''
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value)
+          for (const line of chunk.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6)
+            if (data === '[DONE]') continue
+            try {
+              const parsed = JSON.parse(data)
+              const delta = parsed.choices?.[0]?.delta?.content ?? ''
+              if (delta) sugText += delta
+            } catch {}
+          }
+        }
+      }
+
+      const cleanText = stripMarkdown(sugText)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('habits') as any).insert({
+        user_id: user.id,
+        name: cleanText,
+        frequency: 'daily',
+        target_count: 1,
+        color: '#EF4444',
+        archived: false
+      })
+
+      setAiPrompt('')
+      toast.success(`Habit "${cleanText}" created! 🔥`)
+      loadHabits()
+    } catch {
+      toast.error('AI habit generation failed')
+    } finally {
+      setCoaching(false)
     }
   }
 
@@ -110,7 +179,7 @@ export default function HabitsPage() {
           logged_at: today,
           count: habit.target_count || 1,
         })
-        toast.success(`Habit "${habit.name}" completed today! 🔥`)
+        toast.success(`Habit "${stripMarkdown(habit.name)}" completed today! 🔥`)
       }
     } catch {
       toast.error('Could not update habit log')
@@ -129,77 +198,54 @@ export default function HabitsPage() {
     }
   }
 
-  async function aiHabitCoach() {
-    if (!user) return
-    setCoaching(true)
-    toast.info('AI Habit Coach is building habit recommendations...')
-    try {
-      const hNames = habits.map(h => h.name).join(', ')
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Give me 2 quick tips to maintain consistency for my habits: ${hNames || 'reading, workout, meditation'}`
-          }],
-          enableTools: false
-        })
-      })
-
-      if (res.ok) {
-        toast.success('Check AI Chat for personalized Habit tips!')
-      }
-    } catch {
-      toast.error('Habit coach call failed')
-    } finally {
-      setCoaching(false)
-    }
-  }
-
   return (
     <AppShell
       header={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Flame size={20} color="#F43F5E" />
-            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Habits & Streaks</h1>
+            <Flame size={20} color="#EF4444" />
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Habits & Streaks</h1>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={aiHabitCoach}
-              disabled={coaching}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', height: 36,
-                borderRadius: 'var(--radius-sm)', background: 'rgba(244,63,94,0.15)',
-                border: '1px solid rgba(244,63,94,0.3)', cursor: 'pointer',
-                color: '#F43F5E', fontSize: 12, fontWeight: 700
-              }}
-            >
-              {coaching ? <Loader2 size={13} className="animate-spin" /> : <Brain size={13} />}
-              AI Coach
-            </button>
-            <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 13 }}>
-              <Plus size={15} /> Add Habit
-            </button>
-          </div>
+          <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 13 }}>
+            <Plus size={15} /> Add Habit
+          </button>
         </div>
       }
     >
-      <div style={{ paddingTop: 16 }}>
+      <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* AI Custom Prompt Bar */}
+        <form onSubmit={handleAIHabitGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
+          <Sparkles size={18} color="#EF4444" style={{ flexShrink: 0 }} />
+          <input
+            placeholder="Tell AI to generate habits (e.g., 'Create a daily habit to read 15 pages')..."
+            value={aiPrompt}
+            onChange={e => setAiPrompt(e.target.value)}
+            style={{ flex: 1, border: 'none', background: 'transparent', padding: 0, fontSize: 13 }}
+          />
+          <button
+            type="submit"
+            disabled={coaching}
+            className="btn btn-primary"
+            style={{ height: 34, padding: '0 12px', fontSize: 12, flexShrink: 0 }}
+          >
+            {coaching ? <Loader2 size={13} className="animate-spin" /> : <><Send size={13} /> AI Generate</>}
+          </button>
+        </form>
+
         {loading ? (
-          [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 74, borderRadius: 'var(--radius)', marginBottom: 10 }} />)
+          [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 74, borderRadius: 'var(--radius-card)' }} />)
         ) : habits.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(244,63,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Flame size={28} color="#F43F5E" />
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Flame size={28} color="#EF4444" />
             </div>
-            <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Build life-changing habits</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 280, margin: '0 auto 24px' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>Build life-changing habits</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, maxWidth: 300, margin: '0 auto 20px' }}>
               Consistency is key. Track daily routines and maintain your active streak.
             </p>
             <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
-              <Plus size={16} /> Add First Habit
+              <Plus size={15} /> Add First Habit
             </button>
           </div>
         ) : (
@@ -210,9 +256,8 @@ export default function HabitsPage() {
                 className="card"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 16px', background: habit.completed_today ? 'rgba(244,63,94,0.06)' : 'var(--surface)',
-                  border: `1px solid ${habit.completed_today ? 'rgba(244,63,94,0.25)' : 'var(--border)'}`,
-                  transition: 'all 200ms ease'
+                  padding: '14px 16px', background: habit.completed_today ? 'rgba(239,68,68,0.06)' : 'var(--surface)',
+                  border: `1px solid ${habit.completed_today ? '#EF4444' : 'var(--border)'}`,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -220,33 +265,32 @@ export default function HabitsPage() {
                     onClick={() => toggleHabitLog(habit)}
                     style={{
                       width: 40, height: 40, borderRadius: 12,
-                      background: habit.completed_today ? '#F43F5E' : 'var(--surface-2)',
-                      border: `1px solid ${habit.completed_today ? '#F43F5E' : 'var(--border)'}`,
+                      background: habit.completed_today ? '#EF4444' : 'var(--surface-2)',
+                      border: `1px solid ${habit.completed_today ? '#EF4444' : 'var(--border)'}`,
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 200ms'
                     }}
                   >
                     {habit.completed_today ? (
                       <CheckCircle2 size={20} color="white" />
                     ) : (
-                      <Flame size={20} color="var(--text-dim)" />
+                      <Flame size={20} color="var(--text-muted)" />
                     )}
                   </button>
                   <div>
-                    <h4 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{habit.name}</h4>
-                    <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2, textTransform: 'capitalize' }}>
+                    <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{stripMarkdown(habit.name)}</h4>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', textTransform: 'capitalize' }}>
                       {habit.frequency} · Target: {habit.target_count || 1}x daily
                     </p>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span className="badge badge-rose" style={{ fontSize: 11 }}>
-                    <Zap size={11} /> {habit.completed_today ? 'Done Today' : 'Pending'}
+                  <span className="badge badge-danger" style={{ fontSize: 11 }}>
+                    {habit.completed_today ? 'Done Today' : 'Pending'}
                   </span>
                   <button
                     onClick={() => deleteHabit(habit.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
                   >
                     <Trash2 size={15} />
                   </button>
@@ -261,32 +305,35 @@ export default function HabitsPage() {
       {showAddModal && (
         <>
           <div className="overlay" onClick={() => setShowAddModal(false)} />
-          <div className="animate-scale-in" style={{
+          <div className="animate-fade-in" style={{
             position: 'fixed', bottom: 0, left: 0, right: 0,
             background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0',
+            borderRadius: 'var(--radius-card) var(--radius-card) 0 0',
             padding: '24px 20px', zIndex: 110,
             paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
             maxWidth: 768, margin: '0 auto',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 700 }}>New Habit</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>New Habit</h3>
               <button onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} color="var(--text-muted)" />
+                <X size={20} color="var(--text-secondary)" />
               </button>
             </div>
             <form onSubmit={createHabit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <input
-                placeholder="Habit name (e.g. 20 min Reading)..."
-                value={name}
-                onChange={e => setName(e.target.value)}
-                autoFocus
-                required
-                style={{ fontSize: 15 }}
-              />
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>HABIT NAME</label>
+                <input
+                  placeholder="e.g. 20 min Reading..."
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  autoFocus
+                  required
+                  style={{ fontSize: 14 }}
+                />
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
-                  <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 6, display: 'block' }}>FREQUENCY</label>
+                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>FREQUENCY</label>
                   <select value={frequency} onChange={e => setFrequency(e.target.value)}>
                     <option value="daily">Daily</option>
                     <option value="weekdays">Weekdays</option>
@@ -294,11 +341,11 @@ export default function HabitsPage() {
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 6, display: 'block' }}>TARGET COUNT</label>
+                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>TARGET COUNT</label>
                   <input type="number" min={1} max={10} value={targetCount} onChange={e => setTargetCount(Number(e.target.value))} />
                 </div>
               </div>
-              <button type="submit" disabled={saving || !name.trim()} className="btn btn-primary" style={{ height: 46 }}>
+              <button type="submit" disabled={saving || !name.trim()} className="btn btn-primary" style={{ height: 44, marginTop: 8 }}>
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <><Flame size={16} /> Create Habit</>}
               </button>
             </form>

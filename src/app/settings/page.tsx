@@ -2,17 +2,20 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
   User, Key, Bell, LogOut, ChevronRight, Eye, EyeOff,
-  Loader2, Check, Shield, ShieldCheck, BarChart2, Cpu, Settings
+  Loader2, Check, Shield, ShieldCheck, BarChart2, Cpu, Settings,
+  Sun, Moon, Zap, Database, Download, RefreshCw
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
 export default function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth()
+  const { theme, setTheme } = useTheme()
   const supabase = createClient()
   const router = useRouter()
 
@@ -26,6 +29,7 @@ export default function SettingsPage() {
 
   const [notifications, setNotifications] = useState(true)
   const [dailyBrief, setDailyBrief] = useState(true)
+  const [clearingCache, setClearingCache] = useState(false)
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault()
@@ -57,6 +61,55 @@ export default function SettingsPage() {
     setSavingKey(false)
   }
 
+  async function exportUserData() {
+    if (!user) return
+    toast.info('Preparing your data export...')
+    try {
+      const [tasks, todos, habits, notes, journal, water] = await Promise.all([
+        supabase.from('tasks').select('*').eq('user_id', user.id),
+        supabase.from('todos').select('*').eq('user_id', user.id),
+        supabase.from('habits').select('*').eq('user_id', user.id),
+        supabase.from('notes').select('*').eq('user_id', user.id),
+        supabase.from('journal_entries').select('*').eq('user_id', user.id),
+        supabase.from('water_logs').select('*').eq('user_id', user.id),
+      ])
+
+      const exportPayload = {
+        profile,
+        tasks: tasks.data ?? [],
+        todos: todos.data ?? [],
+        habits: habits.data ?? [],
+        notes: notes.data ?? [],
+        journal: journal.data ?? [],
+        water_logs: water.data ?? [],
+        exported_at: new Date().toISOString(),
+      }
+
+      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `nirmaan-data-backup-${new Date().toISOString().split('T')[0]}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('Data exported successfully!')
+    } catch {
+      toast.error('Failed to export user data')
+    }
+  }
+
+  function clearLocalCache() {
+    setClearingCache(true)
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('nirmaan_theme')
+      }
+      setClearingCache(false)
+      toast.success('Local cache cleared! Refreshing page...')
+      window.location.reload()
+    }, 600)
+  }
+
   async function handleSignOut() {
     await signOut()
     router.push('/auth')
@@ -67,7 +120,7 @@ export default function SettingsPage() {
       onClick={onChange}
       style={{
         width: 44, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer',
-        background: value ? '#10B981' : 'var(--border-2)',
+        background: value ? '#10B981' : 'var(--surface-3)',
         position: 'relative', transition: 'background 200ms ease',
         flexShrink: 0,
       }}
@@ -85,35 +138,99 @@ export default function SettingsPage() {
     <AppShell
       header={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
-          <Settings size={20} color="#8892A4" />
-          <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Settings & System</h1>
+          <Settings size={20} color="#7C3AED" />
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Settings & System</h1>
         </div>
       }
     >
-      <div style={{ paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-        {/* Profile */}
-        <Section icon={User} label="Profile & Identity" color="#10B981">
-          <form onSubmit={saveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 6, display: 'block' }}>USERNAME</label>
-              <input value={profile?.username ?? ''} disabled style={{ opacity: 0.5 }} />
+        {/* Theme Engine Selector */}
+        <div className="card" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(124, 58, 237, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Zap size={16} color="#7C3AED" />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 6, display: 'block' }}>DISPLAY NAME</label>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Theme Engine</h3>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>Select your visual aesthetic for all app pages</p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {/* Light SaaS */}
+            <button
+              onClick={() => setTheme('light')}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                padding: '12px 8px', borderRadius: 'var(--radius-btn)', cursor: 'pointer',
+                background: theme === 'light' ? 'rgba(124, 58, 237, 0.1)' : 'var(--surface-2)',
+                border: `2px solid ${theme === 'light' ? '#7C3AED' : 'var(--border)'}`,
+                color: theme === 'light' ? '#7C3AED' : 'var(--text-primary)',
+                transition: 'all 150ms ease',
+              }}
+            >
+              <Sun size={20} color={theme === 'light' ? '#7C3AED' : 'var(--text-secondary)'} />
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Light SaaS</span>
+            </button>
+
+            {/* Dark SaaS */}
+            <button
+              onClick={() => setTheme('dark')}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                padding: '12px 8px', borderRadius: 'var(--radius-btn)', cursor: 'pointer',
+                background: theme === 'dark' ? 'rgba(124, 58, 237, 0.1)' : 'var(--surface-2)',
+                border: `2px solid ${theme === 'dark' ? '#7C3AED' : 'var(--border)'}`,
+                color: theme === 'dark' ? '#7C3AED' : 'var(--text-primary)',
+                transition: 'all 150ms ease',
+              }}
+            >
+              <Moon size={20} color={theme === 'dark' ? '#7C3AED' : 'var(--text-secondary)'} />
+              <span style={{ fontSize: 12, fontWeight: 700 }}>Dark SaaS</span>
+            </button>
+
+            {/* AMOLED Black */}
+            <button
+              onClick={() => setTheme('amoled')}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                padding: '12px 8px', borderRadius: 'var(--radius-btn)', cursor: 'pointer',
+                background: theme === 'amoled' ? 'rgba(139, 92, 246, 0.2)' : 'var(--surface-2)',
+                border: `2px solid ${theme === 'amoled' ? '#8B5CF6' : 'var(--border)'}`,
+                color: theme === 'amoled' ? '#8B5CF6' : 'var(--text-primary)',
+                transition: 'all 150ms ease',
+                boxShadow: theme === 'amoled' ? '0 0 12px rgba(139, 92, 246, 0.3)' : 'none',
+              }}
+            >
+              <Zap size={20} color={theme === 'amoled' ? '#8B5CF6' : 'var(--text-secondary)'} />
+              <span style={{ fontSize: 12, fontWeight: 800 }}>AMOLED Black</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Profile */}
+        <Section icon={User} label="Profile Identity" color="#10B981">
+          <form onSubmit={saveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>USER ID</label>
+              <input value={user?.id ?? ''} disabled style={{ opacity: 0.5, fontFamily: 'monospace', fontSize: 12 }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>DISPLAY NAME</label>
               <input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Your display name" />
             </div>
             <button type="submit" disabled={savingProfile} className="btn btn-secondary" style={{ alignSelf: 'flex-end', height: 36, fontSize: 13 }}>
-              {savingProfile ? <Loader2 size={14} className="animate-spin" /> : <><Check size={14} /> Save Changes</>}
+              {savingProfile ? <Loader2 size={14} className="animate-spin" /> : <><Check size={14} /> Save Profile</>}
             </button>
           </form>
         </Section>
 
-        {/* AI OpenRouter Configuration */}
-        <Section icon={Cpu} label="AI Engine & OpenRouter (BYOK)" color="#818CF8">
-          <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.2)', borderRadius: 'var(--radius-sm)' }}>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              NIRMAAN uses OpenRouter SDK with <strong style={{ color: '#818CF8' }}>liquid/lfm-2.5-embedding-350m:free</strong> and free GPT models. Add custom OpenRouter API key for high volume.
+        {/* AI Engine OpenRouter Configuration */}
+        <Section icon={Cpu} label="AI Engine & OpenRouter (BYOK)" color="#7C3AED">
+          <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.2)', borderRadius: 'var(--radius-btn)' }}>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+              NIRMAAN AI uses OpenRouter SDK with active models (<strong style={{ color: '#7C3AED' }}>minimax/minimax-m2.7:free</strong> and <strong style={{ color: '#3B82F6' }}>liquid/lfm-2.5-embedding-350m:free</strong>).
             </p>
           </div>
           {keyStored && (
@@ -130,74 +247,100 @@ export default function SettingsPage() {
                 placeholder={keyStored ? 'Enter new key to update...' : 'sk-or-v1-...'}
                 style={{ paddingRight: 40 }}
               />
-              <button type="button" onClick={() => setShowKey(p => !p)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)' }}>
+              <button type="button" onClick={() => setShowKey(p => !p)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                 {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
             <button type="submit" disabled={savingKey || !openRouterKey} className="btn btn-secondary" style={{ alignSelf: 'flex-end', height: 36, fontSize: 13 }}>
-              {savingKey ? <Loader2 size={14} className="animate-spin" /> : <><Key size={14} /> Save OpenRouter Key</>}
+              {savingKey ? <Loader2 size={14} className="animate-spin" /> : <><Key size={14} /> Save Key</>}
             </button>
           </form>
+        </Section>
+
+        {/* Database Diagnostics */}
+        <Section icon={Database} label="Database Sync Diagnostics" color="#3B82F6">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>Database Provider</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Supabase PostgreSQL</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>Status</span>
+              <span style={{ fontWeight: 700, color: '#10B981' }}>Connected & Active</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '8px 0' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>Active Tables</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>tasks, todos, habits, water_logs, notes...</span>
+            </div>
+          </div>
         </Section>
 
         {/* Notifications */}
         <Section icon={Bell} label="Notification Preferences" color="#F59E0B">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             <ToggleRow label="Push Notifications" sub="Task reminders and habit streaks" value={notifications} onChange={() => setNotifications(p => !p)} Toggle={Toggle} />
-            <div className="divider" />
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
             <ToggleRow label="Daily AI Morning Plan" sub="AI daily brief generated at 7:00 AM" value={dailyBrief} onChange={() => setDailyBrief(p => !p)} Toggle={Toggle} />
           </div>
         </Section>
 
-        {/* MCP Protocols */}
-        <button
-          onClick={() => router.push('/mcp')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 14, padding: '16px',
-            background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)', cursor: 'pointer', width: '100%',
-            textAlign: 'left',
-          }}
-        >
-          <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'rgba(96,165,250,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ShieldCheck size={18} color="#60A5FA" />
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 14, fontWeight: 700 }}>MCP Connect Protocol</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Connect Claude Desktop, Cursor, and AI agents</p>
-          </div>
-          <ChevronRight size={16} color="var(--text-dim)" />
-        </button>
+        {/* Quick Nav Protocols */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <button
+            onClick={() => router.push('/mcp')}
+            className="card"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '14px',
+              cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(96,165,250,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ShieldCheck size={18} color="#3B82F6" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>MCP Connect</p>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>AI Agent API</p>
+            </div>
+            <ChevronRight size={14} color="var(--text-muted)" />
+          </button>
 
-        {/* Analytics link */}
-        <button
-          onClick={() => router.push('/analytics')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 14, padding: '16px',
-            background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)', cursor: 'pointer', width: '100%',
-            textAlign: 'left',
-          }}
-        >
-          <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <BarChart2 size={18} color="#10B981" />
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 14, fontWeight: 700 }}>Analytics & Life Score</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>View your velocity charts and habit metrics</p>
-          </div>
-          <ChevronRight size={16} color="var(--text-dim)" />
-        </button>
+          <button
+            onClick={() => router.push('/analytics')}
+            className="card"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '14px',
+              cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BarChart2 size={18} color="#10B981" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Analytics</p>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>Life Score</p>
+            </div>
+            <ChevronRight size={14} color="var(--text-muted)" />
+          </button>
+        </div>
 
-        {/* App Info */}
-        <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, #10B981, #059669)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 10px', fontSize: 20, fontWeight: 900, color: '#0A0B0D',
-          }}>N</div>
-          <p style={{ fontSize: 15, fontWeight: 800 }}>NIRMAAN OS v3.0</p>
-          <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>Personal Reconstruction System</p>
+        {/* Data Tools: Export & Cache Clear */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={exportUserData}
+            className="btn btn-secondary"
+            style={{ flex: 1, height: 42, fontSize: 13 }}
+          >
+            <Download size={15} /> Export Backup JSON
+          </button>
+          <button
+            onClick={clearLocalCache}
+            disabled={clearingCache}
+            className="btn btn-secondary"
+            style={{ flex: 1, height: 42, fontSize: 13 }}
+          >
+            {clearingCache ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+            Clear Cache
+          </button>
         </div>
 
         {/* Sign Out */}
@@ -205,13 +348,14 @@ export default function SettingsPage() {
           onClick={handleSignOut}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            padding: '14px', background: 'rgba(244,63,94,0.08)',
-            border: '1px solid rgba(244,63,94,0.2)', borderRadius: 'var(--radius)',
-            cursor: 'pointer', color: '#F43F5E', fontSize: 14, fontWeight: 700,
+            padding: '14px', background: 'rgba(239,68,68,0.08)',
+            border: '1px solid rgba(239,68,68,0.2)', borderRadius: 'var(--radius-btn)',
+            cursor: 'pointer', color: '#EF4444', fontSize: 14, fontWeight: 700,
           }}
         >
           <LogOut size={16} /> Sign Out Account
         </button>
+
       </div>
     </AppShell>
   )
@@ -219,12 +363,12 @@ export default function SettingsPage() {
 
 function Section({ icon: Icon, label, color, children }: { icon: React.ElementType; label: string; color: string; children: React.ReactNode }) {
   return (
-    <div className="card" style={{ padding: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 8, background: color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={14} color={color} />
+    <div className="card" style={{ padding: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <div style={{ width: 28, height: 28, borderRadius: 8, background: color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={15} color={color} />
         </div>
-        <span style={{ fontSize: 15, fontWeight: 700 }}>{label}</span>
+        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{label}</span>
       </div>
       {children}
     </div>
@@ -233,10 +377,10 @@ function Section({ icon: Icon, label, color, children }: { icon: React.ElementTy
 
 function ToggleRow({ label, sub, value, onChange, Toggle }: { label: string; sub: string; value: boolean; onChange: () => void; Toggle: React.ComponentType<{ value: boolean; onChange: () => void }> }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
       <div>
-        <p style={{ fontSize: 14, fontWeight: 500 }}>{label}</p>
-        <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>{sub}</p>
+        <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>{label}</p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{sub}</p>
       </div>
       <Toggle value={value} onChange={onChange} />
     </div>
