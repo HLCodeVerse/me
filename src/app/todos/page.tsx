@@ -6,13 +6,20 @@ import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
   Plus, CheckCircle2, Trash2, Loader2, CheckSquare,
-  Sparkles, Calendar, Check, Circle, Send
+  Sparkles, Calendar, Check, Circle, Send, Layers, ListPlus
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { stripMarkdown } from '@/lib/utils'
 import type { Todo } from '@/lib/supabase/database.types'
 
 type FilterTab = 'all' | 'pending' | 'done'
+
+const PRIORITY_FLAGS: Record<number, { label: string; badgeClass: string; color: string }> = {
+  4: { label: 'P1 Urgent', badgeClass: 'badge-p1', color: '#F43F5E' },
+  3: { label: 'P2 High', badgeClass: 'badge-p2', color: '#F59E0B' },
+  2: { label: 'P3 Medium', badgeClass: 'badge-p3', color: '#3B82F6' },
+  1: { label: 'P4 Low', badgeClass: 'badge-p4', color: '#64748B' },
+}
 
 export default function TodosPage() {
   const { user } = useAuth()
@@ -21,6 +28,9 @@ export default function TodosPage() {
   const [loading, setLoading] = useState(true)
   const [inputVal, setInputVal] = useState('')
   const [dueDate, setDueDate] = useState('')
+  const [priority, setPriority] = useState(3)
+  const [batchMode, setBatchMode] = useState(false)
+  const [batchInput, setBatchInput] = useState('')
   const [filter, setFilter] = useState<FilterTab>('all')
   const [saving, setSaving] = useState(false)
   const [completing, setCompleting] = useState<string | null>(null)
@@ -70,6 +80,36 @@ export default function TodosPage() {
     setSaving(false)
     toast.success('Todo added!')
     inputRef.current?.focus()
+  }
+
+  async function handleBatchAdd(e: React.FormEvent) {
+    e.preventDefault()
+    if (!batchInput.trim() || !user) return
+    setSaving(true)
+
+    const lines = batchInput.split('\n').map(s => stripMarkdown(s)).filter(s => s.length > 1)
+    if (lines.length === 0) { setSaving(false); return }
+
+    try {
+      for (const line of lines) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data } = await (supabase.from('todos') as any).insert({
+          user_id: user.id,
+          title: line,
+          is_done: false,
+        }).select().single()
+
+        if (data) setTodos(prev => [data, ...prev])
+      }
+
+      setBatchInput('')
+      setBatchMode(false)
+      toast.success(`Imported ${lines.length} todos! 🚀`)
+    } catch {
+      toast.error('Failed to batch import todos')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function toggleTodoStatus(todo: Todo) {
@@ -193,6 +233,13 @@ export default function TodosPage() {
             <CheckSquare size={20} color="#3B82F6" />
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Quick Todos</h1>
           </div>
+          <button
+            onClick={() => setBatchMode(!batchMode)}
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', fontSize: 12, display: 'flex', gap: 6 }}
+          >
+            <ListPlus size={14} color="#3B82F6" /> {batchMode ? 'Single Add' : 'Batch Import'}
+          </button>
         </div>
       }
     >
@@ -202,6 +249,7 @@ export default function TodosPage() {
         <form onSubmit={handleAITodoGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
           <Sparkles size={18} color="#3B82F6" style={{ flexShrink: 0 }} />
           <input
+            className="glow-input"
             placeholder="Tell AI to generate todos (e.g., '3 quick tasks to prepare for meeting')..."
             value={aiPrompt}
             onChange={e => setAiPrompt(e.target.value)}
@@ -235,34 +283,61 @@ export default function TodosPage() {
           </div>
         </div>
 
-        {/* Add Todo Input Form */}
-        <form onSubmit={addTodo}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <input
-                ref={inputRef}
-                value={inputVal}
-                onChange={e => setInputVal(e.target.value)}
-                placeholder="What needs to be done today? Press Enter..."
-                style={{ flex: 1, fontSize: 14 }}
-              />
-              <button type="submit" disabled={saving || !inputVal.trim()} className="btn btn-primary" style={{ height: 42, padding: '0 18px', flexShrink: 0 }}>
-                {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={18} />}
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Calendar size={14} color="var(--text-muted)" />
+        {/* Add Form (Single or Batch Mode) */}
+        {!batchMode ? (
+          <form onSubmit={addTodo}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10 }}>
                 <input
-                  type="date"
-                  value={dueDate}
-                  onChange={e => setDueDate(e.target.value)}
-                  style={{ height: 32, padding: '2px 10px', fontSize: 12, width: 'auto' }}
+                  ref={inputRef}
+                  className="glow-input"
+                  value={inputVal}
+                  onChange={e => setInputVal(e.target.value)}
+                  placeholder="What needs to be done today? Press Enter..."
+                  style={{ flex: 1, fontSize: 14 }}
                 />
+                <button type="submit" disabled={saving || !inputVal.trim()} className="btn btn-primary" style={{ height: 42, padding: '0 18px', flexShrink: 0 }}>
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={18} />}
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Calendar size={14} color="var(--text-muted)" />
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={e => setDueDate(e.target.value)}
+                    style={{ height: 32, padding: '2px 10px', fontSize: 12, width: 'auto' }}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        </form>
+          </form>
+        ) : (
+          /* Todoist Batch Import Box */
+          <form onSubmit={handleBatchAdd} className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Layers size={16} color="#3B82F6" />
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Batch Todoist Import</span>
+            </div>
+            <textarea
+              className="glow-input"
+              rows={4}
+              placeholder="Paste multiple todo items (one per line):&#10;Buy groceries&#10;Submit report&#10;Schedule doctor appointment"
+              value={batchInput}
+              onChange={e => setBatchInput(e.target.value)}
+              style={{ fontSize: 13, lineHeight: 1.5 }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" onClick={() => setBatchMode(false)} className="btn btn-secondary" style={{ height: 36, fontSize: 12 }}>
+                Cancel
+              </button>
+              <button type="submit" disabled={saving || !batchInput.trim()} className="btn btn-primary" style={{ height: 36, fontSize: 12 }}>
+                {saving ? <Loader2 size={14} className="animate-spin" /> : 'Import All Lines'}
+              </button>
+            </div>
+          </form>
+        )}
 
         {/* Filter Tabs & Batch Actions */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
@@ -326,7 +401,6 @@ export default function TodosPage() {
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 14px', background: todo.is_done ? 'var(--surface-2)' : 'var(--surface)',
                     opacity: todo.is_done ? 0.6 : 1,
-                    border: `1px solid ${todo.is_done ? 'var(--border)' : 'var(--border)'}`,
                   }}
                 >
                   <button
@@ -335,7 +409,7 @@ export default function TodosPage() {
                     style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexShrink: 0 }}
                   >
                     {todo.is_done ? (
-                      <CheckCircle2 size={20} color="#10B981" />
+                      <CheckCircle2 size={20} color="#10B981" className="check-pop" />
                     ) : (
                       <Circle size={20} color="var(--text-muted)" strokeWidth={1.5} />
                     )}

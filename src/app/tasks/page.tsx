@@ -6,18 +6,25 @@ import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
   Plus, LayoutList, Columns, ChevronDown, ChevronRight,
-  Circle, CheckCircle2, Loader2, X, Repeat, Sparkles, Brain, Trash2, ListChecks, Send
+  Circle, CheckCircle2, Loader2, X, Repeat, Sparkles, Brain, Trash2, ListChecks, Send, Flag, Search, CornerDownRight
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDate, getPriorityColor, getPriorityLabel, stripMarkdown } from '@/lib/utils'
+import { formatDate, stripMarkdown } from '@/lib/utils'
 import type { Task } from '@/lib/supabase/database.types'
 
 type ViewMode = 'list' | 'kanban'
-type FilterStatus = 'all' | 'todo' | 'in_progress' | 'done'
+type FilterStatus = 'all' | 'today' | 'p1' | 'todo' | 'in_progress' | 'done'
 
 const STATUSES = ['todo', 'in_progress', 'done']
 const STATUS_LABELS: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' }
 const STATUS_COLORS: Record<string, string> = { todo: 'var(--text-muted)', in_progress: '#3B82F6', done: '#10B981' }
+
+const PRIORITY_FLAGS: Record<number, { label: string; badgeClass: string; color: string }> = {
+  4: { label: 'P1 Urgent', badgeClass: 'badge-p1', color: '#F43F5E' },
+  3: { label: 'P2 High', badgeClass: 'badge-p2', color: '#F59E0B' },
+  2: { label: 'P3 Medium', badgeClass: 'badge-p3', color: '#7C3AED' },
+  1: { label: 'P4 Low', badgeClass: 'badge-p4', color: '#64748B' },
+}
 
 export default function TasksPage() {
   const { user } = useAuth()
@@ -26,6 +33,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<ViewMode>('list')
   const [filter, setFilter] = useState<FilterStatus>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set())
   const [optimizing, setOptimizing] = useState(false)
@@ -33,9 +41,10 @@ export default function TasksPage() {
 
   // New task form
   const [newTitle, setNewTitle] = useState('')
-  const [newPriority, setNewPriority] = useState(2)
+  const [newPriority, setNewPriority] = useState(3)
   const [newDueDate, setNewDueDate] = useState('')
   const [newDesc, setNewDesc] = useState('')
+  const [newTags, setNewTags] = useState('')
   const [saving, setSaving] = useState(false)
 
   const fetchTasks = useCallback(async () => {
@@ -44,16 +53,19 @@ export default function TasksPage() {
       return
     }
     try {
-      let q = supabase.from('tasks').select('*').eq('user_id', user.id).is('parent_task_id', null).order('priority', { ascending: false }).order('created_at', { ascending: false })
-      if (filter !== 'all') q = q.eq('status', filter)
-      const { data } = await q
+      const { data } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: false })
       setTasks(data ?? [])
     } catch {
       setTasks([])
     } finally {
       setLoading(false)
     }
-  }, [user, supabase, filter])
+  }, [user, supabase])
 
   useEffect(() => { fetchTasks() }, [fetchTasks])
 
@@ -75,7 +87,7 @@ export default function TasksPage() {
     })
     if (error) { toast.error('Failed to add task'); setSaving(false); return }
     toast.success('Task added!')
-    setNewTitle(''); setNewDesc(''); setNewDueDate(''); setNewPriority(2)
+    setNewTitle(''); setNewDesc(''); setNewDueDate(''); setNewPriority(3); setNewTags('')
     setShowAddForm(false)
     setSaving(false)
     fetchTasks()
@@ -163,6 +175,27 @@ export default function TasksPage() {
     toast.success('Task deleted')
   }
 
+  // Filter root tasks
+  const rootTasks = tasks.filter(t => !t.parent_task_id)
+
+  const filteredTasks = rootTasks.filter(task => {
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (task.description?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+
+    if (!matchesSearch) return false
+
+    if (filter === 'p1') return task.priority === 4
+    if (filter === 'today') {
+      if (!task.due_date) return false
+      const todayIso = new Date().toISOString().split('T')[0]
+      return task.due_date.startsWith(todayIso)
+    }
+    if (filter === 'todo' || filter === 'in_progress' || filter === 'done') {
+      return task.status === filter
+    }
+    return true
+  })
+
   return (
     <AppShell
       header={
@@ -197,6 +230,7 @@ export default function TasksPage() {
         <form onSubmit={handleAITaskGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
           <Sparkles size={18} color="#7C3AED" style={{ flexShrink: 0 }} />
           <input
+            className="glow-input"
             placeholder="Tell AI to generate tasks (e.g., 'Break down my landing page build into subtasks')..."
             value={aiPrompt}
             onChange={e => setAiPrompt(e.target.value)}
@@ -212,23 +246,38 @@ export default function TasksPage() {
           </button>
         </form>
 
-        {/* Filter tabs */}
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
-          {(['all', 'todo', 'in_progress', 'done'] as FilterStatus[]).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              style={{
-                padding: '6px 14px', borderRadius: 99, border: 'none', cursor: 'pointer',
-                fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-                background: filter === f ? '#7C3AED' : 'var(--surface-2)',
-                color: filter === f ? '#FFFFFF' : 'var(--text-secondary)',
-                transition: 'all 150ms ease', flexShrink: 0,
-              }}
-            >
-              {f === 'all' ? 'All Tasks' : STATUS_LABELS[f]}
-            </button>
-          ))}
+        {/* Search Bar & Filter Pills */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              className="glow-input"
+              placeholder="Quick search tasks..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ paddingLeft: 38, fontSize: 13 }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+            {(['all', 'today', 'p1', 'todo', 'in_progress', 'done'] as FilterStatus[]).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                style={{
+                  padding: '6px 14px', borderRadius: 99, border: 'none', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', textTransform: 'capitalize',
+                  background: filter === f ? '#7C3AED' : 'var(--surface-2)',
+                  color: filter === f ? '#FFFFFF' : 'var(--text-secondary)',
+                  transition: 'all 150ms ease', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}
+              >
+                {f === 'p1' && <Flag size={12} color={filter === f ? '#FFFFFF' : '#F43F5E'} />}
+                {f === 'all' ? 'All Tasks' : f === 'p1' ? 'P1 Urgent' : f === 'today' ? 'Due Today' : STATUS_LABELS[f]}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* List View */}
@@ -236,7 +285,7 @@ export default function TasksPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {loading ? (
               [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 70, borderRadius: 'var(--radius-card)' }} />)
-            ) : tasks.length === 0 ? (
+            ) : filteredTasks.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
                 <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                   <ListChecks size={24} color="#7C3AED" />
@@ -245,20 +294,25 @@ export default function TasksPage() {
                 <p style={{ fontSize: 13, marginTop: 4, color: 'var(--text-secondary)' }}>Click Add Task or use AI prompt bar above.</p>
               </div>
             ) : (
-              tasks.map(task => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  expanded={expandedTasks.has(task.id)}
-                  onToggleExpand={() => setExpandedTasks(prev => {
-                    const s = new Set(prev)
-                    if (s.has(task.id)) s.delete(task.id); else s.add(task.id)
-                    return s
-                  })}
-                  onStatusChange={updateStatus}
-                  onDelete={deleteTask}
-                />
-              ))
+              filteredTasks.map(task => {
+                const subtasks = tasks.filter(t => t.parent_task_id === task.id)
+                return (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    subtasks={subtasks}
+                    expanded={expandedTasks.has(task.id)}
+                    onToggleExpand={() => setExpandedTasks(prev => {
+                      const s = new Set(prev)
+                      if (s.has(task.id)) s.delete(task.id); else s.add(task.id)
+                      return s
+                    })}
+                    onStatusChange={updateStatus}
+                    onDelete={deleteTask}
+                    onSubtaskAdded={fetchTasks}
+                  />
+                )
+              })
             )}
           </div>
         )}
@@ -267,7 +321,7 @@ export default function TasksPage() {
         {view === 'kanban' && (
           <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 16 }}>
             {STATUSES.map(status => {
-              const colTasks = tasks.filter(t => t.status === status)
+              const colTasks = filteredTasks.filter(t => t.status === status)
               return (
                 <div key={status} style={{ minWidth: 260, flex: 1, background: 'var(--surface-2)', padding: 14, borderRadius: 'var(--radius-card)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -284,8 +338,8 @@ export default function TasksPage() {
                           {stripMarkdown(task.title)}
                         </p>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 11, color: getPriorityColor(task.priority), fontWeight: 600 }}>
-                            {getPriorityLabel(task.priority)}
+                          <span className={`badge ${PRIORITY_FLAGS[task.priority]?.badgeClass || 'badge-muted'}`} style={{ fontSize: 10 }}>
+                            <Flag size={10} /> {PRIORITY_FLAGS[task.priority]?.label}
                           </span>
                           {task.due_date && (
                             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDate(task.due_date)}</span>
@@ -320,7 +374,8 @@ export default function TasksPage() {
               </div>
               <form onSubmit={addTask} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <input
-                  placeholder="Task title..."
+                  className="glow-input"
+                  placeholder="Task title (e.g. Build authentication endpoints)..."
                   value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
                   autoFocus
@@ -328,6 +383,7 @@ export default function TasksPage() {
                   style={{ fontSize: 15, fontWeight: 500 }}
                 />
                 <textarea
+                  className="glow-input"
                   placeholder="Description (optional)"
                   value={newDesc}
                   onChange={e => setNewDesc(e.target.value)}
@@ -336,12 +392,12 @@ export default function TasksPage() {
                 />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
-                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>PRIORITY</label>
+                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>PRIORITY LEVEL</label>
                     <select value={newPriority} onChange={e => setNewPriority(Number(e.target.value))}>
-                      <option value={1}>Low</option>
-                      <option value={2}>Medium</option>
-                      <option value={3}>High</option>
-                      <option value={4}>Critical</option>
+                      <option value={4}>P1 — Urgent (Red)</option>
+                      <option value={3}>P2 — High (Orange)</option>
+                      <option value={2}>P3 — Medium (Blue)</option>
+                      <option value={1}>P4 — Low (Gray)</option>
                     </select>
                   </div>
                   <div>
@@ -361,18 +417,52 @@ export default function TasksPage() {
   )
 }
 
-function TaskCard({ task, expanded, onToggleExpand, onStatusChange, onDelete }: {
+function TaskCard({ task, subtasks, expanded, onToggleExpand, onStatusChange, onDelete, onSubtaskAdded }: {
   task: Task
+  subtasks: Task[]
   expanded: boolean
   onToggleExpand: () => void
   onStatusChange: (id: string, status: string) => void
   onDelete: (id: string) => void
+  onSubtaskAdded: () => void
 }) {
   const { user } = useAuth()
   const supabase = createClient()
   const isDone = task.status === 'done'
-  const pColor = getPriorityColor(task.priority)
+  const priorityInfo = PRIORITY_FLAGS[task.priority] || PRIORITY_FLAGS[3]
+
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('')
+  const [addingSubtask, setAddingSubtask] = useState(false)
   const [generatingSubtasks, setGeneratingSubtasks] = useState(false)
+
+  const doneSubtasks = subtasks.filter(s => s.status === 'done').length
+  const subtaskProgress = subtasks.length > 0 ? Math.round((doneSubtasks / subtasks.length) * 100) : 0
+
+  async function handleAddSubtask(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newSubtaskTitle.trim() || !user) return
+    setAddingSubtask(true)
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('tasks') as any).insert({
+        user_id: user.id,
+        parent_task_id: task.id,
+        title: stripMarkdown(newSubtaskTitle.trim()),
+        priority: Math.max(1, task.priority - 1),
+        status: 'todo'
+      })
+
+      if (error) throw error
+      setNewSubtaskTitle('')
+      toast.success('Subtask added!')
+      onSubtaskAdded()
+    } catch {
+      toast.error('Failed to add subtask')
+    } finally {
+      setAddingSubtask(false)
+    }
+  }
 
   async function aiBreakdownTask() {
     if (!user) return
@@ -428,6 +518,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStatusChange, onDelete }: 
       }
 
       toast.success('Generated subtasks!')
+      onSubtaskAdded()
     } catch {
       toast.error('Could not generate subtasks')
     } finally {
@@ -440,7 +531,7 @@ function TaskCard({ task, expanded, onToggleExpand, onStatusChange, onDelete }: 
       padding: '14px 16px',
       opacity: isDone ? 0.6 : 1,
       transition: 'opacity 200ms',
-      borderLeft: `3px solid ${pColor}`,
+      borderLeft: `4px solid ${priorityInfo.color}`,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button
@@ -448,24 +539,34 @@ function TaskCard({ task, expanded, onToggleExpand, onStatusChange, onDelete }: 
           style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexShrink: 0 }}
         >
           {isDone
-            ? <CheckCircle2 size={20} color="#10B981" />
-            : <Circle size={20} color={pColor} strokeWidth={1.5} />
+            ? <CheckCircle2 size={20} color="#10B981" className="check-pop" />
+            : <Circle size={20} color={priorityInfo.color} strokeWidth={1.5} />
           }
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{
-            fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0,
-            textDecoration: isDone ? 'line-through' : 'none',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {stripMarkdown(task.title)}
-          </p>
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <span style={{ fontSize: 11, color: pColor, fontWeight: 600 }}>{getPriorityLabel(task.priority)}</span>
-            {task.due_date && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {formatDate(task.due_date)}</span>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <p style={{
+              fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0,
+              textDecoration: isDone ? 'line-through' : 'none',
+            }}>
+              {stripMarkdown(task.title)}
+            </p>
+            <span className={`badge ${priorityInfo.badgeClass}`} style={{ fontSize: 10 }}>
+              <Flag size={10} /> {priorityInfo.label}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+            {task.due_date && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Due {formatDate(task.due_date)}</span>}
             {task.recurrence_rule && <Repeat size={10} color="#3B82F6" />}
+            {subtasks.length > 0 && (
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 }}>
+                {doneSubtasks}/{subtasks.length} subtasks
+              </span>
+            )}
           </div>
         </div>
+
         <button
           onClick={onToggleExpand}
           style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
@@ -474,12 +575,66 @@ function TaskCard({ task, expanded, onToggleExpand, onStatusChange, onDelete }: 
         </button>
       </div>
 
+      {/* Expanded Subtasks Tree & Controls */}
       {expanded && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {task.description && (
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>{stripMarkdown(task.description)}</p>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{stripMarkdown(task.description)}</p>
           )}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+
+          {/* Subtask Progress Bar */}
+          {subtasks.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                <span>Subtask Progress</span>
+                <span>{subtaskProgress}%</span>
+              </div>
+              <div style={{ height: 5, background: 'var(--surface-2)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ width: `${subtaskProgress}%`, height: '100%', background: priorityInfo.color, borderRadius: 99, transition: 'width 300ms ease' }} />
+              </div>
+            </div>
+          )}
+
+          {/* Subtasks Tree List */}
+          {subtasks.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 8 }}>
+              {subtasks.map(sub => {
+                const subDone = sub.status === 'done'
+                return (
+                  <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                    <CornerDownRight size={14} color="var(--text-muted)" />
+                    <button
+                      onClick={() => onStatusChange(sub.id, subDone ? 'todo' : 'done')}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+                    >
+                      {subDone ? <CheckCircle2 size={16} color="#10B981" /> : <Circle size={16} color="var(--text-muted)" />}
+                    </button>
+                    <span style={{ fontSize: 13, color: subDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: subDone ? 'line-through' : 'none' }}>
+                      {stripMarkdown(sub.title)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Quick Inline Subtask Add Input */}
+          <form onSubmit={handleAddSubtask} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <CornerDownRight size={14} color="var(--text-muted)" />
+            <input
+              className="glow-input"
+              placeholder="Add subtask..."
+              value={newSubtaskTitle}
+              onChange={e => setNewSubtaskTitle(e.target.value)}
+              style={{ flex: 1, height: 32, fontSize: 12, padding: '0 10px' }}
+            />
+            <button type="submit" disabled={addingSubtask || !newSubtaskTitle.trim()} className="btn btn-secondary" style={{ height: 32, padding: '0 10px', fontSize: 11 }}>
+              {addingSubtask ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Subtask
+            </button>
+          </form>
+
+          {/* Action Row */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
             <button
               onClick={aiBreakdownTask}
               disabled={generatingSubtasks}
