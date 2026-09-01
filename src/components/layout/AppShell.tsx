@@ -10,13 +10,13 @@ import DesktopSidebar from './DesktopSidebar'
 import BottomNav from './BottomNav'
 import GlobalMediaPlayer from '@/components/media/GlobalMediaPlayer'
 import SplashScreen from '@/components/common/SplashScreen'
-import BrowserPermissionBanner from '@/components/common/BrowserPermissionBanner'
 import { initDoubleBackToExit } from '@/lib/back-button-handler'
 import { requestAllPermissions } from '@/lib/permissions-handler'
 import {
   LayoutDashboard, CheckSquare, ListTodo, BookOpen, Bot, Flame,
   StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, X, ShieldCheck, Activity, Zap, Disc
 } from 'lucide-react'
+import BrowserPermissionBanner from '../common/BrowserPermissionBanner'
 
 interface AppShellProps {
   children: ReactNode
@@ -25,21 +25,21 @@ interface AppShellProps {
 }
 
 const ALL_MODULES = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',   color: '#7C3AED' },
-  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',       color: '#F59E0B' },
-  { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#3B82F6' },
-  { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#EF4444' },
-  { href: '/health',    icon: Activity,        label: 'Health',      color: '#10B981' },
-  { href: '/player',    icon: Disc,            label: 'Media Player',color: '#7C3AED' },
-  { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4' },
-  { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B' },
-  { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#8B5CF6' },
-  { href: '/goals',     icon: Target,          label: 'Goals',       color: '#10B981' },
-  { href: '/analytics', icon: BarChart2,       label: 'Analytics',   color: '#3B82F6' },
-  { href: '/learn',     icon: GraduationCap,   label: 'Learning hub',color: '#8B5CF6' },
-  { href: '/ai',        icon: Bot,             label: 'AI chat OS',  color: '#7C3AED' },
-  { href: '/mcp',       icon: ShieldCheck,     label: 'MCP connect', color: '#10B981' },
-  { href: '/settings',  icon: Settings,        label: 'Settings',    color: '#6B7280' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#7C3AED' },
+  { href: '/tasks', icon: CheckSquare, label: 'Tasks', color: '#F59E0B' },
+  { href: '/todos', icon: ListTodo, label: 'Todos', color: '#3B82F6' },
+  { href: '/habits', icon: Flame, label: 'Habits', color: '#EF4444' },
+  { href: '/health', icon: Activity, label: 'Health', color: '#10B981' },
+  { href: '/player', icon: Disc, label: 'Media Player', color: '#7C3AED' },
+  { href: '/notes', icon: StickyNote, label: 'Notes', color: '#06B6D4' },
+  { href: '/reminders', icon: Bell, label: 'Reminders', color: '#F59E0B' },
+  { href: '/journal', icon: BookOpen, label: 'Journal', color: '#8B5CF6' },
+  { href: '/goals', icon: Target, label: 'Goals', color: '#10B981' },
+  { href: '/analytics', icon: BarChart2, label: 'Analytics', color: '#3B82F6' },
+  { href: '/learn', icon: GraduationCap, label: 'Learning hub', color: '#8B5CF6' },
+  { href: '/ai', icon: Bot, label: 'AI chat OS', color: '#7C3AED' },
+  { href: '/mcp', icon: ShieldCheck, label: 'MCP connect', color: '#10B981' },
+  { href: '/settings', icon: Settings, label: 'Settings', color: '#6B7280' },
 ]
 
 export default function AppShell({ children, header, noPadding }: AppShellProps) {
@@ -72,7 +72,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
       {/* Main Content Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh' }}>
         {header ? header : <AppHeader onOpenMobileDrawer={() => setShowDrawer(true)} />}
-        
+
         <main style={{
           flex: 1,
           padding: noPadding ? 0 : '24px',
