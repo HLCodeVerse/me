@@ -23,7 +23,6 @@ export default function GlobalMediaPlayer() {
     togglePlay,
     nextTrack,
     prevTrack,
-    seekTo,
     updateTime,
   } = useMediaStore()
 
