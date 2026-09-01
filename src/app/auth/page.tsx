@@ -3,7 +3,10 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { Phone, Lock, ArrowRight, Loader2, User, Zap, Eye, EyeOff, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react'
+import {
+  Phone, Lock, ArrowRight, Loader2, User, Zap, Eye, EyeOff,
+  ShieldCheck, Sparkles, CheckCircle2, Flame, Bot, Target, Activity, Star
+} from 'lucide-react'
 import { toast } from 'sonner'
 import type { Profile } from '@/lib/supabase/database.types'
 
@@ -33,7 +36,7 @@ function AuthContent() {
     }
   }, [user, nextUrl, redirecting])
 
-  // Clear stale Supabase auth keys if any
+  // Clear stale auth tokens on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -50,7 +53,7 @@ function AuthContent() {
     const cleanPass = password.trim()
 
     if (!cleanPhone || !cleanPass) {
-      toast.error('Please fill in both mobile number and password')
+      toast.error('Please enter both mobile number and password')
       return
     }
 
@@ -73,7 +76,7 @@ function AuthContent() {
       if (!res.ok) {
         toast.error(data.error || 'Authentication failed')
         if (res.status === 404 && mode === 'login') {
-          toast.info('Account not found. Switching to registration mode...')
+          toast.info('Account not found. Switched to registration mode!')
           setMode('signup')
         }
         setLoading(false)
@@ -83,147 +86,396 @@ function AuthContent() {
       if (data.success && data.profile) {
         setRedirecting(true)
         setDirectUser(data.profile as Profile)
-        toast.success(mode === 'signup' ? 'Account created! Welcome to NIRMAAN 🚀' : 'Welcome back to NIRMAAN 🚀')
+        toast.success(mode === 'signup' ? 'Welcome to NIRMAAN OS! 🚀' : 'Welcome back, Builder! ⚡')
 
-        // Ensure session cookies are set and force hard window navigation
         const target = nextUrl || '/dashboard'
         setTimeout(() => {
           window.location.href = target
         }, 150)
       } else {
-        toast.error('Invalid response from server')
+        toast.error('Unexpected auth response from server')
         setLoading(false)
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Authentication request failed')
+      toast.error(err instanceof Error ? err.message : 'Authentication network request failed')
       setLoading(false)
     }
+  }
+
+  function handleDemoLogin() {
+    setPhone('9876543210')
+    setPassword('demo1234')
+    setMode('login')
+    toast.info('Demo credentials loaded! Click Sign In to enter.')
   }
 
   return (
     <div style={{
       minHeight: '100dvh',
-      background: 'radial-gradient(ellipse at top, #18181B 0%, #09090B 100%)',
+      background: '#030509',
       display: 'flex',
-      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '24px 16px',
+      padding: '32px 20px',
       position: 'relative',
       overflow: 'hidden',
-      color: 'var(--text-primary)',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      color: '#FFFFFF',
     }}>
-      {/* Dynamic Animated Ambient Orbs */}
+      {/* Dynamic Animation Keyframes */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes floatOrb1 {
+          0% { transform: translate(0px, 0px) scale(1); }
+          50% { transform: translate(40px, -60px) scale(1.15); }
+          100% { transform: translate(0px, 0px) scale(1); }
+        }
+        @keyframes floatOrb2 {
+          0% { transform: translate(0px, 0px) scale(1); }
+          50% { transform: translate(-50px, 50px) scale(1.2); }
+          100% { transform: translate(0px, 0px) scale(1); }
+        }
+        @keyframes shimmerSweep {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes cardFadeUp {
+          from { opacity: 0; transform: translateY(24px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes pulseGlow {
+          0%, 100% { opacity: 0.6; filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.4)); }
+          50% { opacity: 1; filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.8)); }
+        }
+        .auth-card-wrapper {
+          animation: cardFadeUp 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .auth-input-field:focus-within {
+          border-color: #F59E0B !important;
+          box-shadow: 0 0 20px rgba(245, 158, 11, 0.35) !important;
+          background: rgba(18, 19, 24, 0.95) !important;
+        }
+        .shimmer-btn {
+          background: linear-gradient(110deg, #FFD700 0%, #F59E0B 45%, #FFF 50%, #F59E0B 55%, #D97706 100%);
+          background-size: 200% 100%;
+          transition: all 300ms ease;
+        }
+        .shimmer-btn:hover {
+          animation: shimmerSweep 1.8s infinite;
+          box-shadow: 0 8px 30px rgba(245, 158, 11, 0.6);
+          transform: translateY(-1px);
+        }
+      `}} />
+
+      {/* Floating Ambient Glow Orbs */}
       <div style={{
-        position: 'absolute', top: '-15%', right: '-10%',
-        width: '50vw', height: '50vw', maxWidth: 500, maxHeight: 500,
+        position: 'absolute',
+        top: '-10%',
+        left: '15%',
+        width: 550,
+        height: 550,
         borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(124, 58, 237, 0.25) 0%, rgba(124, 58, 237, 0) 70%)',
-        filter: 'blur(60px)',
+        background: 'radial-gradient(circle, rgba(245, 158, 11, 0.18) 0%, rgba(245, 158, 11, 0) 70%)',
+        filter: 'blur(80px)',
         pointerEvents: 'none',
-        animation: 'pulse 8s ease-in-out infinite alternate',
+        animation: 'floatOrb1 12s ease-in-out infinite',
       }} />
 
       <div style={{
-        position: 'absolute', bottom: '-15%', left: '-10%',
-        width: '50vw', height: '50vw', maxWidth: 500, maxHeight: 500,
+        position: 'absolute',
+        bottom: '-10%',
+        right: '15%',
+        width: 600,
+        height: 600,
         borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0) 70%)',
-        filter: 'blur(70px)',
+        background: 'radial-gradient(circle, rgba(239, 68, 68, 0.14) 0%, rgba(239, 68, 68, 0) 70%)',
+        filter: 'blur(90px)',
         pointerEvents: 'none',
+        animation: 'floatOrb2 14s ease-in-out infinite',
       }} />
 
-      {/* Grid Lines Pattern */}
+      {/* Cyberpunk Grid Mask */}
       <div style={{
-        position: 'absolute', inset: 0,
-        backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)',
-        backgroundSize: '32px 32px',
-        maskImage: 'radial-gradient(circle at center, black 40%, transparent 80%)',
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: 'radial-gradient(rgba(245, 158, 11, 0.12) 1px, transparent 1px)',
+        backgroundSize: '28px 28px',
+        maskImage: 'radial-gradient(ellipse at center, black 30%, transparent 80%)',
         pointerEvents: 'none',
       }} />
 
-      <div style={{ width: '100%', maxWidth: 420, position: 'relative', zIndex: 10 }}>
+      {/* Main Container */}
+      <div className="auth-card-wrapper" style={{
+        width: '100%',
+        maxWidth: 1040,
+        position: 'relative',
+        zIndex: 10,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gap: 32,
+        alignItems: 'center',
+      }}>
 
-        {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{
-            width: 60, height: 60, borderRadius: 20,
-            background: 'linear-gradient(135deg, #7C3AED 0%, #F59E0B 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px', color: '#FFFFFF',
-            boxShadow: '0 10px 30px rgba(124, 58, 237, 0.4)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-          }}>
-            <Zap size={32} fill="#FFFFFF" />
+        {/* Left Hero Section (Visible on Tablet/Desktop) */}
+        <div className="hidden md:flex" style={{
+          flexDirection: 'column',
+          gap: 24,
+          paddingRight: 20,
+        }}>
+          <div>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 14px',
+              borderRadius: 99,
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              color: '#FFD700',
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: '0.04em',
+              marginBottom: 16,
+            }}>
+              <Sparkles size={14} color="#FFD700" />
+              <span>NEXT-GEN PERSONAL RECONSTRUCTION OS</span>
+            </div>
+
+            <h1 style={{
+              fontSize: 40,
+              fontWeight: 900,
+              lineHeight: 1.15,
+              margin: 0,
+              letterSpacing: '-0.03em',
+              background: 'linear-gradient(135deg, #FFFFFF 0%, #E4E4E7 50%, #9CA3AF 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              Master Your Day.<br />
+              <span style={{
+                background: 'linear-gradient(135deg, #FFD700 0%, #F59E0B 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}>Rebuild Your Life.</span>
+            </h1>
+
+            <p style={{ fontSize: 15, color: '#9CA3AF', marginTop: 14, lineHeight: 1.6, maxWidth: 440 }}>
+              NIRMAAN brings your tasks, todos, habits, goals, and AI intelligence into one unified hyper-responsive operating system.
+            </p>
           </div>
-          <h1 style={{
-            fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em', margin: 0,
-            background: 'linear-gradient(135deg, #FFFFFF 0%, #A1A1AA 100%)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          }}>
-            NIRMAAN OS
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 6, fontWeight: 500 }}>
-            {mode === 'login' ? 'Welcome back! Enter your mobile number to access' : 'Create your account & unlock personal OS'}
-          </p>
+
+          {/* Feature Showcase Micro-Cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: '14px 18px',
+              borderRadius: 16,
+              background: 'rgba(18, 19, 24, 0.7)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              backdropFilter: 'blur(10px)',
+            }}>
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: 'rgba(245, 158, 11, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#FFD700',
+              }}>
+                <Bot size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>NIRMAAN AI Chat OS</div>
+                <div style={{ fontSize: 12, color: '#9CA3AF' }}>Direct database tool execution & daily briefs</div>
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: '14px 18px',
+              borderRadius: 16,
+              background: 'rgba(18, 19, 24, 0.7)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              backdropFilter: 'blur(10px)',
+            }}>
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: 'rgba(16, 185, 129, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#10B981',
+              }}>
+                <Activity size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>Life Score Analytics</div>
+                <div style={{ fontSize: 12, color: '#9CA3AF' }}>Real-time velocity tracking & health scores</div>
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: '14px 18px',
+              borderRadius: 16,
+              background: 'rgba(18, 19, 24, 0.7)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              backdropFilter: 'blur(10px)',
+            }}>
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: 'rgba(239, 68, 68, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#EF4444',
+              }}>
+                <Flame size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>Habits & Priority Focus</div>
+                <div style={{ fontSize: 12, color: '#9CA3AF' }}>Streak tracking with zero distraction</div>
+              </div>
+            </div>
+          </div>
+
+          {/* User Trust Banner */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+            <div style={{ display: 'flex' }}>
+              {[1, 2, 3, 4, 5].map(i => (
+                <Star key={i} size={15} fill="#FFD700" color="#FFD700" />
+              ))}
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#D1D5DB' }}>
+              Engineered for High Performers & Builders
+            </span>
+          </div>
         </div>
 
-        {/* Glassmorphic Auth Box */}
+        {/* Right Auth Glassmorphic Card */}
         <div style={{
-          background: 'rgba(24, 24, 27, 0.75)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: 24,
-          padding: '28px 24px',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+          background: 'rgba(10, 11, 15, 0.85)',
+          backdropFilter: 'blur(30px)',
+          WebkitBackdropFilter: 'blur(30px)',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
+          borderRadius: 28,
+          padding: '36px 28px',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+          position: 'relative',
         }}>
-          {/* Mode Switch Tabs */}
+
+          {/* Top Brand Logo */}
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <div style={{
+              width: 56,
+              height: 56,
+              borderRadius: 18,
+              background: 'linear-gradient(135deg, #FFD700 0%, #F59E0B 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 14px',
+              color: '#000000',
+              boxShadow: '0 10px 30px rgba(245, 158, 11, 0.5)',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
+            }}>
+              <Zap size={30} fill="#000000" color="#000000" />
+            </div>
+
+            <h2 style={{
+              fontSize: 24,
+              fontWeight: 900,
+              letterSpacing: '-0.02em',
+              margin: 0,
+              color: '#FFFFFF',
+            }}>
+              NIRMAAN <span style={{ color: '#F59E0B' }}>OS</span>
+            </h2>
+            <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 6, fontWeight: 500 }}>
+              {mode === 'login' ? 'Enter your mobile number to sign in' : 'Create your account & unlock personal OS'}
+            </p>
+          </div>
+
+          {/* Mode Switcher Tabs with Animated Sliding Pill Effect */}
           <div style={{
             display: 'flex',
-            background: 'rgba(9, 9, 11, 0.8)',
-            borderRadius: 14,
-            padding: 4,
-            marginBottom: 24,
-            border: '1px solid rgba(255, 255, 255, 0.06)',
+            background: '#030407',
+            borderRadius: 16,
+            padding: 5,
+            marginBottom: 26,
+            border: '1px solid rgba(245, 158, 11, 0.25)',
+            position: 'relative',
           }}>
             {(['login', 'signup'] as Mode[]).map(m => (
               <button
                 key={m}
+                type="button"
                 onClick={() => setMode(m)}
                 style={{
-                  flex: 1, padding: '10px 12px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                  background: mode === m ? 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)' : 'transparent',
-                  color: mode === m ? '#FFFFFF' : 'var(--text-secondary)',
-                  fontSize: 13, fontWeight: 700, transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: mode === m ? '0 4px 14px rgba(124, 58, 237, 0.4)' : 'none',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  flex: 1,
+                  padding: '11px 14px',
+                  borderRadius: 12,
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: mode === m ? 'linear-gradient(135deg, #FFD700 0%, #F59E0B 100%)' : 'transparent',
+                  color: mode === m ? '#000000' : '#9CA3AF',
+                  fontSize: 13.5,
+                  fontWeight: mode === m ? 800 : 600,
+                  transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: mode === m ? '0 4px 16px rgba(245, 158, 11, 0.45)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
                 }}
               >
-                {m === 'login' ? 'Sign In' : 'Register'}
+                {m === 'login' ? 'Sign In' : 'Create Account'}
               </button>
             ))}
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* Auth Form */}
+          <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {mode === 'signup' && (
               <div>
-                <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 8, display: 'block', letterSpacing: '0.04em' }}>
+                <label style={{ fontSize: 11, color: '#F59E0B', fontWeight: 800, marginBottom: 8, display: 'block', letterSpacing: '0.06em' }}>
                   YOUR NAME
                 </label>
-                <div style={{ position: 'relative' }}>
-                  <User size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <div className="auth-input-field" style={{
+                  position: 'relative',
+                  borderRadius: 14,
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  background: 'rgba(18, 19, 24, 0.8)',
+                  transition: 'all 200ms ease',
+                }}>
+                  <User size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#F59E0B' }} />
                   <input
+                    type="text"
                     placeholder="e.g. Alex Sharma"
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
                     required
                     style={{
-                      width: '100%', height: 46, paddingLeft: 42, paddingRight: 14,
-                      background: 'rgba(9, 9, 11, 0.6)', border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: 12, color: '#FFFFFF', fontSize: 14, outline: 'none',
-                      transition: 'all 150ms ease',
+                      width: '100%',
+                      height: 48,
+                      paddingLeft: 44,
+                      paddingRight: 14,
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      fontSize: 14,
+                      outline: 'none',
                     }}
                   />
                 </div>
@@ -231,11 +483,17 @@ function AuthContent() {
             )}
 
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 8, display: 'block', letterSpacing: '0.04em' }}>
+              <label style={{ fontSize: 11, color: '#F59E0B', fontWeight: 800, marginBottom: 8, display: 'block', letterSpacing: '0.06em' }}>
                 MOBILE NUMBER
               </label>
-              <div style={{ position: 'relative' }}>
-                <Phone size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <div className="auth-input-field" style={{
+                position: 'relative',
+                borderRadius: 14,
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                background: 'rgba(18, 19, 24, 0.8)',
+                transition: 'all 200ms ease',
+              }}>
+                <Phone size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#F59E0B' }} />
                 <input
                   type="tel"
                   placeholder="9876543210"
@@ -243,21 +501,32 @@ function AuthContent() {
                   onChange={e => setPhone(e.target.value)}
                   required
                   style={{
-                    width: '100%', height: 46, paddingLeft: 42, paddingRight: 14,
-                    background: 'rgba(9, 9, 11, 0.6)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 12, color: '#FFFFFF', fontSize: 14, outline: 'none',
-                    transition: 'all 150ms ease',
+                    width: '100%',
+                    height: 48,
+                    paddingLeft: 44,
+                    paddingRight: 14,
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    fontSize: 14,
+                    outline: 'none',
                   }}
                 />
               </div>
             </div>
 
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700, marginBottom: 8, display: 'block', letterSpacing: '0.04em' }}>
+              <label style={{ fontSize: 11, color: '#F59E0B', fontWeight: 800, marginBottom: 8, display: 'block', letterSpacing: '0.06em' }}>
                 PASSWORD
               </label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <div className="auth-input-field" style={{
+                position: 'relative',
+                borderRadius: 14,
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                background: 'rgba(18, 19, 24, 0.8)',
+                transition: 'all 200ms ease',
+              }}>
+                <Lock size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#F59E0B' }} />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
@@ -265,71 +534,123 @@ function AuthContent() {
                   onChange={e => setPassword(e.target.value)}
                   required
                   style={{
-                    width: '100%', height: 46, paddingLeft: 42, paddingRight: 42,
-                    background: 'rgba(9, 9, 11, 0.6)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 12, color: '#FFFFFF', fontSize: 14, outline: 'none',
-                    transition: 'all 150ms ease',
+                    width: '100%',
+                    height: 48,
+                    paddingLeft: 44,
+                    paddingRight: 44,
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    fontSize: 14,
+                    outline: 'none',
                   }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(p => !p)}
                   style={{
-                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
-                    padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    position: 'absolute',
+                    right: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#9CA3AF',
+                    padding: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                   title={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPassword ? <EyeOff size={18} color="#FFD700" /> : <Eye size={18} color="#9CA3AF" />}
                 </button>
               </div>
             </div>
 
+            {/* Submit Button with Shimmer & Pulse */}
             <button
               type="submit"
               disabled={loading || redirecting}
+              className="shimmer-btn"
               style={{
-                height: 48, marginTop: 6, borderRadius: 12, border: 'none', cursor: 'pointer',
-                background: 'linear-gradient(135deg, #7C3AED 0%, #F59E0B 100%)',
-                color: '#FFFFFF', fontSize: 15, fontWeight: 700,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                boxShadow: '0 8px 24px rgba(124, 58, 237, 0.35)',
-                transition: 'all 200ms ease',
+                height: 50,
+                marginTop: 6,
+                borderRadius: 14,
+                border: 'none',
+                cursor: 'pointer',
+                color: '#000000',
+                fontSize: 15,
+                fontWeight: 900,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                letterSpacing: '0.02em',
                 opacity: (loading || redirecting) ? 0.7 : 1,
               }}
             >
               {loading || redirecting ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
-                  <span>{redirecting ? 'Redirecting to Dashboard...' : 'Authenticating...'}</span>
+                  <Loader2 size={20} className="animate-spin" color="#000000" />
+                  <span>{redirecting ? 'Entering NIRMAAN OS...' : 'Authenticating...'}</span>
                 </>
               ) : (
                 <>
-                  <span>{mode === 'login' ? 'Sign In' : 'Create Account'}</span>
-                  <ArrowRight size={18} />
+                  <span>{mode === 'login' ? 'Sign In to Dashboard' : 'Create Free Account'}</span>
+                  <ArrowRight size={19} color="#000000" />
                 </>
               )}
             </button>
+
+            {/* Quick Demo Builder Sign-In Option */}
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              style={{
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                borderRadius: 12,
+                padding: '10px 14px',
+                color: '#FFD700',
+                fontSize: 12.5,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                transition: 'all 150ms ease',
+              }}
+            >
+              <Zap size={14} color="#FFD700" />
+              <span>Load Demo Credentials (Quick 1-Click Test)</span>
+            </button>
           </form>
 
-          {/* Quick Info Badges */}
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <ShieldCheck size={13} color="#10B981" /> Encrypted Session
+          {/* Security & System Status Footer */}
+          <div style={{
+            marginTop: 26,
+            paddingTop: 18,
+            borderTop: '1px solid rgba(245, 158, 11, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: 11.5,
+            color: '#9CA3AF',
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <ShieldCheck size={14} color="#10B981" /> 256-bit Encrypted
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Sparkles size={13} color="#F59E0B" /> AI OS Powered
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Sparkles size={14} color="#FFD700" /> Grok & OpenRouter AI
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <CheckCircle2 size={13} color="#7C3AED" /> Instant Sync
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <CheckCircle2 size={14} color="#10B981" /> Instant Sync
             </span>
           </div>
         </div>
-
-        <p style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: 'var(--text-muted)', margin: '24px 0 0' }}>
-          NIRMAAN Personal OS • Built for Focus & Productivity
-        </p>
 
       </div>
     </div>
@@ -339,8 +660,8 @@ function AuthContent() {
 export default function AuthPage() {
   return (
     <Suspense fallback={
-      <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#09090B' }}>
-        <Loader2 className="animate-spin" size={24} color="#7C3AED" />
+      <div style={{ padding: 40, textAlign: 'center', color: '#9CA3AF', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#030509' }}>
+        <Loader2 className="animate-spin" size={28} color="#FFD700" />
       </div>
     }>
       <AuthContent />
