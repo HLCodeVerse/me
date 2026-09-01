@@ -39,67 +39,21 @@ const decodeSecret = (b64: string) => typeof Buffer !== 'undefined' ? Buffer.fro
 const HARDCODED_OPENROUTER_KEY = decodeSecret('c2stb3ItdjEtYmIxYmIyYTc5ZGM0MDIxOWI0N2NkZmFhMGZiMjAzNTYyNzc5ZjkwYjQwNjZmZDVkN2Q4MDA1Zjg4YzdiNjUyMA==')
 const HARDCODED_GEMINI_KEY = decodeSecret('QVEuQWI4Uk42TGJuZzREaktaLURyNy1LMDVkdWtUVlg5TVFfVF9KQ29zT0oyZmVsX1p5MHc=')
 
-// AI Tools
+// Comprehensive AI Tools for Full CRUD across all NIRMAAN modules
 const AI_TOOLS = [
+  // ── Tasks & Subtasks ──
   {
     type: 'function',
     function: {
       name: 'create_task',
-      description: 'Create a new task for the user',
+      description: 'Create a new task with title, priority (1=low, 2=med, 3=high, 4=urgent), due date',
       parameters: {
         type: 'object',
         properties: {
           title: { type: 'string', description: 'Task title' },
-          description: { type: 'string', description: 'Task description (optional)' },
-          priority: { type: 'number', description: '1=low, 2=medium, 3=high, 4=critical', enum: [1, 2, 3, 4] },
-          due_date: { type: 'string', description: 'ISO date string (optional)' },
-        },
-        required: ['title'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'create_todo',
-      description: 'Add a quick todo item',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Todo title' },
-          due_date: { type: 'string', description: 'Date string YYYY-MM-DD (optional)' },
-        },
-        required: ['title'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'create_journal_entry',
-      description: 'Create a journal entry on behalf of the user',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Entry title' },
-          content: { type: 'string', description: 'Journal content' },
-          mood: { type: 'string', enum: ['amazing', 'good', 'meh', 'bad', 'awful'] },
-        },
-        required: ['content'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'create_goal',
-      description: 'Create a new goal for the user',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Goal title' },
-          description: { type: 'string', description: 'Goal description (optional)' },
-          target_date: { type: 'string', description: 'ISO date string (optional)' },
+          description: { type: 'string' },
+          priority: { type: 'number', enum: [1, 2, 3, 4] },
+          due_date: { type: 'string' },
         },
         required: ['title'],
       },
@@ -109,12 +63,10 @@ const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'delete_task',
-      description: 'Delete a task by title or keyword',
+      description: 'Delete task(s) matching title keyword',
       parameters: {
         type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Title or keyword of the task to delete' },
-        },
+        properties: { title: { type: 'string' } },
         required: ['title'],
       },
     },
@@ -122,13 +74,55 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'log_water_intake',
-      description: 'Log water consumption in ml for today',
+      name: 'delete_all_tasks',
+      description: 'Delete ALL tasks for the user',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+
+  // ── Todos ──
+  {
+    type: 'function',
+    function: {
+      name: 'create_todo',
+      description: 'Add a quick todo item',
       parameters: {
         type: 'object',
-        properties: {
-          amount_ml: { type: 'number', description: 'Amount of water in ml' },
-        },
+        properties: { title: { type: 'string' }, due_date: { type: 'string' } },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_todo',
+      description: 'Delete todo item(s) matching title keyword',
+      parameters: {
+        type: 'object',
+        properties: { title: { type: 'string' } },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_all_todos',
+      description: 'Delete ALL daily checklist todos for the user',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+
+  // ── Water & Health ──
+  {
+    type: 'function',
+    function: {
+      name: 'log_water_intake',
+      description: 'Log water consumption in ml for today (e.g. 100, 200, 250, 500)',
+      parameters: {
+        type: 'object',
+        properties: { amount_ml: { type: 'number' } },
         required: ['amount_ml'],
       },
     },
@@ -136,13 +130,58 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'create_note',
-      description: 'Create a new note for the user',
+      name: 'reset_today_water_logs',
+      description: 'Clear today water intake logs',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+
+  // ── Reminders ──
+  {
+    type: 'function',
+    function: {
+      name: 'create_reminder',
+      description: 'Create a reminder for a specific time',
+      parameters: {
+        type: 'object',
+        properties: { title: { type: 'string' }, remind_at: { type: 'string' } },
+        required: ['title', 'remind_at'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_reminder',
+      description: 'Delete reminder(s) matching title keyword',
+      parameters: {
+        type: 'object',
+        properties: { title: { type: 'string' } },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_all_reminders',
+      description: 'Delete ALL reminders for the user',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+
+  // ── Journal ──
+  {
+    type: 'function',
+    function: {
+      name: 'create_journal_entry',
+      description: 'Create a journal entry',
       parameters: {
         type: 'object',
         properties: {
-          title: { type: 'string', description: 'Note title (optional)' },
-          content: { type: 'string', description: 'Note content' },
+          title: { type: 'string' },
+          content: { type: 'string' },
+          mood: { type: 'string', enum: ['amazing', 'good', 'meh', 'bad', 'awful'] },
         },
         required: ['content'],
       },
@@ -151,28 +190,67 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'create_reminder',
-      description: 'Create a reminder for a specific time',
+      name: 'delete_journal_entry',
+      description: 'Delete journal entry matching title or text',
       parameters: {
         type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Reminder title' },
-          remind_at: { type: 'string', description: 'ISO date time string' },
-        },
-        required: ['title', 'remind_at'],
+        properties: { title: { type: 'string' } },
+        required: ['title'],
       },
     },
   },
   {
     type: 'function',
     function: {
-      name: 'create_habit',
-      description: 'Create a new habit to track',
+      name: 'delete_all_journal_entries',
+      description: 'Delete ALL journal entries',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+
+  // ── Goals ──
+  {
+    type: 'function',
+    function: {
+      name: 'create_goal',
+      description: 'Create a new life goal',
       parameters: {
         type: 'object',
-        properties: {
-          name: { type: 'string', description: 'Habit name' },
-        },
+        properties: { title: { type: 'string' }, description: { type: 'string' } },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_goal',
+      description: 'Delete goal(s) matching title keyword',
+      parameters: {
+        type: 'object',
+        properties: { title: { type: 'string' } },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_all_goals',
+      description: 'Delete ALL goals',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+
+  // ── Habits ──
+  {
+    type: 'function',
+    function: {
+      name: 'create_habit',
+      description: 'Create a new habit',
+      parameters: {
+        type: 'object',
+        properties: { name: { type: 'string' } },
         required: ['name'],
       },
     },
@@ -180,13 +258,77 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'navigate_to',
-      description: 'Navigate to a specific page e.g. /tasks, /todos, /health',
+      name: 'delete_habit',
+      description: 'Delete habit(s) matching name keyword',
       parameters: {
         type: 'object',
-        properties: {
-          page: { type: 'string' },
-        },
+        properties: { name: { type: 'string' } },
+        required: ['name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_all_habits',
+      description: 'Delete ALL habits',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+
+  // ── Notes ──
+  {
+    type: 'function',
+    function: {
+      name: 'create_note',
+      description: 'Create a new note',
+      parameters: {
+        type: 'object',
+        properties: { title: { type: 'string' }, content: { type: 'string' } },
+        required: ['content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_note',
+      description: 'Delete note(s) matching title or content keyword',
+      parameters: {
+        type: 'object',
+        properties: { title: { type: 'string' } },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_all_notes',
+      description: 'Delete ALL notes',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+
+  // ── Full System Reset ──
+  {
+    type: 'function',
+    function: {
+      name: 'full_data_reset',
+      description: 'Wipe ALL user data across tasks, todos, habits, notes, journal, goals, water, and reminders in one command',
+      parameters: { type: 'object', properties: {}, required: [] },
+    },
+  },
+
+  // ── Navigation ──
+  {
+    type: 'function',
+    function: {
+      name: 'navigate_to',
+      description: 'Navigate to a page e.g. /tasks, /todos, /health, /reminders, /journal, /goals, /habits, /notes',
+      parameters: {
+        type: 'object',
+        properties: { page: { type: 'string' } },
         required: ['page'],
       },
     },
@@ -195,51 +337,7 @@ const AI_TOOLS = [
 
 async function executeTool(toolName: string, args: Record<string, unknown>, userId: string) {
   switch (toolName) {
-    case 'log_water_intake': {
-      const amount = Number(args.amount_ml) || 250
-      const today = new Date().toISOString().split('T')[0]
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('water_logs') as any).insert({
-        user_id: userId,
-        amount_ml: amount,
-        date: today,
-      }).select().single()
-      return { success: true, message: `Logged ${amount}ml of water! 💧`, log: data }
-    }
-    case 'create_note': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('notes') as any).insert({
-        user_id: userId,
-        title: (args.title as string) || null,
-        content: args.content as string,
-      }).select().single()
-      return { success: true, message: 'Note created! 📝', note: data }
-    }
-    case 'create_reminder': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('reminders') as any).insert({
-        user_id: userId,
-        title: args.title as string,
-        remind_at: args.remind_at as string,
-        is_sent: false,
-      }).select().single()
-      return { success: true, message: `Reminder "${args.title}" set! 🔔`, reminder: data }
-    }
-    case 'create_habit': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (db.from('habits') as any).insert({
-        user_id: userId,
-        name: args.name as string,
-        frequency: 'daily',
-        target_count: 1,
-        archived: false,
-      }).select().single()
-      return { success: true, message: `Habit "${args.name}" created! 🔥`, habit: data }
-    }
-    case 'navigate_to': {
-      const pagePath = (args.page as string) || '/dashboard'
-      return { success: true, message: `Navigating to ${pagePath}`, navigate: pagePath }
-    }
+    // ── Tasks ──
     case 'create_task': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (db.from('tasks') as any).insert({
@@ -251,6 +349,20 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       }).select().single()
       return { success: true, message: `Task "${args.title}" created!`, task: data }
     }
+    case 'delete_task': {
+      const searchTitle = args.title as string
+      const { data: found } = await db.from('tasks').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
+      if (!found || found.length === 0) return { error: `No task found matching "${searchTitle}"` }
+      const ids = found.map(t => t.id)
+      await db.from('tasks').delete().in('id', ids)
+      return { success: true, message: `Deleted ${found.length} task(s) matching "${searchTitle}"` }
+    }
+    case 'delete_all_tasks': {
+      await db.from('tasks').delete().eq('user_id', userId)
+      return { success: true, message: 'All tasks deleted successfully!' }
+    }
+
+    // ── Todos ──
     case 'create_todo': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (db.from('todos') as any).insert({
@@ -259,14 +371,62 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       }).select().single()
       return { success: true, message: `Todo "${args.title}" added!`, todo: data }
     }
-    case 'delete_task': {
+    case 'delete_todo': {
       const searchTitle = args.title as string
-      const { data: found } = await db.from('tasks').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
-      if (!found || found.length === 0) return { error: `No task found matching "${searchTitle}"` }
+      const { data: found } = await db.from('todos').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
+      if (!found || found.length === 0) return { error: `No todo item found matching "${searchTitle}"` }
       const ids = found.map(t => t.id)
-      await db.from('tasks').delete().in('id', ids)
-      return { success: true, message: `Deleted ${found.length} task(s)` }
+      await db.from('todos').delete().in('id', ids)
+      return { success: true, message: `Deleted ${found.length} todo item(s)` }
     }
+    case 'delete_all_todos': {
+      await db.from('todos').delete().eq('user_id', userId)
+      return { success: true, message: 'All daily todos cleared!' }
+    }
+
+    // ── Water & Health ──
+    case 'log_water_intake': {
+      const amount = Number(args.amount_ml) || 250
+      const today = new Date().toISOString().split('T')[0]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (db.from('water_logs') as any).insert({
+        user_id: userId,
+        amount_ml: amount,
+        date: today,
+      }).select().single()
+      return { success: true, message: `Logged ${amount}ml of water! 💧`, log: data }
+    }
+    case 'reset_today_water_logs': {
+      const today = new Date().toISOString().split('T')[0]
+      await db.from('water_logs').delete().eq('user_id', userId).eq('date', today)
+      return { success: true, message: "Cleared today's water intake logs!" }
+    }
+
+    // ── Reminders ──
+    case 'create_reminder': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (db.from('reminders') as any).insert({
+        user_id: userId,
+        title: args.title as string,
+        remind_at: args.remind_at as string,
+        is_sent: false,
+      }).select().single()
+      return { success: true, message: `Reminder "${args.title}" set! 🔔`, reminder: data }
+    }
+    case 'delete_reminder': {
+      const searchTitle = args.title as string
+      const { data: found } = await db.from('reminders').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
+      if (!found || found.length === 0) return { error: `No reminder found matching "${searchTitle}"` }
+      const ids = found.map(r => r.id)
+      await db.from('reminders').delete().in('id', ids)
+      return { success: true, message: `Deleted ${found.length} reminder(s)` }
+    }
+    case 'delete_all_reminders': {
+      await db.from('reminders').delete().eq('user_id', userId)
+      return { success: true, message: 'All reminders deleted!' }
+    }
+
+    // ── Journal ──
     case 'create_journal_entry': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (db.from('journal_entries') as any).insert({
@@ -278,6 +438,20 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       }).select().single()
       return { success: true, message: 'Journal entry created!', entry: data }
     }
+    case 'delete_journal_entry': {
+      const searchTitle = args.title as string
+      const { data: found } = await db.from('journal_entries').select('id, title, content').eq('user_id', userId).or(`title.ilike.%${searchTitle}%,content.ilike.%${searchTitle}%`)
+      if (!found || found.length === 0) return { error: `No journal entry matching "${searchTitle}"` }
+      const ids = found.map(e => e.id)
+      await db.from('journal_entries').delete().in('id', ids)
+      return { success: true, message: `Deleted ${found.length} journal entry(s)` }
+    }
+    case 'delete_all_journal_entries': {
+      await db.from('journal_entries').delete().eq('user_id', userId)
+      return { success: true, message: 'All journal entries deleted!' }
+    }
+
+    // ── Goals ──
     case 'create_goal': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (db.from('goals') as any).insert({
@@ -288,6 +462,87 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
         priority: 2,
       }).select().single()
       return { success: true, message: `Goal "${args.title}" created!`, goal: data }
+    }
+    case 'delete_goal': {
+      const searchTitle = args.title as string
+      const { data: found } = await db.from('goals').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
+      if (!found || found.length === 0) return { error: `No goal matching "${searchTitle}"` }
+      const ids = found.map(g => g.id)
+      await db.from('goals').delete().in('id', ids)
+      return { success: true, message: `Deleted ${found.length} goal(s)` }
+    }
+    case 'delete_all_goals': {
+      await db.from('goals').delete().eq('user_id', userId)
+      return { success: true, message: 'All goals deleted!' }
+    }
+
+    // ── Habits ──
+    case 'create_habit': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (db.from('habits') as any).insert({
+        user_id: userId,
+        name: args.name as string,
+        frequency: 'daily',
+        target_count: 1,
+        archived: false,
+      }).select().single()
+      return { success: true, message: `Habit "${args.name}" created! 🔥`, habit: data }
+    }
+    case 'delete_habit': {
+      const searchName = args.name as string
+      const { data: found } = await db.from('habits').select('id, name').eq('user_id', userId).ilike('name', `%${searchName}%`)
+      if (!found || found.length === 0) return { error: `No habit matching "${searchName}"` }
+      const ids = found.map(h => h.id)
+      await db.from('habits').delete().in('id', ids)
+      return { success: true, message: `Deleted ${found.length} habit(s)` }
+    }
+    case 'delete_all_habits': {
+      await db.from('habits').delete().eq('user_id', userId)
+      return { success: true, message: 'All habits deleted!' }
+    }
+
+    // ── Notes ──
+    case 'create_note': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (db.from('notes') as any).insert({
+        user_id: userId,
+        title: (args.title as string) || null,
+        content: args.content as string,
+      }).select().single()
+      return { success: true, message: 'Note created! 📝', note: data }
+    }
+    case 'delete_note': {
+      const searchTitle = args.title as string
+      const { data: found } = await db.from('notes').select('id, title, content').eq('user_id', userId).or(`title.ilike.%${searchTitle}%,content.ilike.%${searchTitle}%`)
+      if (!found || found.length === 0) return { error: `No note matching "${searchTitle}"` }
+      const ids = found.map(n => n.id)
+      await db.from('notes').delete().in('id', ids)
+      return { success: true, message: `Deleted ${found.length} note(s)` }
+    }
+    case 'delete_all_notes': {
+      await db.from('notes').delete().eq('user_id', userId)
+      return { success: true, message: 'All notes deleted!' }
+    }
+
+    // ── Full System Reset ──
+    case 'full_data_reset': {
+      await Promise.all([
+        db.from('tasks').delete().eq('user_id', userId),
+        db.from('todos').delete().eq('user_id', userId),
+        db.from('habits').delete().eq('user_id', userId),
+        db.from('notes').delete().eq('user_id', userId),
+        db.from('journal_entries').delete().eq('user_id', userId),
+        db.from('goals').delete().eq('user_id', userId),
+        db.from('reminders').delete().eq('user_id', userId),
+        db.from('water_logs').delete().eq('user_id', userId),
+      ])
+      return { success: true, message: '🚨 FULL SYSTEM RESET COMPLETE! All user data wiped clean.' }
+    }
+
+    // ── Navigation ──
+    case 'navigate_to': {
+      const pagePath = (args.page as string) || '/dashboard'
+      return { success: true, message: `Navigating to ${pagePath}`, navigate: pagePath }
     }
     default:
       return { error: `Unknown tool: ${toolName}` }
@@ -442,7 +697,6 @@ async function resolveUserId(req: NextRequest, bodyUserId?: string): Promise<str
     }
   }
 
-  // Fallback to first active profile in DB so requests NEVER fail with 401
   try {
     const { data: profile } = await db.from('profiles').select('id').limit(1).single()
     if (profile?.id) return profile.id
@@ -469,7 +723,7 @@ export async function POST(req: NextRequest) {
 Response Formatting Rules:
 1. **Stylish & Structured**: Always use bold headers (e.g. ## 📅 Title), bold key terms (**Key Concept**), bullet points (- item), and clean emojis (🎯, 📅, ⚡, 💡, 📝, 🚀).
 2. **Direct & Minimal**: Get straight to the point without raw markdown symbols or extra fluff.
-3. **App Integration**: When user asks to create tasks, todos, journals, or goals — execute tools directly.`,
+3. **App Integration & Tool Execution**: When user asks to create or delete tasks, todos, habits, notes, journal entries, goals, reminders, water logs, or full data reset — execute the exact corresponding tool directly.`,
     }
 
     const allMessages = [systemMessage, ...messages]

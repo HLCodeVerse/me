@@ -5,7 +5,6 @@ const DEFAULT_URL = 'https://mfzulmibfmktllnshxox.supabase.co'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1menVsbWliZm1rdGxsbnNoeG94Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjMyOTQ5MywiZXhwIjoyMDk3OTA1NDkzfQ.KaV1NcBeZRWTtYurPyRWqpuUpghk8wJWVK0CtqO4dA0'
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1menVsbWliZm1rdGxsbnNoeG94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjk0OTMsImV4cCI6MjA5NzkwNTQ5M30.QYiOYZ9eQ_epSBRPZhyjOjl185do7tKVQtIBlgdiY0M'
 
-// Valid mood values from DB CHECK constraint
 const VALID_MOODS = ['amazing', 'good', 'meh', 'bad', 'awful'] as const
 type Mood = typeof VALID_MOODS[number]
 
@@ -62,7 +61,6 @@ async function getUserIdFromRequest(req: NextRequest): Promise<string> {
     }
   }
 
-  // Fallback to active user profile so Grok and external MCP clients can connect seamlessly
   try {
     const { data: p } = await supabase.from('profiles').select('id').limit(1).single()
     if (p?.id) return p.id
@@ -71,10 +69,10 @@ async function getUserIdFromRequest(req: NextRequest): Promise<string> {
   return 'mcp-guest-user'
 }
 
-// ─── Expanded MCP Tool Definitions ───────────────────────────────────────────
+// ─── Full CRUD MCP Tool Definitions ───────────────────────────────────────────
 
 const MCP_TOOLS = [
-  // Dashboard
+  // Dashboard & Analytics
   {
     name: 'get_life_dashboard',
     description: 'Get full dashboard overview: life score, streak, active tasks, pending todos, water logs, and goals.',
@@ -86,10 +84,10 @@ const MCP_TOOLS = [
     inputSchema: { type: 'object', properties: {}, required: [] }
   },
 
-  // Tasks & Subtasks
+  // Tasks & Subtasks (Full CRUD)
   {
     name: 'list_tasks',
-    description: 'List all tasks. Filter by status: todo, in_progress, done. Priority 1=low 2=medium 3=high 4=urgent.',
+    description: 'List all tasks. Filter by status: todo, in_progress, done.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -105,9 +103,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        title: { type: 'string', description: 'Task title (required).' },
-        priority: { type: 'number', enum: [1, 2, 3, 4], description: '1=low 2=medium 3=high 4=urgent. Default 3.' },
-        due_date: { type: 'string', description: 'ISO date e.g. "2026-09-20".' },
+        title: { type: 'string', description: 'Task title.' },
+        priority: { type: 'number', enum: [1, 2, 3, 4] },
+        due_date: { type: 'string' },
         description: { type: 'string' }
       },
       required: ['title']
@@ -115,40 +113,46 @@ const MCP_TOOLS = [
   },
   {
     name: 'create_task_with_subtasks',
-    description: 'Create a parent task with an array of subtasks in one call.',
+    description: 'Create a parent task with an array of subtasks.',
     inputSchema: {
       type: 'object',
       properties: {
-        title: { type: 'string', description: 'Parent task title.' },
+        title: { type: 'string' },
         priority: { type: 'number', enum: [1, 2, 3, 4] },
-        subtasks: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Array of subtask titles.'
-        }
+        subtasks: { type: 'array', items: { type: 'string' } }
       },
       required: ['title', 'subtasks']
     }
   },
   {
     name: 'complete_task',
-    description: 'Mark a task as done.',
+    description: 'Mark a task as done by ID.',
     inputSchema: {
       type: 'object',
       properties: { task_id: { type: 'string' } },
       required: ['task_id']
     }
   },
+  {
+    name: 'delete_task',
+    description: 'Delete task(s) matching title or ID.',
+    inputSchema: {
+      type: 'object',
+      properties: { title: { type: 'string' } },
+      required: ['title']
+    }
+  },
+  {
+    name: 'delete_all_tasks',
+    description: 'Delete ALL tasks for the user.',
+    inputSchema: { type: 'object', properties: {}, required: [] }
+  },
 
-  // Todos CRUD & Batch
+  // Todos (Full CRUD)
   {
     name: 'list_todos',
     description: 'List daily checklist todos.',
-    inputSchema: {
-      type: 'object',
-      properties: { is_done: { type: 'boolean' } },
-      required: []
-    }
+    inputSchema: { type: 'object', properties: { is_done: { type: 'boolean' } }, required: [] }
   },
   {
     name: 'create_todo',
@@ -164,23 +168,42 @@ const MCP_TOOLS = [
     description: 'Add multiple todo items at once in bulk.',
     inputSchema: {
       type: 'object',
-      properties: {
-        titles: { type: 'array', items: { type: 'string' }, description: 'Array of todo titles.' }
-      },
+      properties: { titles: { type: 'array', items: { type: 'string' } } },
       required: ['titles']
     }
   },
-
-  // Health & Reminders
   {
-    name: 'log_water_intake',
-    description: 'Log water consumption in ml (e.g. 250, 500).',
+    name: 'delete_todo',
+    description: 'Delete todo item(s) matching title or keyword.',
     inputSchema: {
       type: 'object',
-      properties: { amount_ml: { type: 'number', description: 'Water volume in milliliters.' } },
+      properties: { title: { type: 'string' } },
+      required: ['title']
+    }
+  },
+  {
+    name: 'delete_all_todos',
+    description: 'Delete ALL daily checklist todo items.',
+    inputSchema: { type: 'object', properties: {}, required: [] }
+  },
+
+  // Health & Water Intake (Full CRUD)
+  {
+    name: 'log_water_intake',
+    description: 'Log water consumption in ml (e.g. 100, 200, 250, 500).',
+    inputSchema: {
+      type: 'object',
+      properties: { amount_ml: { type: 'number' } },
       required: ['amount_ml']
     }
   },
+  {
+    name: 'reset_today_water_logs',
+    description: 'Clear today water intake logs.',
+    inputSchema: { type: 'object', properties: {}, required: [] }
+  },
+
+  // Reminders (Full CRUD)
   {
     name: 'create_reminder',
     description: 'Set a reminder alert.',
@@ -188,15 +211,29 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         title: { type: 'string' },
-        remind_at: { type: 'string', description: 'ISO date time.' },
+        remind_at: { type: 'string' },
         is_recurring: { type: 'boolean' },
         recurrence_rule: { type: 'string', enum: ['daily', 'weekly', 'monthly'] }
       },
       required: ['title']
     }
   },
+  {
+    name: 'delete_reminder',
+    description: 'Delete reminder(s) matching title keyword.',
+    inputSchema: {
+      type: 'object',
+      properties: { title: { type: 'string' } },
+      required: ['title']
+    }
+  },
+  {
+    name: 'delete_all_reminders',
+    description: 'Delete ALL reminders for the user.',
+    inputSchema: { type: 'object', properties: {}, required: [] }
+  },
 
-  // Journal & Goals
+  // Journal (Full CRUD)
   {
     name: 'create_journal_entry',
     description: 'Write a journal entry.',
@@ -211,6 +248,22 @@ const MCP_TOOLS = [
     }
   },
   {
+    name: 'delete_journal_entry',
+    description: 'Delete journal entry matching title or content keyword.',
+    inputSchema: {
+      type: 'object',
+      properties: { title: { type: 'string' } },
+      required: ['title']
+    }
+  },
+  {
+    name: 'delete_all_journal_entries',
+    description: 'Delete ALL journal entries.',
+    inputSchema: { type: 'object', properties: {}, required: [] }
+  },
+
+  // Goals (Full CRUD)
+  {
     name: 'create_goal',
     description: 'Create a new life goal.',
     inputSchema: {
@@ -222,6 +275,77 @@ const MCP_TOOLS = [
       },
       required: ['title']
     }
+  },
+  {
+    name: 'delete_goal',
+    description: 'Delete goal(s) matching title keyword.',
+    inputSchema: {
+      type: 'object',
+      properties: { title: { type: 'string' } },
+      required: ['title']
+    }
+  },
+  {
+    name: 'delete_all_goals',
+    description: 'Delete ALL goals.',
+    inputSchema: { type: 'object', properties: {}, required: [] }
+  },
+
+  // Habits (Full CRUD)
+  {
+    name: 'create_habit',
+    description: 'Create a new habit.',
+    inputSchema: {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+      required: ['name']
+    }
+  },
+  {
+    name: 'delete_habit',
+    description: 'Delete habit(s) matching name keyword.',
+    inputSchema: {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+      required: ['name']
+    }
+  },
+  {
+    name: 'delete_all_habits',
+    description: 'Delete ALL habits.',
+    inputSchema: { type: 'object', properties: {}, required: [] }
+  },
+
+  // Notes (Full CRUD)
+  {
+    name: 'create_note',
+    description: 'Create a new note.',
+    inputSchema: {
+      type: 'object',
+      properties: { title: { type: 'string' }, content: { type: 'string' } },
+      required: ['content']
+    }
+  },
+  {
+    name: 'delete_note',
+    description: 'Delete note(s) matching title or content keyword.',
+    inputSchema: {
+      type: 'object',
+      properties: { title: { type: 'string' } },
+      required: ['title']
+    }
+  },
+  {
+    name: 'delete_all_notes',
+    description: 'Delete ALL notes.',
+    inputSchema: { type: 'object', properties: {}, required: [] }
+  },
+
+  // Full System Data Reset
+  {
+    name: 'full_data_reset',
+    description: 'Wipe ALL user data across tasks, todos, habits, notes, journal, goals, water, and reminders in one command.',
+    inputSchema: { type: 'object', properties: {}, required: [] }
   }
 ]
 
@@ -245,13 +369,13 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',
 }
 
-// ─── Tool Handlers ────────────────────────────────────────────────────────────
+// ─── Tool Execution Handlers ──────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleTool(toolName: string, args: Record<string, any>, userId: string, id: unknown): Promise<NextResponse> {
   const db = getSupabase()
 
-  // ── get_life_dashboard ──────────────────────────────────────────────────────
+  // ── Dashboard & Telemetry ──
   if (toolName === 'get_life_dashboard') {
     const today = new Date().toISOString().split('T')[0]
     const [profileRes, tasksRes, todosRes, waterRes] = await Promise.all([
@@ -276,7 +400,6 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     }, null, 2))
   }
 
-  // ── get_user_analytics ──────────────────────────────────────────────────────
   if (toolName === 'get_user_analytics') {
     const [tasksRes, todosRes, journalRes] = await Promise.all([
       db.from('tasks').select('status').eq('user_id', userId),
@@ -298,7 +421,7 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     }, null, 2))
   }
 
-  // ── create_task_with_subtasks ───────────────────────────────────────────────
+  // ── Tasks ──
   if (toolName === 'create_task_with_subtasks') {
     const { data: parentTask, error } = await db.from('tasks').insert({
       user_id: userId,
@@ -324,7 +447,6 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     return mcpOk(id, `✅ Created Task "${parentTask.title}" with ${subtasksCreated.length} subtasks!`)
   }
 
-  // ── create_task ────────────────────────────────────────────────────────────
   if (toolName === 'create_task') {
     const { data, error } = await db.from('tasks').insert({
       user_id: userId,
@@ -338,14 +460,12 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     return mcpOk(id, `✅ Task created: "${data.title}"`)
   }
 
-  // ── complete_task ──────────────────────────────────────────────────────────
   if (toolName === 'complete_task') {
     const { error } = await db.from('tasks').update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', args.task_id)
     if (error) return mcpError(id, -32603, `Failed to complete: ${error.message}`)
     return mcpOk(id, `🎉 Task marked as complete.`)
   }
 
-  // ── list_tasks ─────────────────────────────────────────────────────────────
   if (toolName === 'list_tasks') {
     let query = db.from('tasks').select('id, title, priority, status, due_date').eq('user_id', userId).limit(20)
     if (args.status) query = query.eq('status', args.status)
@@ -353,13 +473,26 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     return mcpOk(id, JSON.stringify(data || [], null, 2))
   }
 
-  // ── list_todos ─────────────────────────────────────────────────────────────
+  if (toolName === 'delete_task') {
+    const searchTitle = args.title as string
+    const { data: found } = await db.from('tasks').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
+    if (!found || found.length === 0) return mcpError(id, -32602, `No task found matching "${searchTitle}"`)
+    const ids = found.map(t => t.id)
+    await db.from('tasks').delete().in('id', ids)
+    return mcpOk(id, `🗑️ Deleted ${found.length} task(s) matching "${searchTitle}"`)
+  }
+
+  if (toolName === 'delete_all_tasks') {
+    await db.from('tasks').delete().eq('user_id', userId)
+    return mcpOk(id, `🗑️ All tasks deleted successfully!`)
+  }
+
+  // ── Todos ──
   if (toolName === 'list_todos') {
     const { data } = await db.from('todos').select('id, title, is_done, due_date').eq('user_id', userId)
     return mcpOk(id, JSON.stringify(data || [], null, 2))
   }
 
-  // ── create_todo ────────────────────────────────────────────────────────────
   if (toolName === 'create_todo') {
     const { data, error } = await db.from('todos').insert({
       user_id: userId,
@@ -371,7 +504,6 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     return mcpOk(id, `☑️ Todo created: "${data.title}"`)
   }
 
-  // ── batch_add_todos ────────────────────────────────────────────────────────
   if (toolName === 'batch_add_todos') {
     const added = []
     for (const title of (args.titles || [])) {
@@ -385,7 +517,21 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     return mcpOk(id, `☑️ Batch imported ${added.length} todos!`)
   }
 
-  // ── log_water_intake ───────────────────────────────────────────────────────
+  if (toolName === 'delete_todo') {
+    const searchTitle = args.title as string
+    const { data: found } = await db.from('todos').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
+    if (!found || found.length === 0) return mcpError(id, -32602, `No todo found matching "${searchTitle}"`)
+    const ids = found.map(t => t.id)
+    await db.from('todos').delete().in('id', ids)
+    return mcpOk(id, `🗑️ Deleted ${found.length} todo item(s) matching "${searchTitle}"`)
+  }
+
+  if (toolName === 'delete_all_todos') {
+    await db.from('todos').delete().eq('user_id', userId)
+    return mcpOk(id, `🗑️ All daily checklist todo items deleted!`)
+  }
+
+  // ── Health & Water Intake ──
   if (toolName === 'log_water_intake') {
     const today = new Date().toISOString().split('T')[0]
     const { error } = await db.from('water_logs').insert({
@@ -397,7 +543,13 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     return mcpOk(id, `💧 Logged +${args.amount_ml}ml water!`)
   }
 
-  // ── create_reminder ────────────────────────────────────────────────────────
+  if (toolName === 'reset_today_water_logs') {
+    const today = new Date().toISOString().split('T')[0]
+    await db.from('water_logs').delete().eq('user_id', userId).eq('date', today)
+    return mcpOk(id, `💧 Today's water intake logs reset to 0ml!`)
+  }
+
+  // ── Reminders ──
   if (toolName === 'create_reminder') {
     const { error } = await db.from('reminders').insert({
       user_id: userId,
@@ -411,7 +563,21 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     return mcpOk(id, `🔔 Reminder scheduled: "${args.title}"`)
   }
 
-  // ── create_journal_entry ───────────────────────────────────────────────────
+  if (toolName === 'delete_reminder') {
+    const searchTitle = args.title as string
+    const { data: found } = await db.from('reminders').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
+    if (!found || found.length === 0) return mcpError(id, -32602, `No reminder found matching "${searchTitle}"`)
+    const ids = found.map(r => r.id)
+    await db.from('reminders').delete().in('id', ids)
+    return mcpOk(id, `🗑️ Deleted ${found.length} reminder(s)`)
+  }
+
+  if (toolName === 'delete_all_reminders') {
+    await db.from('reminders').delete().eq('user_id', userId)
+    return mcpOk(id, `🗑️ All reminders deleted!`)
+  }
+
+  // ── Journal ──
   if (toolName === 'create_journal_entry') {
     const mood = normalizeMood(args.mood)
     const { data, error } = await db.from('journal_entries').insert({
@@ -426,7 +592,21 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     return mcpOk(id, `📝 Journal entry saved! (Mood: ${data.mood})`)
   }
 
-  // ── create_goal ────────────────────────────────────────────────────────────
+  if (toolName === 'delete_journal_entry') {
+    const searchTitle = args.title as string
+    const { data: found } = await db.from('journal_entries').select('id, title, content').eq('user_id', userId).or(`title.ilike.%${searchTitle}%,content.ilike.%${searchTitle}%`)
+    if (!found || found.length === 0) return mcpError(id, -32602, `No journal entry matching "${searchTitle}"`)
+    const ids = found.map(e => e.id)
+    await db.from('journal_entries').delete().in('id', ids)
+    return mcpOk(id, `🗑️ Deleted ${found.length} journal entry(s)`)
+  }
+
+  if (toolName === 'delete_all_journal_entries') {
+    await db.from('journal_entries').delete().eq('user_id', userId)
+    return mcpOk(id, `🗑️ All journal entries deleted!`)
+  }
+
+  // ── Goals ──
   if (toolName === 'create_goal') {
     const { data, error } = await db.from('goals').insert({
       user_id: userId,
@@ -437,6 +617,87 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
     }).select('id, title').single()
     if (error) return mcpError(id, -32603, `Failed to create goal: ${error.message}`)
     return mcpOk(id, `🎯 Goal created: "${data.title}"`)
+  }
+
+  if (toolName === 'delete_goal') {
+    const searchTitle = args.title as string
+    const { data: found } = await db.from('goals').select('id, title').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
+    if (!found || found.length === 0) return mcpError(id, -32602, `No goal matching "${searchTitle}"`)
+    const ids = found.map(g => g.id)
+    await db.from('goals').delete().in('id', ids)
+    return mcpOk(id, `🗑️ Deleted ${found.length} goal(s)`)
+  }
+
+  if (toolName === 'delete_all_goals') {
+    await db.from('goals').delete().eq('user_id', userId)
+    return mcpOk(id, `🗑️ All goals deleted!`)
+  }
+
+  // ── Habits ──
+  if (toolName === 'create_habit') {
+    const { data, error } = await db.from('habits').insert({
+      user_id: userId,
+      name: args.name.trim(),
+      frequency: 'daily',
+      target_count: 1,
+      archived: false,
+    }).select('id, name').single()
+    if (error) return mcpError(id, -32603, `Failed to create habit: ${error.message}`)
+    return mcpOk(id, `🔥 Habit created: "${data.name}"`)
+  }
+
+  if (toolName === 'delete_habit') {
+    const searchName = args.name as string
+    const { data: found } = await db.from('habits').select('id, name').eq('user_id', userId).ilike('name', `%${searchName}%`)
+    if (!found || found.length === 0) return mcpError(id, -32602, `No habit matching "${searchName}"`)
+    const ids = found.map(h => h.id)
+    await db.from('habits').delete().in('id', ids)
+    return mcpOk(id, `🗑️ Deleted ${found.length} habit(s)`)
+  }
+
+  if (toolName === 'delete_all_habits') {
+    await db.from('habits').delete().eq('user_id', userId)
+    return mcpOk(id, `🗑️ All habits deleted!`)
+  }
+
+  // ── Notes ──
+  if (toolName === 'create_note') {
+    const { data, error } = await db.from('notes').insert({
+      user_id: userId,
+      title: args.title?.trim() || null,
+      content: args.content.trim(),
+    }).select('id, title').single()
+    if (error) return mcpError(id, -32603, `Failed to create note: ${error.message}`)
+    return mcpOk(id, `📝 Note saved!`)
+  }
+
+  if (toolName === 'delete_note') {
+    const searchTitle = args.title as string
+    const { data: found } = await db.from('notes').select('id, title, content').eq('user_id', userId).or(`title.ilike.%${searchTitle}%,content.ilike.%${searchTitle}%`)
+    if (!found || found.length === 0) return mcpError(id, -32602, `No note matching "${searchTitle}"`)
+    const ids = found.map(n => n.id)
+    await db.from('notes').delete().in('id', ids)
+    return mcpOk(id, `🗑️ Deleted ${found.length} note(s)`)
+  }
+
+  if (toolName === 'delete_all_notes') {
+    await db.from('notes').delete().eq('user_id', userId)
+    return mcpOk(id, `🗑️ All notes deleted!`)
+  }
+
+  // ── Full System Reset ──
+  if (toolName === 'full_data_reset') {
+    await Promise.all([
+      db.from('tasks').delete().eq('user_id', userId),
+      db.from('todos').delete().eq('user_id', userId),
+      db.from('habits').delete().eq('user_id', userId),
+      db.from('notes').delete().eq('user_id', userId),
+      db.from('journal_entries').delete().eq('user_id', userId),
+      db.from('goals').delete().eq('user_id', userId),
+      db.from('reminders').delete().eq('user_id', userId),
+      db.from('water_logs').delete().eq('user_id', userId),
+    ])
+    return mcpOk(id, `🚨 FULL SYSTEM RESET COMPLETE! All user data wiped clean.`)
   }
 
   return mcpError(id, -32601, `Tool "${toolName}" not found.`)
