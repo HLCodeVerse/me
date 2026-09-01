@@ -60,7 +60,10 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
 
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('nirmaan_sidebar_collapsed')
-      if (stored === 'true') setIsSidebarCollapsed(true)
+      if (stored === 'true') {
+        setIsSidebarCollapsed(true)
+        document.body.classList.add('sidebar-collapsed')
+      }
     }
 
     const checkMobile = () => {
@@ -92,15 +95,20 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
       const next = !prev
       if (typeof window !== 'undefined') {
         localStorage.setItem('nirmaan_sidebar_collapsed', next ? 'true' : 'false')
+        if (next) {
+          document.body.classList.add('sidebar-collapsed')
+        } else {
+          document.body.classList.remove('sidebar-collapsed')
+        }
       }
       return next
     })
   }
 
-  const desktopContentPadding = !isMobile ? (isSidebarCollapsed ? 74 : 260) : 0
+  const desktopPadding = !isMobile ? (isSidebarCollapsed ? 74 : 260) : 0
 
   return (
-    <div className="app-layout">
+    <div className="app-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
       {/* Interactive Browser Permission Prompt Banner */}
       <BrowserPermissionBanner />
 
@@ -113,14 +121,14 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
         onToggleCollapse={toggleSidebar}
       />
 
-      {/* Main Content Area */}
+      {/* Main Content Container with Smooth Single Offset */}
       <div style={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         width: '100%',
         minHeight: '100vh',
-        paddingLeft: desktopContentPadding,
+        paddingLeft: desktopPadding,
         transition: 'padding-left 250ms cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
         {header ? header : (
@@ -137,7 +145,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
           maxWidth: noPadding ? '100%' : 1440,
           width: '100%',
           margin: '0 auto',
-          paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 0px))',
+          paddingBottom: isMobile ? 'calc(90px + env(safe-area-inset-bottom, 0px))' : '32px',
         }}>
           {children}
         </main>
@@ -221,7 +229,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
         </>
       )}
 
-      {/* Bottom Nav for Mobile */}
+      {/* Bottom Nav for Mobile ONLY */}
       <BottomNav />
     </div>
   )

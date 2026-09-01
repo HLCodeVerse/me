@@ -6,39 +6,22 @@
    "High contrast, luxury personal reconstruction operating system"
  ══════════════════════════════════════════════════════════ */
 
-/* Desktop sidebar responsive toggle: Hidden on mobile (<1024px), Flex on desktop (>=1024px) */
-@media (max-width: 1023px) {
-  .desktop-sidebar,
-  aside.desktop-sidebar,
-  aside {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    position: absolute !important;
-    width: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    transform: translateX(-9999px) !important;
-  }
-  .app-layout {
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-  }
+:root {
+  --sidebar-width: 260px;
 }
-@media (min-width: 1024px) {
+body.sidebar-collapsed {
+  --sidebar-width: 74px;
+}
+@media (max-width: 1023px) {
+  :root {
+    --sidebar-width: 0px !important;
+  }
+  body.sidebar-collapsed {
+    --sidebar-width: 0px !important;
+  }
   .desktop-sidebar,
   aside.desktop-sidebar {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    position: fixed !important;
-    width: 260px !important;
-    transform: none !important;
-  }
-  .app-layout {
-    margin-left: 260px !important;
+    display: none !important;
   }
 }
 
