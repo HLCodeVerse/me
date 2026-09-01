@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Zap, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 
 export default function SplashScreen({ onFinish }: { onFinish?: () => void }) {
   const [isVisible, setIsVisible] = useState(true)
