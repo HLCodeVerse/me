@@ -7,7 +7,7 @@ import AppShell from '@/components/layout/AppShell'
 import FormattedAIResponse from '@/components/common/FormattedAIResponse'
 import {
   BookOpen, Sparkles, Plus, Trash2, Calendar, Search, RefreshCw,
-  Zap, Smile, Meh, Frown, Heart, Check, ArrowRight, Wand2, Tag, ShieldCheck
+  Zap, Smile, Meh, Frown, Heart, Check, Wand2, ShieldCheck
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { JournalEntry } from '@/lib/supabase/database.types'
@@ -36,6 +36,21 @@ interface AIReframeSuggestions {
   bullet: string
 }
 
+/**
+ * Bulletproof helper to guarantee React never receives an object as a child node
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formatValueAsString(val: any): string {
+  if (val === null || val === undefined) return ''
+  if (typeof val === 'string') return val
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val)
+  if (Array.isArray(val)) return val.map(item => formatValueAsString(item)).join('\n')
+  if (typeof val === 'object') {
+    return val.entry || val.text || val.content || val.description || val.title || JSON.stringify(val, null, 2)
+  }
+  return String(val)
+}
+
 export default function JournalPage() {
   const { user } = useAuth()
   const supabase = createClient()
@@ -44,7 +59,6 @@ export default function JournalPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
-  const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
 
   // Form State
   const [entryType, setEntryType] = useState<EntryType>('free')
@@ -53,13 +67,11 @@ export default function JournalPage() {
   const [content, setContent] = useState('')
   const [selectedMood, setSelectedMood] = useState('good')
   const [energyLevel, setEnergyLevel] = useState(80)
-  const [selectedTags, setSelectedTags] = useState<string[]>(['#growth'])
   const [saving, setSaving] = useState(false)
 
   // AI Rephrase & Enhancer State
   const [generatingSuggestions, setGeneratingSuggestions] = useState(false)
   const [reframeSuggestions, setReframeSuggestions] = useState<AIReframeSuggestions | null>(null)
-  const [generatingReflection, setGeneratingReflection] = useState(false)
 
   const fetchEntries = useCallback(async () => {
     if (!user) {
@@ -97,13 +109,13 @@ export default function JournalPage() {
 
     try {
       const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
-      const prompt = `Rephrase and enhance the following raw journal thoughts into 3 distinct, beautifully formatted journal entries.
+      const prompt = `Rephrase the following raw journal thoughts into 3 distinct, clean text entries.
 Raw Thoughts: "${textToProcess}"
 
 Respond strictly in valid JSON format with keys:
-"growth": (High-performance, stoic reframe focused on mindset and learning),
-"mindful": (Deep emotional reframe focused on self-compassion and gratitude),
-"bullet": (Bullet-journal executive summary with key takeaways)`
+"growth": (String: High-performance, stoic reframe focused on mindset and learning),
+"mindful": (String: Deep emotional reframe focused on self-compassion and gratitude),
+"bullet": (String: Bullet-journal executive summary with key takeaways)`
 
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -136,9 +148,9 @@ Respond strictly in valid JSON format with keys:
           if (jsonMatch) {
             const parsedObj = JSON.parse(jsonMatch[0])
             setReframeSuggestions({
-              growth: parsedObj.growth || fullOutput,
-              mindful: parsedObj.mindful || fullOutput,
-              bullet: parsedObj.bullet || fullOutput,
+              growth: formatValueAsString(parsedObj.growth) || fullOutput,
+              mindful: formatValueAsString(parsedObj.mindful) || fullOutput,
+              bullet: formatValueAsString(parsedObj.bullet) || fullOutput,
             })
             toast.success('3 AI Rephrase options generated! Select your favorite below 🌟')
           } else {
@@ -164,8 +176,9 @@ Respond strictly in valid JSON format with keys:
   }
 
   // Select AI Suggestion into Main Content Editor
-  function applySuggestion(text: string) {
-    setContent(text)
+  function applySuggestion(rawVal: unknown) {
+    const safeStr = formatValueAsString(rawVal)
+    setContent(safeStr)
     toast.success('Applied AI suggestion to main journal entry! ✍️')
   }
 
@@ -188,7 +201,6 @@ Respond strictly in valid JSON format with keys:
         mood: selectedMood,
         mood_score: energyLevel,
         entry_type: entryType,
-        tags: selectedTags,
       }).select().single()
 
       if (error) {
@@ -214,10 +226,9 @@ Respond strictly in valid JSON format with keys:
     }
   }
 
-  // Generate AI Psychological Reflection on Entry
+  // Generate AI Reflection on Entry
   async function generateAIReflection(entryId: string, entryText: string) {
     if (!user) return
-    setGeneratingReflection(true)
 
     try {
       const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
@@ -231,7 +242,7 @@ Respond strictly in valid JSON format with keys:
           messages: [
             {
               role: 'user',
-              content: `Give a 2-sentence psychological reflection and encouragement for this journal entry: "${entryText}"`,
+              content: `Give a short 2-sentence psychological reflection and encouragement for this journal entry: "${entryText}"`,
             },
           ],
           model: 'x-ai/grok-2-1212',
@@ -262,10 +273,7 @@ Respond strictly in valid JSON format with keys:
           toast.success('AI Psychological Reflection attached to journal!')
         }
       }
-    } catch {
-    } finally {
-      setGeneratingReflection(false)
-    }
+    } catch {}
   }
 
   async function handleDeleteEntry(entryId: string) {
@@ -273,14 +281,13 @@ Respond strictly in valid JSON format with keys:
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('journal_entries') as any).delete().eq('id', entryId).eq('user_id', user.id)
     setEntries(prev => prev.filter(e => e.id !== entryId))
-    if (selectedEntry?.id === entryId) setSelectedEntry(null)
     toast.success('Journal entry deleted')
   }
 
   const filteredEntries = entries.filter(e =>
-    (e.title || '').toLowerCase().includes(search.toLowerCase()) ||
-    (e.content || '').toLowerCase().includes(search.toLowerCase()) ||
-    (e.mood || '').toLowerCase().includes(search.toLowerCase())
+    formatValueAsString(e.title).toLowerCase().includes(search.toLowerCase()) ||
+    formatValueAsString(e.content).toLowerCase().includes(search.toLowerCase()) ||
+    formatValueAsString(e.mood).toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -305,23 +312,23 @@ Respond strictly in valid JSON format with keys:
               <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 6 }}>
                 AI Reflection Journal <ShieldCheck size={16} color="#10B981" />
               </h1>
-              <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>Smart Rephraser, Mood Analytics & Psychological Insights</p>
+              <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>Minimal, Aesthetic Book Journal with AI Smart Rephraser</p>
             </div>
           </div>
 
           <button
-            onClick={() => { setShowForm(true); setSelectedEntry(null) }}
+            onClick={() => setShowForm(prev => !prev)}
             className="btn btn-primary"
             style={{ padding: '8px 16px', fontSize: 13, background: 'linear-gradient(135deg, #10B981, #059669)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            <Plus size={16} /> New Journal Entry
+            <Plus size={16} /> {showForm ? 'Close Editor' : 'New Journal Entry'}
           </button>
         </div>
       }
     >
       <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-        {/* AI Rephrase & Enhancer Hero Editor Form */}
+        {/* Minimal AI Rephrase & Journal Editor Form */}
         {(showForm || entries.length === 0) && (
           <div style={{
             background: 'linear-gradient(135deg, #0A0B0D 0%, #121318 100%)',
@@ -332,7 +339,7 @@ Respond strictly in valid JSON format with keys:
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
               <h2 style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Wand2 size={20} color="#10B981" /> Create Journal Entry with AI Reframe
+                <Wand2 size={20} color="#10B981" /> Write Journal Entry with AI Reframe
               </h2>
               {entries.length > 0 && (
                 <button onClick={() => setShowForm(false)} className="btn-ghost btn-icon">
@@ -343,10 +350,10 @@ Respond strictly in valid JSON format with keys:
 
             <form onSubmit={handleSaveEntry} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              {/* Title & Entry Type */}
+              {/* Title & Prompt Picker */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 800, color: '#10B981', marginBottom: 4, display: 'block' }}>ENTRY TITLE (OPTIONAL)</label>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: '#10B981', marginBottom: 4, display: 'block' }}>TITLE (OPTIONAL)</label>
                   <input
                     type="text"
                     placeholder="e.g. Evening Reflection & Wins..."
@@ -357,7 +364,7 @@ Respond strictly in valid JSON format with keys:
                 </div>
 
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 800, color: '#10B981', marginBottom: 4, display: 'block' }}>DAILY AI PROMPT PICKER</label>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: '#10B981', marginBottom: 4, display: 'block' }}>DAILY REFLECTION PROMPT</label>
                   <select
                     onChange={e => {
                       if (e.target.value) {
@@ -375,7 +382,7 @@ Respond strictly in valid JSON format with keys:
                 </div>
               </div>
 
-              {/* Mood & Energy Level Selector */}
+              {/* Mood & Energy Bar */}
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 14, background: '#121318', padding: 14, borderRadius: 14, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 800, color: '#9CA3AF', marginBottom: 6, display: 'block' }}>HOW ARE YOU FEELING?</label>
@@ -415,11 +422,11 @@ Respond strictly in valid JSON format with keys:
                 </div>
               </div>
 
-              {/* Raw Unorganized Thoughts Input */}
+              {/* Raw Thoughts Input */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                   <label style={{ fontSize: 11, fontWeight: 800, color: '#FFD700' }}>
-                    1. WRITE RAW UNFILTERED THOUGHTS HERE:
+                    WRITE RAW THOUGHTS & GENERATE AI REFRAME:
                   </label>
                   <button
                     type="button"
@@ -453,8 +460,10 @@ Respond strictly in valid JSON format with keys:
                     {/* Option 1: High-Performance Reframe */}
                     <div style={{ background: '#121318', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                       <div>
-                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#10B981', marginBottom: 6 }}>🌟 OPTION 1: HIGH-PERFORMANCE GROWTH</div>
-                        <div style={{ fontSize: 12.5, color: '#FFFFFF', lineHeight: 1.5 }}>{reframeSuggestions.growth}</div>
+                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#10B981', marginBottom: 6 }}>🌟 STOIC GROWTH REFRAME</div>
+                        <div style={{ fontSize: 12.5, color: '#FFFFFF', lineHeight: 1.5 }}>
+                          {formatValueAsString(reframeSuggestions.growth)}
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -469,8 +478,10 @@ Respond strictly in valid JSON format with keys:
                     {/* Option 2: Deep Mindful Reframe */}
                     <div style={{ background: '#121318', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                       <div>
-                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#3B82F6', marginBottom: 6 }}>🧘 OPTION 2: DEEP MINDFUL REFLECTION</div>
-                        <div style={{ fontSize: 12.5, color: '#FFFFFF', lineHeight: 1.5 }}>{reframeSuggestions.mindful}</div>
+                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#3B82F6', marginBottom: 6 }}>🧘 MINDFUL GRATITUDE REFLECTION</div>
+                        <div style={{ fontSize: 12.5, color: '#FFFFFF', lineHeight: 1.5 }}>
+                          {formatValueAsString(reframeSuggestions.mindful)}
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -485,8 +496,10 @@ Respond strictly in valid JSON format with keys:
                     {/* Option 3: Bullet Journal Summary */}
                     <div style={{ background: '#121318', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                       <div>
-                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#F59E0B', marginBottom: 6 }}>⚡ OPTION 3: BULLET JOURNAL SUMMARY</div>
-                        <div style={{ fontSize: 12.5, color: '#FFFFFF', lineHeight: 1.5 }}>{reframeSuggestions.bullet}</div>
+                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#F59E0B', marginBottom: 6 }}>⚡ BULLET JOURNAL SUMMARY</div>
+                        <div style={{ fontSize: 12.5, color: '#FFFFFF', lineHeight: 1.5 }}>
+                          {formatValueAsString(reframeSuggestions.bullet)}
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -501,13 +514,13 @@ Respond strictly in valid JSON format with keys:
                 </div>
               )}
 
-              {/* Main Final Journal Entry Editor */}
+              {/* Main Journal Entry Editor */}
               <div>
                 <label style={{ fontSize: 11, fontWeight: 800, color: '#10B981', marginBottom: 6, display: 'block' }}>
-                  2. FINAL JOURNAL ENTRY TO SAVE:
+                  FINAL JOURNAL ENTRY TO SAVE:
                 </label>
                 <textarea
-                  placeholder="Your complete journal entry text (you can edit or paste an AI rephrased version above)..."
+                  placeholder="Your complete journal entry text (edit or paste an AI version above)..."
                   value={content}
                   onChange={e => setContent(e.target.value)}
                   rows={4}
@@ -530,7 +543,7 @@ Respond strictly in valid JSON format with keys:
           </div>
         )}
 
-        {/* Journal Timeline Search & Toolbar */}
+        {/* Journal Timeline Search Bar */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
             <Search size={16} color="#10B981" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
@@ -543,15 +556,15 @@ Respond strictly in valid JSON format with keys:
           </div>
 
           <div style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 700 }}>
-            Total Journal Logs: <span style={{ color: '#10B981' }}>{entries.length}</span>
+            Saved Logs: <span style={{ color: '#10B981' }}>{entries.length}</span>
           </div>
         </div>
 
-        {/* Journal Timeline History Cards */}
+        {/* Minimal Book-Like Journal Timeline Cards */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9CA3AF' }}>
             <RefreshCw size={32} color="#10B981" className="animate-spin" style={{ margin: '0 auto 12px' }} />
-            <p style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>Loading your reflection timeline...</p>
+            <p style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>Loading your journal entries...</p>
           </div>
         ) : filteredEntries.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', background: '#0A0B0D', borderRadius: 20, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
@@ -579,7 +592,7 @@ Respond strictly in valid JSON format with keys:
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span className="badge badge-success" style={{ fontSize: 12, fontWeight: 800 }}>
-                      Mood: {entry.mood || 'good'}
+                      Mood: {formatValueAsString(entry.mood) || 'good'}
                     </span>
                     <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Calendar size={13} color="#10B981" /> {new Date(entry.created_at).toLocaleDateString()} at {new Date(entry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -598,12 +611,12 @@ Respond strictly in valid JSON format with keys:
                 {/* Entry Title & Body */}
                 {entry.title && (
                   <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
-                    {entry.title}
+                    {formatValueAsString(entry.title)}
                   </h3>
                 )}
 
                 <div style={{ fontSize: 13.5, color: '#FFFFFF', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                  {entry.content}
+                  {formatValueAsString(entry.content)}
                 </div>
 
                 {/* AI Reflection Insights Box */}
@@ -612,7 +625,9 @@ Respond strictly in valid JSON format with keys:
                     <Sparkles size={18} color="#FFD700" style={{ flexShrink: 0, marginTop: 2 }} />
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 800, color: '#FFD700', marginBottom: 2 }}>AI PSYCHOLOGICAL REFLECTION</div>
-                      <div style={{ fontSize: 12.5, color: '#E5E7EB', lineHeight: 1.5 }}>{entry.ai_reflection}</div>
+                      <div style={{ fontSize: 12.5, color: '#E5E7EB', lineHeight: 1.5 }}>
+                        <FormattedAIResponse content={formatValueAsString(entry.ai_reflection)} />
+                      </div>
                     </div>
                   </div>
                 )}
