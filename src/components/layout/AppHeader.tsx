@@ -1,14 +1,16 @@
 'use client'
 
-import { Search, Bell, Menu } from 'lucide-react'
+import { Search, Bell, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { getGreeting } from '@/lib/utils'
 
 interface AppHeaderProps {
   onOpenMobileDrawer?: () => void
+  isSidebarCollapsed?: boolean
+  onToggleSidebar?: () => void
 }
 
-export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
+export default function AppHeader({ onOpenMobileDrawer, isSidebarCollapsed, onToggleSidebar }: AppHeaderProps) {
   const { profile } = useAuth()
   const name = profile?.display_name?.split(' ')[0] ?? profile?.username ?? 'Builder'
 
@@ -26,9 +28,9 @@ export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
       zIndex: 30,
       width: '100%',
     }}>
-      {/* Left: Mobile Hamburger & Greeting */}
+      {/* Left: Menu Toggle & Greeting */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {/* Mobile/Tablet Hamburger Button (visible on <1024px) */}
+        {/* Mobile Hamburger Button (visible on <1024px) */}
         <button
           onClick={onOpenMobileDrawer}
           className="btn-ghost btn-icon lg:hidden"
@@ -43,9 +45,29 @@ export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
             cursor: 'pointer',
             background: 'rgba(245, 158, 11, 0.1)',
           }}
-          aria-label="Open Navigation Menu"
+          aria-label="Open Mobile Navigation Menu"
         >
           <Menu size={20} color="#FFD700" />
+        </button>
+
+        {/* Desktop Sidebar Toggle Button (visible on ≥1024px) */}
+        <button
+          onClick={onToggleSidebar}
+          className="btn-ghost btn-icon hidden lg:inline-flex"
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            borderRadius: 'var(--radius-btn)',
+            width: 40,
+            height: 40,
+            cursor: 'pointer',
+            background: 'rgba(245, 158, 11, 0.1)',
+          }}
+          title={isSidebarCollapsed ? 'Expand Sidebar Menu' : 'Hide Sidebar Menu'}
+          aria-label="Toggle Desktop Sidebar Menu"
+        >
+          {isSidebarCollapsed ? <PanelLeftOpen size={20} color="#FFD700" /> : <PanelLeftClose size={20} color="#FFD700" />}
         </button>
 
         <div>
@@ -143,4 +165,3 @@ export default function AppHeader({ onOpenMobileDrawer }: AppHeaderProps) {
     </header>
   )
 }
-

@@ -47,6 +47,8 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
   const pathname = usePathname()
   const { user } = useAuth()
   const [showDrawer, setShowDrawer] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     initNativeHardware()
@@ -56,7 +58,19 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
       autoPromptNotificationPermission(user.id)
     }
 
-    // Add haptic feedback to all button/link taps on mobile native platform
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('nirmaan_sidebar_collapsed')
+      if (stored === 'true') setIsSidebarCollapsed(true)
+    }
+
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024
+      setIsMobile(mobile)
+      if (!mobile) setShowDrawer(false)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+
     function handleGlobalTap(e: MouseEvent) {
       const target = e.target as HTMLElement
       if (target.closest('button') || target.closest('a') || target.closest('.btn')) {
@@ -67,10 +81,23 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
     window.addEventListener('click', handleGlobalTap)
     const cleanupBack = initDoubleBackToExit(pathname)
     return () => {
+      window.removeEventListener('resize', checkMobile)
       window.removeEventListener('click', handleGlobalTap)
       if (cleanupBack) cleanupBack()
     }
   }, [user, pathname])
+
+  function toggleSidebar() {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nirmaan_sidebar_collapsed', next ? 'true' : 'false')
+      }
+      return next
+    })
+  }
+
+  const desktopContentPadding = !isMobile ? (isSidebarCollapsed ? 74 : 260) : 0
 
   return (
     <div className="app-layout">
@@ -79,12 +106,30 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
 
       {/* Animated SplashScreen on First Mount */}
       <SplashScreen />
+
       {/* Desktop Sidebar (≥1024px) */}
-      <DesktopSidebar />
+      <DesktopSidebar
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+      />
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh' }}>
-        {header ? header : <AppHeader onOpenMobileDrawer={() => setShowDrawer(true)} />}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        minHeight: '100vh',
+        paddingLeft: desktopContentPadding,
+        transition: 'padding-left 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+      }}>
+        {header ? header : (
+          <AppHeader
+            onOpenMobileDrawer={() => setShowDrawer(true)}
+            isSidebarCollapsed={isSidebarCollapsed}
+            onToggleSidebar={toggleSidebar}
+          />
+        )}
 
         <main style={{
           flex: 1,
@@ -101,8 +146,8 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
       {/* Persistent Global Floating Media Player */}
       <GlobalMediaPlayer />
 
-      {/* Off-Canvas Navigation Drawer for Mobile (<1024px) */}
-      {showDrawer && (
+      {/* Off-Canvas Navigation Drawer for Mobile ONLY (<1024px) */}
+      {isMobile && showDrawer && (
         <>
           <div
             style={{
@@ -181,4 +226,3 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
     </div>
   )
 }
-
