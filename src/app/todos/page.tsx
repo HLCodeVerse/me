@@ -14,13 +14,6 @@ import type { Todo } from '@/lib/supabase/database.types'
 
 type FilterTab = 'all' | 'pending' | 'done'
 
-const PRIORITY_FLAGS: Record<number, { label: string; badgeClass: string; color: string }> = {
-  4: { label: 'P1 Urgent', badgeClass: 'badge-p1', color: '#F43F5E' },
-  3: { label: 'P2 High', badgeClass: 'badge-p2', color: '#F59E0B' },
-  2: { label: 'P3 Medium', badgeClass: 'badge-p3', color: '#3B82F6' },
-  1: { label: 'P4 Low', badgeClass: 'badge-p4', color: '#64748B' },
-}
-
 export default function TodosPage() {
   const { user } = useAuth()
   const supabase = createClient()
@@ -28,7 +21,6 @@ export default function TodosPage() {
   const [loading, setLoading] = useState(true)
   const [inputVal, setInputVal] = useState('')
   const [dueDate, setDueDate] = useState('')
-  const [priority, setPriority] = useState(3)
   const [batchMode, setBatchMode] = useState(false)
   const [batchInput, setBatchInput] = useState('')
   const [filter, setFilter] = useState<FilterTab>('all')

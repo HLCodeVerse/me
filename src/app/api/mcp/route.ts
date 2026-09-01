@@ -23,14 +23,6 @@ function normalizeMood(raw: string | undefined | null): Mood {
   return map[lower] ?? 'good'
 }
 
-const VALID_GOAL_STATUSES = ['active', 'on_hold', 'completed', 'archived'] as const
-type GoalStatus = typeof VALID_GOAL_STATUSES[number]
-function normalizeGoalStatus(s: string | undefined): GoalStatus {
-  if (!s) return 'active'
-  if (s === 'paused') return 'on_hold'
-  return VALID_GOAL_STATUSES.includes(s as GoalStatus) ? (s as GoalStatus) : 'active'
-}
-
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_URL
   return createClient(url, SERVICE_KEY || ANON_KEY)

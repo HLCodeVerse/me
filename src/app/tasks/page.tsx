@@ -44,7 +44,6 @@ export default function TasksPage() {
   const [newPriority, setNewPriority] = useState(3)
   const [newDueDate, setNewDueDate] = useState('')
   const [newDesc, setNewDesc] = useState('')
-  const [newTags, setNewTags] = useState('')
   const [saving, setSaving] = useState(false)
 
   const fetchTasks = useCallback(async () => {
@@ -87,7 +86,7 @@ export default function TasksPage() {
     })
     if (error) { toast.error('Failed to add task'); setSaving(false); return }
     toast.success('Task added!')
-    setNewTitle(''); setNewDesc(''); setNewDueDate(''); setNewPriority(3); setNewTags('')
+    setNewTitle(''); setNewDesc(''); setNewDueDate(''); setNewPriority(3)
     setShowAddForm(false)
     setSaving(false)
     fetchTasks()
