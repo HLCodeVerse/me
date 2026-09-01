@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
-  Plus, CheckCircle2, Trash2, Loader2, CheckSquare, Brain,
+  Plus, CheckCircle2, Trash2, Loader2, CheckSquare,
   Sparkles, Calendar, Check, Circle, Send
 } from 'lucide-react'
 import { toast } from 'sonner'
