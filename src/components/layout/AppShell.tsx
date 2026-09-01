@@ -11,6 +11,7 @@ import BottomNav from './BottomNav'
 import GlobalMediaPlayer from '@/components/media/GlobalMediaPlayer'
 import SplashScreen from '@/components/common/SplashScreen'
 import { initDoubleBackToExit } from '@/lib/back-button-handler'
+import { requestAllPermissions } from '@/lib/permissions-handler'
 import {
   LayoutDashboard, CheckSquare, ListTodo, BookOpen, Bot, Flame,
   StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, X, ShieldCheck, Activity, Zap, Disc
@@ -47,6 +48,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
 
   useEffect(() => {
     initPWAAutoUpdate()
+    requestAllPermissions()
     if (user?.id) {
       autoPromptNotificationPermission(user.id)
     }

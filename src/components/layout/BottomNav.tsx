@@ -5,20 +5,21 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, CheckSquare, ListTodo, BookOpen, Bot, Flame,
-  StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, Menu, X, ShieldCheck
+  StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, Menu, X, ShieldCheck, Disc
 } from 'lucide-react'
 
 const QUICK_NAV = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#7C3AED' },
   { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',     color: '#F59E0B' },
+  { href: '/player',    icon: Disc,            label: 'Player',    color: '#7C3AED' },
   { href: '/ai',        icon: Bot,             label: 'AI Chat',   color: '#7C3AED' },
-  { href: '/habits',    icon: Flame,           label: 'Habits',    color: '#EF4444' },
 ]
 
 const ALL_MODULES = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',   color: '#7C3AED' },
   { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',       color: '#F59E0B' },
   { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#3B82F6' },
+  { href: '/player',    icon: Disc,            label: 'Media Player',color: '#7C3AED' },
   { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#EF4444' },
   { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4' },
   { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B' },

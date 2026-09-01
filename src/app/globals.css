@@ -7,6 +7,21 @@
 ══════════════════════════════════════════════════════════ */
 
 :root {
+  /* Desktop sidebar responsive toggle */
+}
+
+@media (max-width: 767px) {
+  .desktop-sidebar {
+    display: none !important;
+  }
+}
+@media (min-width: 768px) {
+  .desktop-sidebar {
+    display: flex !important;
+  }
+}
+
+:root {
   /* ── Backgrounds & Surfaces ─────────────────────────── */
   --bg:          #F8F9FC;
   --surface:     #FFFFFF;

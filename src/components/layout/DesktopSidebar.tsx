@@ -58,12 +58,11 @@ export default function DesktopSidebar() {
       width: 260,
       background: 'var(--surface)',
       borderRight: '1px solid var(--border)',
-      display: 'flex',
       flexDirection: 'column',
       justifyContent: 'space-between',
       zIndex: 40,
       padding: '16px 12px',
-    }} className="hidden md:flex">
+    }} className="desktop-sidebar">
       
       {/* Top: Logo & Header */}
       <div>
