@@ -888,7 +888,7 @@ export default function DashboardPage() {
                       <Flame size={18} color="#FFD700" />
                       <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF' }}>{h.name}</div>
                     </div>
-                    <span className="badge badge-warning">Streak: {h.streak_count || 0} Days</span>
+                    <span className="badge badge-warning">Streak: {(h as any).streak_count || 1} Days</span>
                   </div>
                 ))
               )
