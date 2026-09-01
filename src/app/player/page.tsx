@@ -216,16 +216,21 @@ export default function PlayerPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
               onClick={() => setShowCreateFolderModal(true)}
               className="btn btn-secondary"
               style={{ padding: '8px 14px', fontSize: 12.5 }}
             >
-              <FolderPlus size={15} color="#FFD700" /> New Folder
+              <FolderPlus size={15} color="#FFD700" /> New Playlist Folder
             </button>
+            <label className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: 12.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Folder size={15} color="#FFD700" /> Import Device Folder
+              {/* @ts-expect-error - webkitdirectory is non-standard HTML5 directory attribute */}
+              <input type="file" multiple webkitdirectory="" directory="" onChange={handleFileInputChange} style={{ display: 'none' }} />
+            </label>
             <label className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 12.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <UploadCloud size={16} /> Import Device Music
+              <UploadCloud size={16} /> Import Files
               <input type="file" multiple accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg" onChange={handleFileInputChange} style={{ display: 'none' }} />
             </label>
           </div>

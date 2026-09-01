@@ -7,15 +7,16 @@ import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import FormattedAIResponse from '@/components/common/FormattedAIResponse'
 import {
-  Zap, Flame, Target, CheckCircle2, Droplets, Moon, Bell,
-  Sparkles, X, RotateCcw, RefreshCw, Info, Award, StickyNote, Plus,
-  BookOpen, Bot, Clock, ChevronRight, Check, Trash2, ShieldCheck, Flag, Calendar,
-  Play, Pause
+  Zap, Flame, Target, CheckCircle2, Droplets, Bell,
+  Sparkles, X, RotateCcw, RefreshCw, Award, StickyNote, Plus,
+  BookOpen, Bot, Clock, ChevronRight, Send, ShieldCheck, Calendar,
+  Play, Pause, CircleCheck, CircleX
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Task, Todo, Habit, Reminder, Note, Goal, JournalEntry } from '@/lib/supabase/database.types'
 
 type ActiveTab = 'tasks' | 'todos' | 'habits' | 'goals' | 'reminders' | 'journal' | 'notes'
+type TaskFilter = 'all' | 'pending' | 'completed'
 
 export default function DashboardPage() {
   const { user, profile, loading: authLoading } = useAuth()
@@ -40,8 +41,15 @@ export default function DashboardPage() {
   )
   const [generatingBrief, setGeneratingBrief] = useState(false)
 
-  // Workspace Tab State
+  // AI Assistant Command Box State
+  const [aiCommandPrompt, setAiCommandPrompt] = useState('')
+  const [aiCommandResponse, setAiCommandResponse] = useState<string | null>(null)
+  const [executingAICommand, setExecutingAICommand] = useState(false)
+
+  // Workspace Tab & Filters
   const [activeTab, setActiveTab] = useState<ActiveTab>('tasks')
+  const [taskFilter, setTaskFilter] = useState<TaskFilter>('all')
+  const [todoFilter, setTodoFilter] = useState<TaskFilter>('all')
 
   // Modals & Timers
   const [focusMode, setFocusMode] = useState(false)
@@ -54,7 +62,7 @@ export default function DashboardPage() {
   const [savingItem, setSavingItem] = useState(false)
   const [journalContent, setJournalContent] = useState('')
 
-  // Load All Live Supabase Table Data
+  // Load All Live Supabase Table Data (Including Completed Items!)
   const loadDashboardData = useCallback(async () => {
     if (!user) return
     setDataLoading(true)
@@ -64,13 +72,13 @@ export default function DashboardPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = supabase as any
       const [tasksRes, todosRes, habitsRes, goalsRes, remindersRes, notesRes, journalRes, waterRes] = await Promise.all([
-        client.from('tasks').select('*').eq('user_id', user.id).neq('status', 'done').order('priority', { ascending: false }).limit(10),
-        client.from('todos').select('*').eq('user_id', user.id).eq('is_done', false).order('created_at', { ascending: false }).limit(10),
-        client.from('habits').select('*').eq('user_id', user.id).eq('archived', false).limit(8),
-        client.from('goals').select('*').eq('user_id', user.id).eq('status', 'active').limit(6),
-        client.from('reminders').select('*').eq('user_id', user.id).eq('is_sent', false).order('remind_at', { ascending: true }).limit(5),
-        client.from('notes').select('*').eq('user_id', user.id).limit(6),
-        client.from('journal_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
+        client.from('tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(25),
+        client.from('todos').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(25),
+        client.from('habits').select('*').eq('user_id', user.id).eq('archived', false).limit(10),
+        client.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
+        client.from('reminders').select('*').eq('user_id', user.id).order('remind_at', { ascending: true }).limit(8),
+        client.from('notes').select('*').eq('user_id', user.id).limit(10),
+        client.from('journal_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(8),
         client.from('water_logs').select('amount_ml').eq('user_id', user.id).eq('date', today),
       ])
 
@@ -108,6 +116,62 @@ export default function DashboardPage() {
     }
     return () => clearInterval(timer)
   }, [focusTimerRunning, focusTime])
+
+  // Execute AI Assistant Command
+  async function handleAICommandSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!aiCommandPrompt.trim() || !user) return
+    setExecutingAICommand(true)
+    const userQuery = aiCommandPrompt.trim()
+    setAiCommandPrompt('')
+
+    try {
+      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user.id,
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'user',
+              content: userQuery,
+            },
+          ],
+          model: 'x-ai/grok-2-1212',
+          enableTools: true,
+          grokApiKey: customGrokKey,
+        }),
+      })
+
+      if (res.ok) {
+        const text = await res.text()
+        if (text) {
+          const lines = text.split('\n').filter(l => l.startsWith('data: ')).map(l => l.replace('data: ', ''))
+          let fullOutput = ''
+          for (const line of lines) {
+            if (line === '[DONE]') continue
+            try {
+              const parsed = JSON.parse(line)
+              const chunk = parsed.choices?.[0]?.delta?.content || ''
+              fullOutput += chunk
+            } catch {}
+          }
+          if (fullOutput.trim()) {
+            setAiCommandResponse(fullOutput.trim())
+            toast.success('AI Command Executed! ⚡')
+            loadDashboardData()
+          }
+        }
+      }
+    } catch {
+      toast.error('Failed to execute AI command.')
+    } finally {
+      setExecutingAICommand(false)
+    }
+  }
 
   // Generate AI Daily Brief
   async function generateAIDailyBrief() {
@@ -162,19 +226,31 @@ export default function DashboardPage() {
     }
   }
 
-  // Quick Actions
-  async function handleCompleteTask(taskId: string) {
+  // Toggle Task Status (Complete <-> Todo)
+  async function handleToggleTaskStatus(task: Task) {
+    const nextStatus = task.status === 'done' ? 'todo' : 'done'
+    const nextCompletedAt = nextStatus === 'done' ? new Date().toISOString() : null
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('tasks') as any).update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', taskId)
-    setTasks(prev => prev.filter(t => t.id !== taskId))
-    toast.success('Task Completed! +30 XP ⚡')
+    await (supabase.from('tasks') as any)
+      .update({ status: nextStatus, completed_at: nextCompletedAt })
+      .eq('id', task.id)
+
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: nextStatus, completed_at: nextCompletedAt } : t))
+    toast.success(nextStatus === 'done' ? 'Task Completed! +30 XP ⚡' : 'Task Reopened ↩️')
   }
 
-  async function handleCompleteTodo(todoId: string) {
+  // Toggle Todo Status (Done <-> Pending)
+  async function handleToggleTodoStatus(todo: Todo) {
+    const nextDone = !todo.is_done
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('todos') as any).update({ is_done: true }).eq('id', todoId)
-    setTodos(prev => prev.filter(t => t.id !== todoId))
-    toast.success('Todo Checked! +15 XP 📝')
+    await (supabase.from('todos') as any)
+      .update({ is_done: nextDone })
+      .eq('id', todo.id)
+
+    setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, is_done: nextDone } : t))
+    toast.success(nextDone ? 'Todo Checked! +15 XP 📝' : 'Todo Unchecked ↩️')
   }
 
   async function handleAddWater(amount: number) {
@@ -216,6 +292,7 @@ export default function DashboardPage() {
           title: quickAddTitle.trim(),
           due_date: quickAddDueDate || null,
           due_time: quickAddDueTime || null,
+          is_done: false,
         })
         toast.success('Todo added! 📝')
       } else if (activeTab === 'goals') {
@@ -264,6 +341,19 @@ export default function DashboardPage() {
       toast.error('Failed to save journal entry')
     }
   }
+
+  // Filter Tasks & Todos
+  const filteredTasksList = tasks.filter(t => {
+    if (taskFilter === 'pending') return t.status !== 'done'
+    if (taskFilter === 'completed') return t.status === 'done'
+    return true
+  })
+
+  const filteredTodosList = todos.filter(t => {
+    if (todoFilter === 'pending') return !t.is_done
+    if (todoFilter === 'completed') return t.is_done
+    return true
+  })
 
   const lifeScore = profile?.life_score ?? 85
   const currentStreak = profile?.current_streak ?? 1
@@ -382,7 +472,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Open Tasks Card */}
+            {/* Total & Open Tasks Card */}
             <div style={{
               background: '#0A0B0D',
               border: '1px solid rgba(59, 130, 246, 0.3)',
@@ -393,8 +483,10 @@ export default function DashboardPage() {
               justifyContent: 'space-between',
             }}>
               <div>
-                <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, letterSpacing: '0.04em' }}>OPEN TASKS</div>
-                <div style={{ fontSize: 24, fontWeight: 900, color: '#3B82F6', marginTop: 2 }}>{tasks.length} <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500 }}>Pending</span></div>
+                <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, letterSpacing: '0.04em' }}>TASKS VELOCITY</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#3B82F6', marginTop: 2 }}>
+                  {tasks.filter(t => t.status !== 'done').length} <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 500 }}>Open</span> • <span style={{ color: '#10B981' }}>{tasks.filter(t => t.status === 'done').length} Done</span>
+                </div>
               </div>
               <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CheckCircle2 size={22} color="#3B82F6" />
@@ -436,6 +528,68 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* INLINE AI ASSISTANT COMMAND BAR */}
+        <div style={{
+          background: 'linear-gradient(135deg, #121318 0%, #1A1C24 100%)',
+          border: '1px solid #F59E0B',
+          borderRadius: 20,
+          padding: '18px 20px',
+          boxShadow: '0 12px 36px rgba(245, 158, 11, 0.25)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #FFD700, #F59E0B)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000000' }}>
+              <Bot size={18} color="#000000" />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                NIRMAAN AI Direct Command Bar <Sparkles size={14} color="#FFD700" />
+              </h3>
+              <span style={{ fontSize: 11, color: '#9CA3AF' }}>Execute actions & create tasks/todos/goals directly with natural language</span>
+            </div>
+          </div>
+
+          <form onSubmit={handleAICommandSubmit} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Ask AI or command: e.g. 'Create task Build Auth at 5pm', 'Log 500ml water', 'Create goal Launch Product'..."
+              value={aiCommandPrompt}
+              onChange={e => setAiCommandPrompt(e.target.value)}
+              style={{
+                flex: 1,
+                height: 44,
+                background: '#0A0B0D',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                borderRadius: 12,
+                color: '#FFFFFF',
+                fontSize: 13,
+                padding: '0 14px',
+                outline: 'none',
+              }}
+            />
+            <button
+              type="submit"
+              disabled={executingAICommand}
+              className="btn btn-primary"
+              style={{ height: 44, padding: '0 18px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              {executingAICommand ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+              <span>{executingAICommand ? 'Executing...' : 'Send AI'}</span>
+            </button>
+          </form>
+
+          {aiCommandResponse && (
+            <div style={{ background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.3)', padding: 14, borderRadius: 12, marginTop: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#FFD700', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Sparkles size={12} color="#FFD700" /> AI EXECUTION RESPONSE:
+              </div>
+              <FormattedAIResponse content={aiCommandResponse} />
+            </div>
+          )}
         </div>
 
         {/* AI Daily Focus Brief Card */}
@@ -483,7 +637,7 @@ export default function DashboardPage() {
               <h2 style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 Workspace Command Center <ChevronRight size={16} color="#F59E0B" />
               </h2>
-              <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>Access live records across all system tables</p>
+              <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>Access live records across all system tables (Pending & Completed)</p>
             </div>
 
             {/* Quick Create Input Form */}
@@ -567,83 +721,168 @@ export default function DashboardPage() {
           minHeight: 280,
         }}>
 
-          {/* TAB 1: TASKS */}
+          {/* TAB 1: TASKS (Pending & Completed) */}
           {activeTab === 'tasks' && (
             <div>
-              {tasks.length === 0 ? (
+              {/* Task Filter Sub-Bar */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+                {[
+                  { id: 'all', label: 'All Tasks' },
+                  { id: 'pending', label: '⏳ Pending' },
+                  { id: 'completed', label: '✓ Completed' },
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setTaskFilter(f.id as TaskFilter)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 8,
+                      border: `1px solid ${taskFilter === f.id ? '#F59E0B' : 'rgba(245, 158, 11, 0.2)'}`,
+                      background: taskFilter === f.id ? 'rgba(245, 158, 11, 0.2)' : '#121318',
+                      color: taskFilter === f.id ? '#FFD700' : '#9CA3AF',
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {filteredTasksList.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '50px 20px', color: '#9CA3AF' }}>
                   <CheckCircle2 size={36} color="#F59E0B" style={{ margin: '0 auto 10px' }} />
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>No pending tasks!</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>No tasks in this view!</p>
                   <p style={{ fontSize: 12, margin: '4px 0 0' }}>Type a title above to create your first task with due date & time.</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {tasks.map(task => (
-                    <div
-                      key={task.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '14px 16px',
-                        background: '#121318',
-                        border: '1px solid rgba(245, 158, 11, 0.2)',
-                        borderRadius: 14,
-                        gap: 12,
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
-                        <button
-                          onClick={() => handleCompleteTask(task.id)}
-                          style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid #F59E0B', background: 'none', cursor: 'pointer', flexShrink: 0 }}
-                          title="Mark Complete"
-                        />
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {task.title}
-                          </div>
-                          {task.description && (
-                            <div style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {task.description}
+                  {filteredTasksList.map(task => {
+                    const isDone = task.status === 'done'
+                    return (
+                      <div
+                        key={task.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '14px 16px',
+                          background: isDone ? 'rgba(16, 185, 129, 0.08)' : '#121318',
+                          border: `1px solid ${isDone ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.2)'}`,
+                          borderRadius: 14,
+                          gap: 12,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+                          <button
+                            onClick={() => handleToggleTaskStatus(task)}
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: '50%',
+                              border: `2px solid ${isDone ? '#10B981' : '#F59E0B'}`,
+                              background: isDone ? '#10B981' : 'none',
+                              color: '#000000',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              fontSize: 12,
+                              fontWeight: 900,
+                            }}
+                            title={isDone ? 'Reopen task' : 'Mark done'}
+                          >
+                            {isDone && '✓'}
+                          </button>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{
+                              fontSize: 14,
+                              fontWeight: 700,
+                              color: isDone ? '#9CA3AF' : '#FFFFFF',
+                              textDecoration: isDone ? 'line-through' : 'none',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}>
+                              {task.title}
                             </div>
+                            {task.description && (
+                              <div style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {task.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                          {isDone ? (
+                            <span className="badge badge-success">✓ Completed</span>
+                          ) : (
+                            <>
+                              {task.due_date && (
+                                <span style={{ fontSize: 11, color: '#FFD700', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <Calendar size={12} /> {new Date(task.due_date).toLocaleDateString()}
+                                </span>
+                              )}
+                              {task.due_time && (
+                                <span style={{ fontSize: 11, color: '#10B981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <Clock size={12} /> {task.due_time}
+                                </span>
+                              )}
+                              <span className={`badge ${task.priority === 4 ? 'badge-p1' : task.priority === 3 ? 'badge-p2' : 'badge-p3'}`}>
+                                P{5 - task.priority}
+                              </span>
+                            </>
                           )}
                         </div>
                       </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                        {task.due_date && (
-                          <span style={{ fontSize: 11, color: '#FFD700', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Calendar size={12} /> {new Date(task.due_date).toLocaleDateString()}
-                          </span>
-                        )}
-                        {task.due_time && (
-                          <span style={{ fontSize: 11, color: '#10B981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Clock size={12} /> {task.due_time}
-                          </span>
-                        )}
-                        <span className={`badge ${task.priority === 4 ? 'badge-p1' : task.priority === 3 ? 'badge-p2' : 'badge-p3'}`}>
-                          P{5 - task.priority}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
           )}
 
-          {/* TAB 2: TODOS */}
+          {/* TAB 2: TODOS (Pending & Completed) */}
           {activeTab === 'todos' && (
             <div>
-              {todos.length === 0 ? (
+              {/* Todo Filter Sub-Bar */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+                {[
+                  { id: 'all', label: 'All Todos' },
+                  { id: 'pending', label: '⏳ Pending' },
+                  { id: 'completed', label: '✓ Completed' },
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setTodoFilter(f.id as TaskFilter)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 8,
+                      border: `1px solid ${todoFilter === f.id ? '#10B981' : 'rgba(16, 185, 129, 0.2)'}`,
+                      background: todoFilter === f.id ? 'rgba(16, 185, 129, 0.2)' : '#121318',
+                      color: todoFilter === f.id ? '#10B981' : '#9CA3AF',
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {filteredTodosList.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '50px 20px', color: '#9CA3AF' }}>
                   <CheckCircle2 size={36} color="#10B981" style={{ margin: '0 auto 10px' }} />
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>All daily todos completed!</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>No todos found!</p>
                   <p style={{ fontSize: 12, margin: '4px 0 0' }}>Add a quick todo item using the input form above.</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {todos.map(todo => (
+                  {filteredTodosList.map(todo => (
                     <div
                       key={todo.id}
                       style={{
@@ -651,21 +890,47 @@ export default function DashboardPage() {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '12px 14px',
-                        background: '#121318',
-                        border: '1px solid rgba(245, 158, 11, 0.2)',
+                        background: todo.is_done ? 'rgba(16, 185, 129, 0.08)' : '#121318',
+                        border: `1px solid ${todo.is_done ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.2)'}`,
                         borderRadius: 12,
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <button
-                          onClick={() => handleCompleteTodo(todo.id)}
-                          style={{ width: 20, height: 20, borderRadius: 6, border: '2px solid #10B981', background: 'none', cursor: 'pointer' }}
-                        />
-                        <span style={{ fontSize: 13.5, fontWeight: 600, color: '#FFFFFF' }}>{todo.title}</span>
+                          onClick={() => handleToggleTodoStatus(todo)}
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: 6,
+                            border: `2px solid ${todo.is_done ? '#10B981' : '#9CA3AF'}`,
+                            background: todo.is_done ? '#10B981' : 'none',
+                            color: '#000000',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            fontWeight: 900,
+                          }}
+                          title={todo.is_done ? 'Mark pending' : 'Mark done'}
+                        >
+                          {todo.is_done && '✓'}
+                        </button>
+                        <span style={{
+                          fontSize: 13.5,
+                          fontWeight: 600,
+                          color: todo.is_done ? '#9CA3AF' : '#FFFFFF',
+                          textDecoration: todo.is_done ? 'line-through' : 'none',
+                        }}>
+                          {todo.title}
+                        </span>
                       </div>
-                      {todo.due_time && (
-                        <span style={{ fontSize: 11, color: '#10B981', fontWeight: 700 }}>{todo.due_time}</span>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {todo.is_done && <span className="badge badge-success">✓ Done</span>}
+                        {todo.due_time && (
+                          <span style={{ fontSize: 11, color: '#10B981', fontWeight: 700 }}>{todo.due_time}</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
