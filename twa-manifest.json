@@ -1,0 +1,39 @@
+{
+  "packageId": "com.nirmaan.app",
+  "host": "me-eight-dun.vercel.app",
+  "name": "NIRMAAN",
+  "launcherName": "NIRMAAN",
+  "display": "standalone",
+  "themeColor": "#0A0B0D",
+  "navigationColor": "#0A0B0D",
+  "navigationColorDark": "#0A0B0D",
+  "navigationDividerColor": "#0A0B0D",
+  "navigationDividerColorDark": "#0A0B0D",
+  "backgroundColor": "#0A0B0D",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://me-eight-dun.vercel.app/icon-192.png",
+  "maskableIconUrl": "https://me-eight-dun.vercel.app/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "2.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://me-eight-dun.vercel.app/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  }
+}
