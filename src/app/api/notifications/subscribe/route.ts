@@ -7,9 +7,9 @@ const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 
 const db = createClient(SUPABASE_URL, SERVICE_KEY || ANON_KEY)
 
-// Public VAPID Key (Standard WebPush VAPID key)
-export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgD83wCDW5Ku_-p1L02vX_z88-G2n6V4h7M474H2O1A2U'
-export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '5A_M39GkF8G-e-W5m3-Zk-G2n6V4h7M474H2O1A2U00'
+// Public & Private VAPID Key (Standard WebPush VAPID key)
+export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BOfEZCzKLg0jG7s1rkGkHTmdABWepaC6JQI1qwe8L_-DR_QGLMK4XwWrwZeCnInuG0b_JdT_Ce2iUtvDFUMSRTQ'
+export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '4KLifKSr6MtbL_0N7moJkhklpNO0ESN9aRTDI1uOEj0'
 
 export async function GET() {
   return NextResponse.json({ publicKey: VAPID_PUBLIC_KEY })

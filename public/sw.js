@@ -1,7 +1,7 @@
 // Service Worker for NIRMAAN Background Push Notifications & PWA Auto-Updates
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = 'nirmaan-cache-v2.1'
+const CACHE_NAME = 'nirmaan-cache-v4.0'
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -28,35 +28,44 @@ self.addEventListener('message', (event) => {
   }
 })
 
-// Listen for incoming WebPush notifications from the server
-self.addEventListener('push', (event) => {
-  if (!event.data) return
-
-  try {
-    const payload = event.data.json()
-    const title = payload.title || 'NIRMAAN Reminder'
-    const options = {
-      body: payload.body || 'You have an upcoming task or scheduled reminder.',
-      icon: payload.icon || '/icon-192.png',
-      badge: payload.badge || '/icon-192.png',
-      tag: payload.tag || 'nirmaan-notification',
-      renotify: true,
-      data: {
-        url: payload.url || '/reminders',
-        timestamp: Date.now(),
-      },
-      actions: [
-        { action: 'open', title: 'Open App 🚀' },
-        { action: 'dismiss', title: 'Dismiss' },
-      ],
-    }
-
-    event.waitUntil(
-      self.registration.showNotification(title, options)
+// Network-First strategy for HTML navigations: Ensures new deployments on GitHub/Vercel update instantly!
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
     )
-  } catch (err) {
-    console.error('Error handling push event:', err)
   }
+})
+
+// Robust WebPush notification listener (handles both JSON and text payloads)
+self.addEventListener('push', (event) => {
+  let title = 'NIRMAAN OS Notification'
+  let options = {
+    body: 'You have a new update or scheduled reminder.',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: 'nirmaan-notification',
+    renotify: true,
+    data: { url: '/reminders', timestamp: Date.now() },
+  }
+
+  if (event.data) {
+    try {
+      const payload = event.data.json()
+      title = payload.title || title
+      options.body = payload.body || options.body
+      options.icon = payload.icon || options.icon
+      options.badge = payload.badge || options.badge
+      options.tag = payload.tag || options.tag
+      if (payload.url) options.data.url = payload.url
+    } catch {
+      options.body = event.data.text() || options.body
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  )
 })
 
 // Handle click on native OS notification
@@ -80,4 +89,5 @@ self.addEventListener('notificationclick', (event) => {
     })
   )
 })
+
 

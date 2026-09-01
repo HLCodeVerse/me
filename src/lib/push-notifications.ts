@@ -40,10 +40,10 @@ export function initPWAAutoUpdate(): void {
     // Force immediate check on launch
     registration.update().catch(() => {})
 
-    // Check for updates periodically every 3 minutes
+    // Check for updates periodically every 15 seconds
     setInterval(() => {
       registration.update().catch(() => {})
-    }, 3 * 60 * 1000)
+    }, 15 * 1000)
 
     registration.addEventListener('updatefound', () => {
       const newWorker = registration.installing
@@ -53,15 +53,10 @@ export function initPWAAutoUpdate(): void {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
           newWorker.postMessage({ type: 'SKIP_WAITING' })
           newWorker.postMessage({ type: 'CLEAR_CACHE' })
-          toast.info('New NIRMAAN version deployed! Updating...', {
-            action: {
-              label: 'Refresh Now',
-              onClick: () => {
-                window.location.reload()
-              },
-            },
-            duration: 10000,
-          })
+          toast.success('✨ New NIRMAAN version deployed! Auto-updating...', { duration: 3000 })
+          setTimeout(() => {
+            window.location.reload()
+          }, 1000)
         }
       })
     })
