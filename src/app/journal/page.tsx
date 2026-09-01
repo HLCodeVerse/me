@@ -616,7 +616,7 @@ Respond strictly in valid JSON format with keys:
                         cursor: 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
-                        justify: 'space-between',
+                        justifyContent: 'space-between',
                         gap: 12,
                         boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
                         transition: 'all 150ms ease',
