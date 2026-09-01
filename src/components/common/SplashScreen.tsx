@@ -63,30 +63,19 @@ export default function SplashScreen({ onFinish }: { onFinish?: () => void }) {
       />
 
       {/* Center Animated Logo Emblem */}
-      <div style={{ position: 'relative', marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'relative', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div
           style={{
-            width: 88,
-            height: 88,
-            borderRadius: 24,
-            background: 'linear-gradient(135deg, #7C3AED, #3B82F6, #F59E0B)',
-            padding: 3,
-            boxShadow: '0 16px 40px rgba(124, 58, 237, 0.4)',
+            width: 110,
+            height: 110,
+            borderRadius: 28,
+            overflow: 'hidden',
+            boxShadow: '0 20px 50px rgba(124, 58, 237, 0.45)',
+            border: '2px solid rgba(124, 58, 237, 0.5)',
           }}
         >
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              borderRadius: 21,
-              background: '#0A0B0D',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Zap size={44} color="#7C3AED" className="animate-bounce" fill="url(#grad)" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon-512.png" alt="NIRMAAN Icon" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       </div>
 
