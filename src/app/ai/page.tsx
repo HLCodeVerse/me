@@ -53,6 +53,138 @@ const ACTION_LABELS: Record<string, string> = {
   plan_my_day: '📅 Day plan loaded',
 }
 
+// Typewriter Response Component for Smooth AI Typing Animation Effect
+function TypewriterResponse({ text }: { text: string }) {
+  const [displayedText, setDisplayedText] = useState('')
+
+  useEffect(() => {
+    if (!text) {
+      setDisplayedText('')
+      return
+    }
+
+    // Fast typewriter typing animation
+    const i = displayedText.length
+    if (i >= text.length) {
+      setDisplayedText(text)
+      return
+    }
+
+    const timer = setTimeout(() => {
+      setDisplayedText(text.slice(0, i + 3))
+    }, 15)
+
+    return () => clearTimeout(timer)
+  }, [text, displayedText])
+
+  return (
+    <span>
+      {renderStylishContent(displayedText)}
+      {displayedText.length < text.length && (
+        <span style={{ color: '#06B6D4', fontWeight: 800 }} className="animate-pulse">|</span>
+      )}
+    </span>
+  )
+}
+
+function parseBoldText(text: string): string {
+  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+}
+
+// Stylish Markdown parser for headers, bold text, bullet lists, and artifacts
+function renderStylishContent(content: string) {
+  const artifactRegex = /<<<ARTIFACT:(.*?):(.*?)\>>>([\s\S]*?)<<<END_ARTIFACT\>>>/g
+  const parts = []
+  let lastIndex = 0
+  let match
+
+  while ((match = artifactRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', text: content.substring(lastIndex, match.index) })
+    }
+    parts.push({
+      type: 'artifact',
+      title: match[1].trim(),
+      artifactType: match[2].trim(),
+      body: match[3].trim()
+    })
+    lastIndex = artifactRegex.lastIndex
+  }
+  if (lastIndex < content.length) {
+    parts.push({ type: 'text', text: content.substring(lastIndex) })
+  }
+
+  return (
+    <div>
+      {parts.map((p, idx) => {
+        if (p.type === 'text') {
+          const lines = (p.text || '').split('\n')
+          return (
+            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {lines.map((line, lIdx) => {
+                const trimmed = line.trim()
+                if (!trimmed) return <div key={lIdx} style={{ height: 4 }} />
+
+                if (trimmed.startsWith('## ') || trimmed.startsWith('### ')) {
+                  const headerText = trimmed.replace(/^###?\s*/, '')
+                  return (
+                    <h3 key={lIdx} style={{
+                      fontSize: 15, fontWeight: 800, color: 'var(--text)',
+                      margin: '8px 0 2px', letterSpacing: '-0.01em',
+                    }}>
+                      {headerText}
+                    </h3>
+                  )
+                }
+
+                if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                  const bulletText = trimmed.replace(/^[-*]\s*/, '')
+                  return (
+                    <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, paddingLeft: 2 }}>
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#F59E0B', marginTop: 7, flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 13.5, color: 'var(--text)', lineHeight: 1.55 }}
+                            dangerouslySetInnerHTML={{ __html: parseBoldText(bulletText) }} />
+                    </div>
+                  )
+                }
+
+                return (
+                  <p key={lIdx} style={{ fontSize: 13.5, color: 'var(--text)', lineHeight: 1.55, margin: 0 }}
+                     dangerouslySetInnerHTML={{ __html: parseBoldText(line) }} />
+                )
+              })}
+            </div>
+          )
+        }
+
+        return (
+          <div key={idx} style={{
+            margin: '12px 0', padding: '12px 14px', borderRadius: 'var(--radius-sm)',
+            background: 'rgba(245,158,11,0.08)', backdropFilter: 'blur(16px)', border: '1px solid rgba(245,158,11,0.3)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Sparkles size={14} color="#F59E0B" />
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#FFF' }}>{p.title || 'Artifact'}</span>
+              </div>
+              <button onClick={() => { navigator.clipboard.writeText(p.body || ''); toast.success('Copied artifact!') }} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 11, cursor: 'pointer', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Copy size={11} /> Copy
+              </button>
+            </div>
+            <pre style={{
+              background: 'rgba(10,11,13,0.95)', padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+              fontSize: 11.5, fontFamily: 'Consolas, Monaco, monospace', color: '#E2E8F0', margin: 0,
+              maxHeight: 260, overflowY: 'auto', lineHeight: 1.5, border: '1px solid rgba(255,255,255,0.08)'
+            }}>
+              {p.body}
+            </pre>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function AIPage() {
   const { user } = useAuth()
   const supabase = createClient()
@@ -61,6 +193,7 @@ export default function AIPage() {
   const [messages, setMessages] = useState<AIMessage[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
+  const [isExecutingAction, setIsExecutingAction] = useState(false)
   const [selectedModel, setSelectedModel] = useState(FREE_MODELS[0].id)
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [speakingId, setSpeakingId] = useState<string | null>(null)
@@ -73,7 +206,7 @@ export default function AIPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, streaming, isExecutingAction])
 
   const loadConversations = useCallback(async () => {
     try {
@@ -200,106 +333,13 @@ export default function AIPage() {
     }
   }
 
-  // Stylish Markdown parser for headers, bold text, bullet lists, and artifacts
-  const renderStylishContent = (content: string) => {
-    const artifactRegex = /<<<ARTIFACT:(.*?):(.*?)\>>>([\s\S]*?)<<<END_ARTIFACT\>>>/g
-    const parts = []
-    let lastIndex = 0
-    let match
-
-    while ((match = artifactRegex.exec(content)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push({ type: 'text', text: content.substring(lastIndex, match.index) })
-      }
-      parts.push({
-        type: 'artifact',
-        title: match[1].trim(),
-        artifactType: match[2].trim(),
-        body: match[3].trim()
-      })
-      lastIndex = artifactRegex.lastIndex
-    }
-    if (lastIndex < content.length) {
-      parts.push({ type: 'text', text: content.substring(lastIndex) })
-    }
-
-    return (
-      <div>
-        {parts.map((p, idx) => {
-          if (p.type === 'text') {
-            const lines = (p.text || '').split('\n')
-            return (
-              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {lines.map((line, lIdx) => {
-                  const trimmed = line.trim()
-                  if (!trimmed) return <div key={lIdx} style={{ height: 4 }} />
-
-                  if (trimmed.startsWith('## ') || trimmed.startsWith('### ')) {
-                    const headerText = trimmed.replace(/^###?\s*/, '')
-                    return (
-                      <h3 key={lIdx} style={{
-                        fontSize: 15, fontWeight: 800, color: 'var(--text)',
-                        margin: '8px 0 2px', letterSpacing: '-0.01em',
-                      }}>
-                        {headerText}
-                      </h3>
-                    )
-                  }
-
-                  if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                    const bulletText = trimmed.replace(/^[-*]\s*/, '')
-                    return (
-                      <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, paddingLeft: 2 }}>
-                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#818CF8', marginTop: 7, flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: 13.5, color: 'var(--text)', lineHeight: 1.55 }}
-                              dangerouslySetInnerHTML={{ __html: parseBoldText(bulletText) }} />
-                      </div>
-                    )
-                  }
-
-                  return (
-                    <p key={lIdx} style={{ fontSize: 13.5, color: 'var(--text)', lineHeight: 1.55, margin: 0 }}
-                       dangerouslySetInnerHTML={{ __html: parseBoldText(line) }} />
-                  )
-                })}
-              </div>
-            )
-          }
-
-          return (
-            <div key={idx} className="glow-box-indigo" style={{
-              margin: '12px 0', padding: '12px 14px', borderRadius: 'var(--radius-sm)',
-              background: 'rgba(129,140,248,0.08)', backdropFilter: 'blur(16px)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Sparkles size={14} color="#818CF8" />
-                  <span style={{ fontSize: 13, fontWeight: 800, color: '#FFF' }}>{p.title || 'Artifact'}</span>
-                </div>
-                <button onClick={() => copyToClipboard(p.body || '')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 11, cursor: 'pointer', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Copy size={11} /> Copy
-                </button>
-              </div>
-              <pre style={{
-                background: 'rgba(10,11,13,0.95)', padding: '10px 12px', borderRadius: 'var(--radius-sm)',
-                fontSize: 11.5, fontFamily: 'Consolas, Monaco, monospace', color: '#E2E8F0', margin: 0,
-                maxHeight: 260, overflowY: 'auto', lineHeight: 1.5, border: '1px solid rgba(255,255,255,0.08)'
-              }}>
-                {p.body}
-              </pre>
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
-
   async function sendMessage(e?: React.FormEvent, overrideContent?: string) {
     e?.preventDefault()
     const content = overrideContent ?? input.trim()
     if (!content || !user) return
     setInput('')
     setStreaming(true)
+    setIsExecutingAction(false)
     setPendingActions([])
 
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
@@ -352,10 +392,12 @@ export default function AIPage() {
 
       const actionsHeader = res.headers.get('X-Actions')
       if (actionsHeader) {
+        setIsExecutingAction(true)
         const actionNames = actionsHeader.split(',').map(a => a.trim())
         const labels = actionNames.map(a => ACTION_LABELS[a] ?? a).filter(Boolean)
         setPendingActions(labels)
         labels.forEach(label => toast.success(label, { icon: '⚡' }))
+        setTimeout(() => setIsExecutingAction(false), 1200)
       }
 
       const reader = res.body?.getReader()
@@ -397,6 +439,7 @@ export default function AIPage() {
       setMessages(prev => prev.filter(m => m.id !== assistantId))
     } finally {
       setStreaming(false)
+      setIsExecutingAction(false)
       setPendingActions([])
     }
   }
@@ -414,9 +457,9 @@ export default function AIPage() {
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', display: 'flex', alignItems: 'center' }}
               title="Chat History"
             >
-              <MessageSquare size={18} color="#818CF8" />
+              <MessageSquare size={18} color="#F59E0B" />
             </button>
-            <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>Easy Life AI</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>NIRMAAN AI Chat OS</h1>
           </div>
 
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -426,9 +469,9 @@ export default function AIPage() {
                 onClick={() => setShowModelPicker(p => !p)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px',
-                  borderRadius: 99, background: 'rgba(129,140,248,0.12)',
-                  border: '1px solid rgba(129,140,248,0.3)', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                  color: '#818CF8',
+                  borderRadius: 99, background: 'rgba(245,158,11,0.12)',
+                  border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                  color: '#F59E0B',
                 }}
               >
                 <span>{currentModel.label}</span>
@@ -451,13 +494,13 @@ export default function AIPage() {
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           padding: '6px 8px', borderRadius: 6, width: '100%', border: 'none',
-                          background: selectedModel === m.id ? 'rgba(129,140,248,0.15)' : 'transparent',
-                          color: selectedModel === m.id ? '#818CF8' : 'var(--text)', fontSize: 12, fontWeight: 600,
+                          background: selectedModel === m.id ? 'rgba(245,158,11,0.15)' : 'transparent',
+                          color: selectedModel === m.id ? '#F59E0B' : 'var(--text)', fontSize: 12, fontWeight: 600,
                           cursor: 'pointer', textAlign: 'left',
                         }}
                       >
                         {m.label}
-                        {selectedModel === m.id && <Check size={12} color="#818CF8" />}
+                        {selectedModel === m.id && <Check size={12} color="#F59E0B" />}
                       </button>
                     ))}
                   </div>
@@ -469,7 +512,7 @@ export default function AIPage() {
               onClick={() => { setActiveConv(null); setMessages([]) }}
               style={{
                 height: 30, padding: '0 10px', borderRadius: 99,
-                background: '#818CF8', border: 'none',
+                background: 'linear-gradient(135deg, #F59E0B, #EAB308)', border: 'none',
                 display: 'flex', alignItems: 'center', gap: 4,
                 cursor: 'pointer', color: '#0A0B0D', fontWeight: 800, fontSize: 11
               }}
@@ -506,8 +549,8 @@ export default function AIPage() {
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '10px 12px', borderRadius: 'var(--radius-sm)',
-                      background: activeConv?.id === conv.id ? 'rgba(129,140,248,0.15)' : 'var(--surface-2)',
-                      border: `1px solid ${activeConv?.id === conv.id ? '#818CF8' : 'var(--border)'}`,
+                      background: activeConv?.id === conv.id ? 'rgba(245,158,11,0.15)' : 'var(--surface-2)',
+                      border: `1px solid ${activeConv?.id === conv.id ? '#F59E0B' : 'var(--border)'}`,
                       cursor: 'pointer', color: 'var(--text)', fontSize: 13
                     }}
                   >
@@ -530,13 +573,13 @@ export default function AIPage() {
               <div style={{ textAlign: 'center', margin: 'auto', maxWidth: 360, padding: '20px 0' }}>
                 <div style={{
                   width: 54, height: 54, borderRadius: '50%',
-                  background: 'rgba(129,140,248,0.15)', border: '1px solid rgba(129,140,248,0.3)',
+                  background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 12px',
                 }}>
-                  <Brain size={26} color="#818CF8" />
+                  <Brain size={26} color="#F59E0B" />
                 </div>
-                <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>NIRMAAN AI Assistant</h3>
+                <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6, color: '#FFF' }}>NIRMAAN AI Assistant</h3>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
                   Directly create tasks, set goals, manage todos, and answer questions.
                 </p>
@@ -551,7 +594,7 @@ export default function AIPage() {
                         borderRadius: 'var(--radius-sm)', cursor: 'pointer', textAlign: 'left',
                       }}
                     >
-                      <qa.icon size={14} color="#818CF8" />
+                      <qa.icon size={14} color="#F59E0B" />
                       <span style={{ fontSize: 11.5, color: 'var(--text)', fontWeight: 600 }}>{qa.label}</span>
                     </button>
                   ))}
@@ -559,37 +602,134 @@ export default function AIPage() {
               </div>
             )}
 
-            {messages.map(msg => (
-              <div key={msg.id} style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{
-                  maxWidth: '88%', padding: '10px 14px',
-                  borderRadius: msg.role === 'user' ? '16px 16px 2px 16px' : '2px 16px 16px 16px',
-                  background: msg.role === 'user' ? 'linear-gradient(135deg, #818CF8, #6366F1)' : 'var(--surface)',
-                  border: msg.role === 'user' ? 'none' : '1px solid var(--border)',
-                  color: msg.role === 'user' ? '#FFF' : 'var(--text)',
-                  fontSize: 13.5, lineHeight: 1.55,
-                }}>
-                  {msg.content ? (
-                    renderStylishContent(msg.content)
-                  ) : (streaming && msg.role === 'assistant' ? (
-                    <div style={{ display: 'flex', gap: 4, padding: '4px 0' }}>
-                      {[0, 1, 2].map(i => (
-                        <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#818CF8', animation: `pulse 1s ease-in-out ${i * 0.2}s infinite` }} />
-                      ))}
-                    </div>
-                  ) : '')}
-                </div>
+            {messages.map((msg, idx) => {
+              const isLastAssistant = msg.role === 'assistant' && idx === messages.length - 1
 
-                {msg.role === 'assistant' && msg.content && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 3, paddingLeft: 2 }}>
-                    <button onClick={() => copyToClipboard(msg.content)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', fontSize: 10 }}>Copy</button>
-                    <button onClick={() => toggleSpeech(msg.id, msg.content)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: speakingId === msg.id ? '#06B6D4' : 'var(--text-dim)', fontSize: 10 }}>
-                      {speakingId === msg.id ? 'Stop' : 'Listen'}
-                    </button>
+              return (
+                <div key={msg.id} style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{
+                    maxWidth: '88%', padding: '10px 14px',
+                    borderRadius: msg.role === 'user' ? '16px 16px 2px 16px' : '2px 16px 16px 16px',
+                    background: msg.role === 'user' ? 'linear-gradient(135deg, #F59E0B, #D97706)' : 'var(--surface)',
+                    border: msg.role === 'user' ? 'none' : '1px solid var(--border)',
+                    color: msg.role === 'user' ? '#0A0B0D' : 'var(--text)',
+                    fontSize: 13.5, lineHeight: 1.55, fontWeight: msg.role === 'user' ? 700 : 400,
+                  }}>
+                    {msg.content ? (
+                      isLastAssistant ? (
+                        <TypewriterResponse text={msg.content} />
+                      ) : (
+                        renderStylishContent(msg.content)
+                      )
+                    ) : null}
                   </div>
-                )}
+
+                  {msg.role === 'assistant' && msg.content && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 3, paddingLeft: 2 }}>
+                      <button onClick={() => copyToClipboard(msg.content)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', fontSize: 10 }}>Copy</button>
+                      <button onClick={() => toggleSpeech(msg.id, msg.content)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: speakingId === msg.id ? '#06B6D4' : 'var(--text-dim)', fontSize: 10 }}>
+                        {speakingId === msg.id ? 'Stop' : 'Listen'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* 1. THINKING ANIMATION CARD */}
+            {streaming && messages[messages.length - 1]?.content === '' && !isExecutingAction && (
+              <div
+                className="animate-fade-in"
+                style={{
+                  maxWidth: 280,
+                  padding: '10px 14px',
+                  borderRadius: '12px 12px 12px 2px',
+                  background: 'var(--surface)',
+                  border: '1px solid rgba(6, 182, 212, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  boxShadow: '0 4px 16px rgba(6, 182, 212, 0.2)',
+                  marginBottom: 14,
+                }}
+              >
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    background: 'rgba(6, 182, 212, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Brain size={18} color="#06B6D4" className="animate-pulse" />
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#06B6D4', margin: 0 }}>
+                    AI Thinking...
+                  </p>
+                  <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+                    {[0, 1, 2].map(i => (
+                      <div
+                        key={i}
+                        style={{
+                          width: 5,
+                          height: 5,
+                          borderRadius: '50%',
+                          background: '#06B6D4',
+                          animation: `pulse 0.8s ease-in-out ${i * 0.15}s infinite`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
-            ))}
+            )}
+
+            {/* 2. WORKING ACTION EXECUTION ANIMATION CARD */}
+            {isExecutingAction && (
+              <div
+                className="animate-fade-in"
+                style={{
+                  maxWidth: 320,
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(239, 68, 68, 0.1))',
+                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  boxShadow: '0 4px 20px rgba(245, 158, 11, 0.3)',
+                  marginBottom: 14,
+                }}
+              >
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    background: 'var(--gold-gradient)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
+                  }}
+                >
+                  <Zap size={18} color="#0A0B0D" className="animate-spin" />
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 800, color: '#F59E0B', margin: 0 }}>
+                    ⚡ Executing AI Action...
+                  </p>
+                  <p style={{ fontSize: 10.5, color: '#E5E7EB', margin: '2px 0 0' }}>
+                    Updating database records & syncing tools
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
 
@@ -597,7 +737,7 @@ export default function AIPage() {
           {pendingActions.length > 0 && (
             <div style={{ padding: '0 12px 6px', display: 'flex', gap: 6 }}>
               {pendingActions.map((act, i) => (
-                <span key={i} className="badge badge-emerald" style={{ fontSize: 11 }}>{act}</span>
+                <span key={i} className="badge badge-warning" style={{ fontSize: 11 }}>{act}</span>
               ))}
             </div>
           )}
@@ -614,7 +754,7 @@ export default function AIPage() {
                   color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 600, cursor: 'pointer', flexShrink: 0
                 }}
               >
-                <qa.icon size={10} color="#818CF8" /> {qa.label}
+                <qa.icon size={10} color="#F59E0B" /> {qa.label}
               </button>
             ))}
           </div>
@@ -654,7 +794,7 @@ export default function AIPage() {
                 disabled={streaming || !input.trim()}
                 style={{
                   width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                  background: input.trim() ? '#818CF8' : 'var(--surface-2)',
+                  background: input.trim() ? '#F59E0B' : 'var(--surface-2)',
                   border: 'none', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
@@ -673,8 +813,4 @@ export default function AIPage() {
       </div>
     </AppShell>
   )
-}
-
-function parseBoldText(text: string): string {
-  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 }

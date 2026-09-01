@@ -10,6 +10,7 @@ import DesktopSidebar from './DesktopSidebar'
 import BottomNav from './BottomNav'
 import GlobalMediaPlayer from '@/components/media/GlobalMediaPlayer'
 import SplashScreen from '@/components/common/SplashScreen'
+import BrowserPermissionBanner from '@/components/common/BrowserPermissionBanner'
 import { initDoubleBackToExit } from '@/lib/back-button-handler'
 import { requestAllPermissions } from '@/lib/permissions-handler'
 import {
@@ -60,6 +61,9 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
 
   return (
     <div className="app-layout">
+      {/* Interactive Browser Permission Prompt Banner */}
+      <BrowserPermissionBanner />
+
       {/* Animated SplashScreen on First Mount */}
       <SplashScreen />
       {/* Desktop Sidebar (≥768px) */}

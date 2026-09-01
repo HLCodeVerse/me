@@ -22,44 +22,47 @@
 }
 
 :root {
-  /* ── Backgrounds & Surfaces ─────────────────────────── */
-  --bg:          #F8F9FC;
-  --surface:     #FFFFFF;
-  --surface-2:   #F1F4F9;
-  --surface-3:   #E4E8F0;
+  /* ── Backgrounds & Surfaces (AMOLED Black & Pure White) ─── */
+  --bg:          #0A0B0D;
+  --surface:     #121318;
+  --surface-2:   #1A1C24;
+  --surface-3:   #252834;
 
   /* ── Borders ─────────────────────────────────────────── */
-  --border:      #ECEEF2;
-  --border-hover:#DCE0E8;
+  --border:      rgba(245, 158, 11, 0.2);
+  --border-hover:rgba(6, 182, 212, 0.4);
 
-  /* ── Text Colors ─────────────────────────────────────── */
-  --text-primary:   #111827;
-  --text:           #111827;
-  --text-secondary: #6B7280;
+  /* ── Text Colors (White & Golden/Cyan Accents) ────────── */
+  --text-primary:   #FFFFFF;
+  --text:           #FFFFFF;
+  --text-secondary: #E5E7EB;
   --text-muted:     #9CA3AF;
-  --text-dim:       #6B7280;
+  --text-dim:       #9CA3AF;
 
-  /* ── Brand Gradients & Accents ──────────────────────── */
-  --primary-start: #7C3AED;
-  --primary-end:   #3B82F6;
-  --primary-gradient: linear-gradient(135deg, #7C3AED 0%, #3B82F6 100%);
-  --primary-subtle:   rgba(124, 58, 237, 0.08);
+  /* ── Brand Gradients & Accents (Gold, Red, Yellow, Cyan, White) ── */
+  --primary-start: #F59E0B;
+  --primary-end:   #06B6D4;
+  --primary-gradient: linear-gradient(135deg, #F59E0B 0%, #06B6D4 50%, #EF4444 100%);
+  --gold-gradient: linear-gradient(135deg, #F59E0B 0%, #EAB308 100%);
+  --cyan-gradient: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%);
+  --red-gradient:  linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  --primary-subtle:   rgba(245, 158, 11, 0.12);
 
-  /* ── Domain Colors ──────────────────────────────────── */
-  --career-info:    #3B82F6;
-  --career-dim:     rgba(59, 130, 246, 0.1);
-  --health-success: #10B981;
-  --health-dim:     rgba(16, 185, 129, 0.1);
+  /* ── Domain Colors (Golden, Red, Yellow, Cyan) ───────── */
+  --career-info:    #06B6D4;
+  --career-dim:     rgba(6, 182, 212, 0.15);
+  --health-success: #EAB308;
+  --health-dim:     rgba(234, 179, 8, 0.15);
   --focus-warning:  #F59E0B;
-  --focus-dim:      rgba(245, 158, 11, 0.1);
+  --focus-dim:      rgba(245, 158, 11, 0.15);
   --danger:         #EF4444;
-  --danger-dim:     rgba(239, 68, 68, 0.1);
+  --danger-dim:     rgba(239, 68, 68, 0.15);
 
   /* ── Priority P1 - P4 Tokens ───────────────────────── */
-  --p1-red:    #F43F5E;
+  --p1-red:    #EF4444;
   --p2-orange: #F59E0B;
-  --p3-blue:   #3B82F6;
-  --p4-gray:   #64748B;
+  --p3-blue:   #06B6D4;
+  --p4-gray:   #EAB308;
 
   /* ── Shape & Elevation ──────────────────────────────── */
   --radius-card: 20px;
