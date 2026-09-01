@@ -81,58 +81,35 @@ export default function GoalsPage() {
   async function handleAIGoalGenerate(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
-    const promptToUse = aiPrompt.trim() || 'Create 1 quarterly goal for career advancement'
+    const promptToUse = aiPrompt.trim() || 'Create a goal to launch my product'
     setAiGenerating(true)
-    toast.info('AI is generating goal from your instruction...')
+    toast.info('AI is executing your goal instruction...')
 
     try {
+      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user.id,
+        },
         body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Create 1 goal title based on user instruction: "${promptToUse}". Return ONLY plain text goal title under 8 words without formatting, quotes, or markdown.`
-          }],
-          enableTools: false
+          messages: [{ role: 'user', content: promptToUse }],
+          enableTools: true,
+          userId: user.id,
+          grokApiKey: customGrokKey,
         })
       })
 
       if (!res.ok) throw new Error('AI goal generation failed')
 
-      const reader = res.body?.getReader()
-      const decoder = new TextDecoder()
-      let sugText = ''
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          const chunk = decoder.decode(value)
-          for (const line of chunk.split('\n')) {
-            if (!line.startsWith('data: ')) continue
-            const data = line.slice(6)
-            if (data === '[DONE]') continue
-            try {
-              const parsed = JSON.parse(data)
-              const delta = parsed.choices?.[0]?.delta?.content ?? ''
-              if (delta) sugText += delta
-            } catch {}
-          }
-        }
+      const actionsHeader = res.headers.get('X-Actions')
+      if (actionsHeader) {
+        toast.success(`AI Executed Actions: ${actionsHeader}`, { icon: '⚡' })
       }
 
-      const cleanText = stripMarkdown(sugText)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('goals') as any).insert({
-        user_id: user.id,
-        title: cleanText,
-        status: 'active',
-        priority: 2
-      })
-
       setAiPrompt('')
-      toast.success(`Goal "${cleanText}" created! 🎯`)
+      toast.success('AI Goal synchronized! 🎯')
       load()
     } catch {
       toast.error('AI goal generation failed')

@@ -95,24 +95,32 @@ export default function TasksPage() {
   async function handleAITaskGenerate(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
-    const promptToUse = aiPrompt.trim() || 'Create 2 high-priority tasks for today'
+    const promptToUse = aiPrompt.trim() || 'Create 3 focus tasks for my day'
     setOptimizing(true)
-    toast.info('AI is generating task from your instruction...')
+    toast.info('AI is executing your prompt...')
 
     try {
+      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user.id,
+        },
         body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Generate 2 actionable tasks based on user instruction: "${promptToUse}". Return clean task titles under 8 words each, separated by lines, without markdown formatting or list numbers.`
-          }],
-          enableTools: false
+          messages: [{ role: 'user', content: promptToUse }],
+          enableTools: true,
+          userId: user.id,
+          grokApiKey: customGrokKey,
         })
       })
 
       if (!res.ok) throw new Error('AI task generation failed')
+
+      const actionsHeader = res.headers.get('X-Actions')
+      if (actionsHeader) {
+        toast.success(`AI Executed Actions: ${actionsHeader}`, { icon: '⚡' })
+      }
 
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
@@ -148,7 +156,7 @@ export default function TasksPage() {
       }
 
       setAiPrompt('')
-      toast.success('AI Task(s) created!')
+      toast.success('AI Task(s) synchronized!')
       fetchTasks()
     } catch {
       toast.error('AI task generation failed')

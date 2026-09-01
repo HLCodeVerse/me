@@ -104,15 +104,21 @@ export default function JournalPage() {
     setGeneratingReflection(true)
     toast.info('AI Mindset Coach is analyzing your entry...')
     try {
+      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user.id,
+        },
         body: JSON.stringify({
           messages: [{
             role: 'user',
             content: `Read this journal entry and provide a 2-sentence empowering plain text AI reflection without markdown symbols:\n"${entry.content}"`
           }],
-          enableTools: false
+          enableTools: false,
+          userId: user.id,
+          grokApiKey: customGrokKey,
         })
       })
 

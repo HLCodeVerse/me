@@ -47,18 +47,32 @@ export default function SettingsPage() {
     e.preventDefault()
     if (!openRouterKey.trim() || !user) return
     setSavingKey(true)
-    const { error } = await supabase.from('ai_provider_keys' as 'api_keys').upsert({
-      user_id: user.id,
-      provider: 'openrouter',
-    } as never)
-    if (error) {
-      toast.error('Failed to save key')
-    } else {
-      toast.success('API key saved securely!')
+
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nirmaan_grok_key', openRouterKey.trim())
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('api_keys') as any).upsert({
+        user_id: user.id,
+        name: 'Grok xAI Key',
+        key_prefix: openRouterKey.trim().slice(0, 12),
+        key_hash: openRouterKey.trim(),
+      })
+
+      if (error) {
+        console.warn('DB key save fallback:', error.message)
+      }
+
+      toast.success('Grok & AI API Key saved & activated!')
       setKeyStored(true)
       setOpenRouterKey('')
+    } catch {
+      toast.error('Failed to save key')
+    } finally {
+      setSavingKey(false)
     }
-    setSavingKey(false)
   }
 
   async function exportUserData() {

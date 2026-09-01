@@ -148,22 +148,30 @@ export default function TodosPage() {
     if (!user) return
     const promptToUse = aiPrompt.trim() || 'Generate 3 high-impact daily todos for focus'
     setAiGenerating(true)
-    toast.info('AI is generating smart todos from your prompt...')
+    toast.info('AI is executing your todo prompt...')
 
     try {
+      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user.id,
+        },
         body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Generate 3 todo items based on user instruction: "${promptToUse}". Return ONLY plain text todo items separated by line breaks, without bullet points, numbers, or markdown formatting.`
-          }],
-          enableTools: false
+          messages: [{ role: 'user', content: promptToUse }],
+          enableTools: true,
+          userId: user.id,
+          grokApiKey: customGrokKey,
         })
       })
 
       if (!res.ok) throw new Error('AI generation failed')
+
+      const actionsHeader = res.headers.get('X-Actions')
+      if (actionsHeader) {
+        toast.success(`AI Executed Actions: ${actionsHeader}`, { icon: '⚡' })
+      }
 
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
@@ -199,7 +207,8 @@ export default function TodosPage() {
       }
 
       setAiPrompt('')
-      toast.success('AI Todos generated!')
+      toast.success('AI Todos synchronized!')
+      fetchTodos()
     } catch {
       toast.error('Could not generate AI todos')
     } finally {

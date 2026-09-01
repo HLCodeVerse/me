@@ -128,26 +128,35 @@ export default function HealthPage() {
   async function handleAIHealthQuery(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
-    const queryToUse = aiPrompt.trim() || `Give me 2 recovery tips for today (Hydration: ${totalWaterMl}ml).`
+    const queryToUse = aiPrompt.trim() || `Log 250ml water intake and give recovery tips for today.`
     setAiAnalyzing(true)
-    toast.info('AI Health Coach analyzing instruction...')
+    toast.info('AI Health Coach executing instruction...')
 
     try {
+      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user.id,
+        },
         body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Analyze this health request: "${queryToUse}". Current water logged: ${totalWaterMl}ml out of ${targetWaterMl}ml goal. Return 2 concise plain text tips without markdown formatting.`
-          }],
-          enableTools: false
+          messages: [{ role: 'user', content: queryToUse }],
+          enableTools: true,
+          userId: user.id,
+          grokApiKey: customGrokKey,
         })
       })
 
       if (res.ok) {
+        const actionsHeader = res.headers.get('X-Actions')
+        if (actionsHeader) {
+          toast.success(`AI Executed Actions: ${actionsHeader}`, { icon: '⚡' })
+        } else {
+          toast.success('AI Health advice received!')
+        }
         setAiPrompt('')
-        toast.success('AI Health advice received! Check AI Chat.')
+        loadData()
       }
     } catch {
       toast.error('AI Coach call failed')

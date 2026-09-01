@@ -331,14 +331,20 @@ export default function AIPage() {
     }])
 
     try {
+      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user?.id || '',
+        },
         body: JSON.stringify({
           messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
           model: selectedModel,
           conversationId: conv.id,
           enableTools: true,
+          userId: user?.id,
+          grokApiKey: customGrokKey,
         }),
       })
 
