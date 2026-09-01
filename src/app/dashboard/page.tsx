@@ -373,7 +373,7 @@ export default function DashboardPage() {
         </div>
 
         {/* 3. MAIN DASHBOARD CONTENT GRID (Today Focus + Right Rail) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
           
           {/* LEFT COLUMN: TODAY FOCUS & HEALTH STRIP */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -430,7 +430,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Daily Todos Checklist & Habits Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
               {/* Daily Todos Checklist */}
               <div style={{ background: '#121318', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 'var(--radius-card)', padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -618,7 +618,7 @@ export default function DashboardPage() {
         <div style={{
           background: '#121318', border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: 'var(--radius-card)', padding: 18,
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20
         }}>
           {/* Weekly XP Bar */}
           <div>
