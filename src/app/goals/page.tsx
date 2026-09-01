@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
-import { Plus, Target, X, Loader2, Circle, Brain, Compass, CheckCircle2, Sparkles, Send } from 'lucide-react'
+import { Plus, Target, X, Loader2, Circle, Brain, Compass, CheckCircle2, Sparkles, Send, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { stripMarkdown } from '@/lib/utils'
 import type { Goal, LifeArea } from '@/lib/supabase/database.types'
@@ -322,17 +322,31 @@ export default function GoalsPage() {
                                 </span>
                               )}
                             </div>
-                            {goal.status !== 'completed' && (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              {goal.status !== 'completed' && (
+                                <button
+                                  onClick={() => generateGoalRoadmap(goal)}
+                                  disabled={generatingRoadmapId === goal.id}
+                                  className="btn btn-secondary"
+                                  style={{ fontSize: 11, padding: '4px 10px', height: 28, border: '1px solid #7C3AED', color: '#7C3AED' }}
+                                >
+                                  {generatingRoadmapId === goal.id ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />}
+                                  AI Roadmap
+                                </button>
+                              )}
                               <button
-                                onClick={() => generateGoalRoadmap(goal)}
-                                disabled={generatingRoadmapId === goal.id}
-                                className="btn btn-secondary"
-                                style={{ fontSize: 11, padding: '4px 10px', height: 28, border: '1px solid #7C3AED', color: '#7C3AED' }}
+                                onClick={async () => {
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  await (supabase.from('goals') as any).delete().eq('id', goal.id)
+                                  setGoals(prev => prev.filter(g => g.id !== goal.id))
+                                  toast.success('Goal deleted')
+                                }}
+                                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', borderRadius: 'var(--radius-btn)', padding: '4px 8px', fontSize: 11, cursor: 'pointer', height: 28 }}
+                                title="Delete Goal"
                               >
-                                {generatingRoadmapId === goal.id ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />}
-                                AI Roadmap
+                                <Trash2 size={13} />
                               </button>
-                            )}
+                            </div>
                           </div>
                         </div>
                       </div>

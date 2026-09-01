@@ -256,24 +256,20 @@ export default function MCPPage() {
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[
-              { name: 'get_life_dashboard', desc: 'Full overview: life score, streak, tasks, todos, goals' },
-              { name: 'get_streaks', desc: 'Current streak, longest streak, life score history' },
-              { name: 'list_tasks', desc: 'List tasks — filter by todo / in_progress / done' },
-              { name: 'create_task', desc: 'Create a task with priority and optional due date' },
-              { name: 'update_task', desc: 'Update title, priority, status, due date, or notes' },
-              { name: 'complete_task', desc: 'Mark a task as done by ID' },
-              { name: 'delete_task', desc: 'Permanently delete a task by ID' },
-              { name: 'list_todos', desc: 'List daily todos — filter by completed status' },
-              { name: 'create_todo', desc: 'Add a new daily todo item' },
-              { name: 'toggle_todo', desc: 'Toggle todo between completed / incomplete' },
-              { name: 'delete_todo', desc: 'Delete a todo item by ID' },
-              { name: 'list_journal_entries', desc: 'List recent journal / reflection entries' },
-              { name: 'create_journal_entry', desc: 'Write a micro-journal entry with mood emoji' },
-              { name: 'delete_journal_entry', desc: 'Delete a journal entry by ID' },
-              { name: 'list_goals', desc: 'List goals — filter by active / completed / paused' },
-              { name: 'create_goal', desc: 'Create a new goal with category and target date' },
-              { name: 'update_goal', desc: 'Update goal title, status, or progress %' },
-              { name: 'delete_goal', desc: 'Delete a goal by ID' },
+              { name: 'get_life_dashboard', desc: 'Full overview: life score, streak, tasks, todos, water, goals' },
+              { name: 'get_user_analytics', desc: 'Deep telemetry: completion rate, stats, journal counts' },
+              { name: 'get_profile / update_profile', desc: 'Manage user identity, display name, bio, timezone' },
+              { name: 'list_life_areas / create_life_area', desc: 'Manage life areas, icons, colors, target scores' },
+              { name: 'list_tasks / create_task / update_task / delete_task', desc: 'Full task & subtask CRUD by ID or title keyword' },
+              { name: 'list_todos / create_todo / update_todo / delete_todo', desc: 'Full daily checklist todo CRUD & batch imports' },
+              { name: 'get_today_water_intake / log_water_intake / reset', desc: 'Log water consumption (ml) and reset daily logs' },
+              { name: 'list_reminders / create_reminder / update / delete', desc: 'Schedule, update, and manage background push reminders' },
+              { name: 'list_journal_entries / create / update / delete', desc: 'Write, update, and reflect on journal entries & moods' },
+              { name: 'list_goals / create_goal / update / delete', desc: 'Set and track goals across life areas' },
+              { name: 'list_habits / create_habit / log_completion / delete', desc: 'Track habits, log daily completions & streaks' },
+              { name: 'list_notes / create_note / update / delete', desc: 'Capture, edit, pin, and search personal notes' },
+              { name: 'list_courses / create_course / module / lesson', desc: 'Manage learning hub courses, modules & lessons' },
+              { name: 'full_data_reset', desc: 'Wipe all user data across all tables clean' },
             ].map(tool => (
               <div key={tool.name} style={{ display: 'flex', gap: 10, padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', alignItems: 'flex-start' }}>
                 <code style={{ fontSize: 11, color: 'var(--info)', fontFamily: 'monospace', flexShrink: 0, paddingTop: 1 }}>{tool.name}</code>

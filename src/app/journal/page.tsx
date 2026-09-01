@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
   Plus, Mic, Sparkles, ChevronRight, X, Loader2,
-  BookOpen, Smile, Meh, Frown, Zap, Heart, Brain, Search, Sparkle
+  BookOpen, Smile, Meh, Frown, Zap, Heart, Brain, Search, Sparkle, Trash2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate, stripMarkdown } from '@/lib/utils'
@@ -437,9 +437,23 @@ export default function JournalPage() {
                 <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{stripMarkdown(selectedEntry.title || 'Journal Entry')}</p>
                 <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{formatDate(selectedEntry.created_at, 'long')}</p>
               </div>
-              <button onClick={() => setSelectedEntry(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} color="var(--text-secondary)" />
-              </button>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <button
+                  onClick={async () => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await (supabase.from('journal_entries') as any).delete().eq('id', selectedEntry.id)
+                    setEntries(prev => prev.filter(e => e.id !== selectedEntry.id))
+                    setSelectedEntry(null)
+                    toast.success('Journal entry deleted')
+                  }}
+                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', borderRadius: 'var(--radius-btn)', padding: '4px 10px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  <Trash2 size={13} /> Delete
+                </button>
+                <button onClick={() => setSelectedEntry(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                  <X size={20} color="var(--text-secondary)" />
+                </button>
+              </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }}>
               <p style={{ fontSize: 15, lineHeight: 1.8, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
