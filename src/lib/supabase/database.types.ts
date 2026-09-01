@@ -172,9 +172,11 @@ export interface Database {
           id: string
           user_id: string
           title: string
+          message?: string | null
           remind_at: string
-          is_recurring: boolean
-          recurrence_rule: string | null
+          repeat_rule?: string | null
+          recurrence_rule?: string | null
+          is_recurring?: boolean
           is_sent: boolean
           created_at: string
         }
@@ -182,9 +184,11 @@ export interface Database {
           id?: string
           user_id: string
           title: string
+          message?: string | null
           remind_at: string
-          is_recurring?: boolean
+          repeat_rule?: string | null
           recurrence_rule?: string | null
+          is_recurring?: boolean
           is_sent?: boolean
           created_at?: string
         }
