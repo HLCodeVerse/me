@@ -7,8 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import {
   Zap, Flame, Target, CheckCircle2, Droplets, Moon, Footprints, Bell,
-  Plus, Sparkles, Smile, Frown, Meh, Heart, Clock, ChevronRight, X, RotateCcw,
-  Check, RefreshCw, Eye, EyeOff, Info, Award, StickyNote
+  Sparkles, X, RotateCcw, RefreshCw, Eye, EyeOff, Info, Award, StickyNote
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Task, Todo, Habit, Reminder, Note } from '@/lib/supabase/database.types'
