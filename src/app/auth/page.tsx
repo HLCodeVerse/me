@@ -102,13 +102,6 @@ function AuthContent() {
     }
   }
 
-  function handleDemoLogin() {
-    setPhone('9876543210')
-    setPassword('demo1234')
-    setMode('login')
-    toast.info('Demo credentials loaded! Click Sign In to enter.')
-  }
-
   return (
     <div style={{
       minHeight: '100dvh',
@@ -602,30 +595,6 @@ function AuthContent() {
                   <ArrowRight size={19} color="#000000" />
                 </>
               )}
-            </button>
-
-            {/* Quick Demo Builder Sign-In Option */}
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              style={{
-                background: 'rgba(245, 158, 11, 0.08)',
-                border: '1px solid rgba(245, 158, 11, 0.25)',
-                borderRadius: 12,
-                padding: '10px 14px',
-                color: '#FFD700',
-                fontSize: 12.5,
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                transition: 'all 150ms ease',
-              }}
-            >
-              <Zap size={14} color="#FFD700" />
-              <span>Load Demo Credentials (Quick 1-Click Test)</span>
             </button>
           </form>
 
