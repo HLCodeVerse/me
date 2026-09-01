@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useMediaStore } from '@/lib/media-store'
 import { Play, Pause, SkipBack, SkipForward, Maximize2, Music } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 export default function GlobalMediaPlayer() {

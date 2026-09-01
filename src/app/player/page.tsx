@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import { useMediaStore, MediaTrack, SortOption } from '@/lib/media-store'
 import {
