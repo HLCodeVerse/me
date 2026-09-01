@@ -48,13 +48,25 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
   const [showDrawer, setShowDrawer] = useState(false)
 
   useEffect(() => {
+    initNativeHardware()
     initPWAAutoUpdate()
     requestAllPermissions()
     if (user?.id) {
       autoPromptNotificationPermission(user.id)
     }
+
+    // Add haptic feedback to all button/link taps on mobile native platform
+    function handleGlobalTap(e: MouseEvent) {
+      const target = e.target as HTMLElement
+      if (target.closest('button') || target.closest('a') || target.closest('.btn')) {
+        triggerHapticFeedback('light')
+      }
+    }
+
+    window.addEventListener('click', handleGlobalTap)
     const cleanupBack = initDoubleBackToExit(pathname)
     return () => {
+      window.removeEventListener('click', handleGlobalTap)
       if (cleanupBack) cleanupBack()
     }
   }, [user, pathname])
