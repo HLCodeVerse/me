@@ -71,7 +71,6 @@ export default function PlayerPage() {
     } else {
       toast.error('No supported audio files found.')
     }
-    setLoadingFiles(false)
   }
 
   // Filter & Sort Tracks

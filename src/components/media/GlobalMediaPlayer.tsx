@@ -88,21 +88,6 @@ export default function GlobalMediaPlayer() {
 
   if (!currentTrack) return null
 
-  function formatSecs(sec: number) {
-    if (isNaN(sec)) return '0:00'
-    const m = Math.floor(sec / 60)
-    const s = Math.floor(sec % 60)
-    return `${m}:${s < 10 ? '0' : ''}${s}`
-  }
-
-  function handleSeek(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = Number(e.target.value)
-    if (audioRef.current) {
-      audioRef.current.currentTime = val
-      seekTo(val)
-    }
-  }
-
   function handleEnded() {
     if (loopMode === 'one') {
       if (audioRef.current) {
