@@ -9,7 +9,8 @@ import FormattedAIResponse from '@/components/common/FormattedAIResponse'
 import {
   Zap, Flame, Target, CheckCircle2, Droplets, Moon, Bell,
   Sparkles, X, RotateCcw, RefreshCw, Info, Award, StickyNote, Plus,
-  BookOpen, Bot, Clock, ChevronRight, Check, Trash2, ShieldCheck, Flag, Calendar
+  BookOpen, Bot, Clock, ChevronRight, Check, Trash2, ShieldCheck, Flag, Calendar,
+  Play, Pause
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Task, Todo, Habit, Reminder, Note, Goal, JournalEntry } from '@/lib/supabase/database.types'
