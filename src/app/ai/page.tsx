@@ -11,7 +11,14 @@ import {
 import { toast } from 'sonner'
 import type { AIConversation, AIMessage } from '@/lib/supabase/database.types'
 
+const GROK_MODELS = [
+  { id: 'x-ai/grok-2-1212',           label: 'Grok 2 (xAI)',       tag: 'xAI Premier' },
+  { id: 'x-ai/grok-beta',             label: 'Grok Beta (xAI)',    tag: 'xAI Fast' },
+  { id: 'x-ai/grok-2-vision-1212',    label: 'Grok Vision (xAI)',  tag: 'xAI Vision' },
+]
+
 const FREE_MODELS = [
+  ...GROK_MODELS,
   { id: 'minimax/minimax-m2.7:free',           label: 'MiniMax M2.7',      tag: 'Primary Free' },
   { id: 'liquid/lfm-2.5-2.6b:free',             label: 'Liquid LFM 2.5',    tag: 'Fast Free' },
   { id: 'z-ai/glm-5.2:free',                   label: 'GLM 5.2',           tag: 'Free' },

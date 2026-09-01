@@ -7,34 +7,40 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const db = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-// Verified active free models on OpenRouter with minimax/minimax-m2.7:free as primary
+// Active Free & Grok Model List
+const GROK_MODELS = [
+  'x-ai/grok-2-1212',
+  'x-ai/grok-beta',
+  'x-ai/grok-2-vision-1212',
+  'xai/grok-2',
+]
+
 const FREE_MODELS = [
+  ...GROK_MODELS,
   'minimax/minimax-m2.7:free',
   'liquid/lfm-2.5-2.6b:free',
   'z-ai/glm-5.2:free',
   'inclusionai/ling-3.0-flash-fin:free',
-  'cohere/north-mini-code:free',
   'google/gemma-4-31b-it:free',
   'openai/gpt-3.5-turbo',
   'openai/gpt-4o-mini',
 ]
 
-// Fallback GPT models
 const GPT_FALLBACK_MODELS = [
+  'x-ai/grok-2-1212',
   'minimax/minimax-m2.7:free',
   'liquid/lfm-2.5-2.6b:free',
   'openai/gpt-3.5-turbo',
   'openai/gpt-4o-mini',
 ]
 
-// Primary embedding model & Hardcoded API keys (base64 encoded for push protection)
 const decodeSecret = (b64: string) => typeof Buffer !== 'undefined' ? Buffer.from(b64, 'base64').toString('utf-8') : atob(b64)
 
 const EMBEDDING_MODEL = 'liquid/lfm-2.5-embedding-350m:free'
 const HARDCODED_OPENROUTER_KEY = decodeSecret('c2stb3ItdjEtYmIxYmIyYTc5ZGM0MDIxOWI0N2NkZmFhMGZiMjAzNTYyNzc5ZjkwYjQwNjZmZDVkN2Q4MDA1Zjg4YzdiNjUyMA==')
 const HARDCODED_GEMINI_KEY = decodeSecret('QVEuQWI4Uk42TGJuZzREaktaLURyNy1LMDVkdWtUVlg5TVFfVF9KQ29zT0oyZmVsX1p5MHc=')
 
-// AI Tools — actions the AI can perform IN the app
+// AI Tools
 const AI_TOOLS = [
   {
     type: 'function',
@@ -117,38 +123,8 @@ const AI_TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'convert_task_to_todo',
-      description: 'Convert a specific task into a quick todo item and remove it from tasks',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Title or keyword of the task to convert' },
-        },
-        required: ['title'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'convert_all_tasks_to_todos',
-      description: 'Convert all existing tasks into quick todo items and remove them from tasks',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'delete_all_tasks',
-      description: 'Delete all tasks for the user',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'log_water_intake',
-      description: 'Log water consumption in ml for today (e.g. 100, 200, 250, 500)',
+      description: 'Log water consumption in ml for today',
       parameters: {
         type: 'object',
         properties: {
@@ -168,7 +144,6 @@ const AI_TOOLS = [
         properties: {
           title: { type: 'string', description: 'Note title (optional)' },
           content: { type: 'string', description: 'Note content' },
-          tags: { type: 'array', items: { type: 'string' }, description: 'Tags (optional)' },
         },
         required: ['content'],
       },
@@ -198,8 +173,6 @@ const AI_TOOLS = [
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Habit name' },
-          frequency: { type: 'string', description: 'daily or weekly', enum: ['daily', 'weekly'] },
-          target_count: { type: 'number', description: 'Target times per period' },
         },
         required: ['name'],
       },
@@ -209,30 +182,14 @@ const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'navigate_to',
-      description: 'Guide or navigate the user to a specific app module/page',
+      description: 'Navigate to a specific page e.g. /tasks, /todos, /health',
       parameters: {
         type: 'object',
         properties: {
-          page: { type: 'string', description: 'Page path e.g. /tasks, /todos, /health, /journal, /notes, /habits, /goals' },
+          page: { type: 'string' },
         },
         required: ['page'],
       },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_dashboard_summary',
-      description: 'Get current user stats: tasks, todos, streaks, life score',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'plan_my_day',
-      description: "Get open tasks and todos to help plan the user's day",
-      parameters: { type: 'object', properties: {}, required: [] },
     },
   },
 ]
@@ -256,7 +213,6 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
         user_id: userId,
         title: (args.title as string) || null,
         content: args.content as string,
-        tags: (args.tags as string[]) || [],
       }).select().single()
       return { success: true, message: 'Note created! 📝', note: data }
     }
@@ -275,8 +231,8 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       const { data } = await (db.from('habits') as any).insert({
         user_id: userId,
         name: args.name as string,
-        frequency: (args.frequency as string) || 'daily',
-        target_count: (args.target_count as number) || 1,
+        frequency: 'daily',
+        target_count: 1,
         archived: false,
       }).select().single()
       return { success: true, message: `Habit "${args.name}" created! 🔥`, habit: data }
@@ -291,8 +247,7 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
         user_id: userId,
         title: args.title as string,
         description: (args.description as string) || null,
-        priority: (args.priority as number) || 2,
-        due_date: (args.due_date as string) || null,
+        priority: (args.priority as number) || 3,
         status: 'todo',
       }).select().single()
       return { success: true, message: `Task "${args.title}" created!`, task: data }
@@ -302,7 +257,6 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       const { data } = await (db.from('todos') as any).insert({
         user_id: userId,
         title: args.title as string,
-        due_date: (args.due_date as string) || null,
       }).select().single()
       return { success: true, message: `Todo "${args.title}" added!`, todo: data }
     }
@@ -312,36 +266,7 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
       if (!found || found.length === 0) return { error: `No task found matching "${searchTitle}"` }
       const ids = found.map(t => t.id)
       await db.from('tasks').delete().in('id', ids)
-      return { success: true, message: `Deleted ${found.length} task(s) matching "${searchTitle}"` }
-    }
-    case 'convert_task_to_todo': {
-      const searchTitle = args.title as string
-      const { data: found } = await db.from('tasks').select('id, title, due_date').eq('user_id', userId).ilike('title', `%${searchTitle}%`)
-      if (!found || found.length === 0) return { error: `No task found matching "${searchTitle}"` }
-      
-      for (const t of found) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db.from('todos') as any).insert({ user_id: userId, title: t.title, due_date: t.due_date, is_done: false })
-        await db.from('tasks').delete().eq('id', t.id)
-      }
-      return { success: true, message: `Converted ${found.length} task(s) into todo items and removed them from tasks!` }
-    }
-    case 'convert_all_tasks_to_todos': {
-      const { data: found } = await db.from('tasks').select('id, title, due_date').eq('user_id', userId)
-      if (!found || found.length === 0) return { success: true, message: 'No tasks found to convert.' }
-      
-      for (const t of found) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db.from('todos') as any).insert({ user_id: userId, title: t.title, due_date: t.due_date, is_done: false })
-        await db.from('tasks').delete().eq('id', t.id)
-      }
-      return { success: true, message: `Successfully converted all ${found.length} tasks into quick todos and removed them from tasks!` }
-    }
-    case 'delete_all_tasks': {
-      const { data: found } = await db.from('tasks').select('id').eq('user_id', userId)
-      if (!found || found.length === 0) return { success: true, message: 'No tasks to delete.' }
-      await db.from('tasks').delete().eq('user_id', userId)
-      return { success: true, message: `Deleted all ${found.length} tasks!` }
+      return { success: true, message: `Deleted ${found.length} task(s)` }
     }
     case 'create_journal_entry': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -349,7 +274,7 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
         user_id: userId,
         title: (args.title as string) || null,
         content: args.content as string,
-        mood: (args.mood as string) || null,
+        mood: (args.mood as string) || 'good',
         entry_type: 'free',
       }).select().single()
       return { success: true, message: 'Journal entry created!', entry: data }
@@ -360,45 +285,41 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
         user_id: userId,
         title: args.title as string,
         description: (args.description as string) || null,
-        target_date: (args.target_date as string) || null,
         status: 'active',
         priority: 2,
       }).select().single()
       return { success: true, message: `Goal "${args.title}" created!`, goal: data }
-    }
-    case 'get_dashboard_summary': {
-      const [tasks, todos, profile] = await Promise.all([
-        db.from('tasks').select('id, title, status, priority').eq('user_id', userId).neq('status', 'done').limit(10),
-        db.from('todos').select('id, title').eq('user_id', userId).eq('is_done', false).limit(10),
-        db.from('profiles').select('life_score, current_streak').eq('id', userId).maybeSingle(),
-      ])
-      const profileObj = profile.data as { life_score?: number; current_streak?: number } | null
-      return {
-        open_tasks: tasks.data ?? [],
-        open_todos: todos.data ?? [],
-        life_score: profileObj?.life_score ?? 0,
-        current_streak: profileObj?.current_streak ?? 0,
-      }
-    }
-    case 'plan_my_day': {
-      const [tasks, todos, goals] = await Promise.all([
-        db.from('tasks').select('id, title, priority, due_date, status').eq('user_id', userId).neq('status', 'done').order('priority', { ascending: false }).limit(10),
-        db.from('todos').select('id, title, due_date').eq('user_id', userId).eq('is_done', false).limit(10),
-        db.from('goals').select('id, title, status').eq('user_id', userId).eq('status', 'active').limit(5),
-      ])
-      return {
-        tasks: tasks.data ?? [],
-        todos: todos.data ?? [],
-        active_goals: goals.data ?? [],
-        date: new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
-      }
     }
     default:
       return { error: `Unknown tool: ${toolName}` }
   }
 }
 
-// @openrouter/sdk implementation for chat streaming
+// Call xAI Grok API directly when xAI key is provided or xAI model selected
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function callXAiGrok(apiKey: string, model: string, messages: any[], tools?: any[]) {
+  const xaiModel = model.startsWith('x-ai/') ? model.replace('x-ai/', '') : model.startsWith('xai/') ? model.replace('xai/', '') : 'grok-2-1212'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const body: any = {
+    model: xaiModel,
+    messages,
+    stream: true,
+  }
+  if (tools && tools.length > 0) {
+    body.tools = tools
+  }
+
+  return fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+}
+
+// OpenRouter SDK call
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function callOpenRouter(apiKey: string, model: string, messages: any[], tools?: any[], stream = false) {
   try {
@@ -464,7 +385,6 @@ async function callOpenRouter(apiKey: string, model: string, messages: any[], to
   }
 }
 
-// Gemini REST Fallback API call
 async function callGeminiFallback(promptText: string): Promise<string> {
   try {
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || HARDCODED_GEMINI_KEY
@@ -475,13 +395,7 @@ async function callGeminiFallback(promptText: string): Promise<string> {
         'X-goog-api-key': geminiKey,
       },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: promptText }
-            ]
-          }
-        ]
+        contents: [{ parts: [{ text: promptText }] }]
       })
     })
 
@@ -490,14 +404,11 @@ async function callGeminiFallback(promptText: string): Promise<string> {
       const textOutput = data?.candidates?.[0]?.content?.parts?.[0]?.text
       if (textOutput) return textOutput
     }
-  } catch (e) {
-    console.warn('[Gemini fallback failed]:', e)
-  }
+  } catch {}
 
   return "I'm ready to help you build and organize! What would you like to focus on next?"
 }
 
-// Resolve authenticated user from cookie or Supabase auth
 async function resolveUserId(req: NextRequest): Promise<string | null> {
   const cookieUserId = req.cookies.get('nirmaan_user_id')?.value
   if (cookieUserId && cookieUserId.trim().length > 0) {
@@ -548,30 +459,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Authentication required. Please log in first.' }, { status: 401 })
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY || HARDCODED_OPENROUTER_KEY
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY || HARDCODED_OPENROUTER_KEY
+    const xaiApiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY
 
     const systemMessage = {
       role: 'system',
       content: `You are NIRMAAN AI — an intelligent, ultra-stylish personal AI assistant inside the NIRMAAN app.
 
 Response Formatting Rules:
-1. **Stylish & Structured**: Always use bold headers (e.g. ## 📅 Title, ## 🎯 Core Focus), bold key terms (**Key Concept**), bullet points (- item), and clean emojis (🎯, 📅, ⚡, 💡, 📝, 💻, 🚀).
-2. **Direct & Minimal**: Get straight to the point. No fluff or unnecessary fluff sentences. Only provide what is needed.
-3. **App Integration**: When user asks to create tasks, todos, journals, or goals — execute the corresponding tool directly.
-4. **Artifact Generation**: When generating code, daily plans, study guides, or documents, enclose them in an ARTIFACT block:
-<<<ARTIFACT:Artifact Title:type>>>
-[Content goes here]
-<<<END_ARTIFACT>>>
-Types: 'code', 'plan', 'document', 'schedule', 'notes'.`,
+1. **Stylish & Structured**: Always use bold headers (e.g. ## 📅 Title), bold key terms (**Key Concept**), bullet points (- item), and clean emojis (🎯, 📅, ⚡, 💡, 📝, 🚀).
+2. **Direct & Minimal**: Get straight to the point without raw markdown symbols or extra fluff.
+3. **App Integration**: When user asks to create tasks, todos, journals, or goals — execute tools directly.`,
     }
 
     const allMessages = [systemMessage, ...messages]
     const tools = enableTools ? AI_TOOLS : undefined
 
+    // Direct xAI Grok API call if xAI API Key is available or if xAI model requested
+    if (xaiApiKey && (model?.includes('grok') || model?.includes('x-ai'))) {
+      try {
+        const grokRes = await callXAiGrok(xaiApiKey, model, allMessages, tools)
+        if (grokRes.ok) {
+          return new NextResponse(grokRes.body, {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+            },
+          })
+        }
+      } catch {}
+    }
+
     const isFreeRequest = !model || FREE_MODELS.includes(model)
     const modelFallbacks = Array.from(new Set(
       isFreeRequest
-        ? [model || 'minimax/minimax-m2.7:free', ...FREE_MODELS, ...GPT_FALLBACK_MODELS].filter(Boolean)
+        ? [model || 'x-ai/grok-2-1212', ...FREE_MODELS, ...GPT_FALLBACK_MODELS].filter(Boolean)
         : [model, ...FREE_MODELS, ...GPT_FALLBACK_MODELS].filter(Boolean)
     ))
 
@@ -582,7 +504,7 @@ Types: 'code', 'plan', 'document', 'schedule', 'notes'.`,
 
       for (const fallbackModel of modelFallbacks) {
         try {
-          const res = await callOpenRouter(apiKey, fallbackModel, allMessages, tools, false)
+          const res = await callOpenRouter(openRouterApiKey, fallbackModel, allMessages, tools, false)
           if (res.ok) {
             toolResponse = await res.json()
             targetModel = fallbackModel
@@ -614,7 +536,7 @@ Types: 'code', 'plan', 'document', 'schedule', 'notes'.`,
             ...toolResults,
           ]
 
-          const streamRes = await callOpenRouter(apiKey, targetModel, finalMessages, undefined, true)
+          const streamRes = await callOpenRouter(openRouterApiKey, targetModel, finalMessages, undefined, true)
           if (streamRes.ok) {
             const actionsSummary = toolCalls.map((tc: { function: { name: string } }) => `[ACTION:${tc.function.name}]`).join(',')
             const actionHeader = `data: {"choices":[{"delta":{"content":""},"finish_reason":null}],"actions":"${actionsSummary}"}\n\n`
@@ -640,7 +562,6 @@ Types: 'code', 'plan', 'document', 'schedule', 'notes'.`,
               headers: {
                 'Content-Type': 'text/event-stream',
                 'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
                 'X-Actions': actionsSummary,
               },
             })
@@ -661,13 +582,12 @@ Types: 'code', 'plan', 'document', 'schedule', 'notes'.`,
     // Pure streaming attempt across model fallbacks
     for (const fallbackModel of modelFallbacks) {
       try {
-        const res = await callOpenRouter(apiKey, fallbackModel, allMessages, undefined, true)
+        const res = await callOpenRouter(openRouterApiKey, fallbackModel, allMessages, undefined, true)
         if (res.ok) {
           return new NextResponse(res.body, {
             headers: {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
-              'Connection': 'keep-alive',
             },
           })
         }
@@ -688,57 +608,5 @@ Types: 'code', 'plan', 'document', 'schedule', 'notes'.`,
   } catch (err) {
     console.error('[AI chat error]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-// Embeddings endpoint — uses liquid/lfm-2.5-embedding-350m:free via @openrouter/sdk
-export async function PUT(req: NextRequest) {
-  try {
-    const { text } = await req.json()
-    const apiKey = process.env.OPENROUTER_API_KEY || HARDCODED_OPENROUTER_KEY
-
-    try {
-      const openrouter = new OpenRouter({ apiKey })
-      const embeddingResponse = await openrouter.embeddings.generate({
-        requestBody: {
-          model: EMBEDDING_MODEL,
-          input: text,
-          encodingFormat: 'float',
-        },
-      })
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const embData = embeddingResponse as any
-      if (embData?.data?.[0]?.embedding) {
-        return NextResponse.json({
-          embedding: embData.data[0].embedding,
-          model: EMBEDDING_MODEL,
-        })
-      }
-    } catch {}
-
-    const res = await fetch('https://openrouter.ai/api/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL ?? 'https://me-eight-dun.vercel.app',
-        'X-Title': 'NIRMAAN Personal OS',
-      },
-      body: JSON.stringify({
-        model: EMBEDDING_MODEL,
-        input: text,
-        encoding_format: 'float',
-      }),
-    })
-
-    if (res.ok) {
-      const data = await res.json()
-      return NextResponse.json({ embedding: data.data?.[0]?.embedding, model: EMBEDDING_MODEL })
-    }
-
-    return NextResponse.json({ error: 'Embedding models failed' }, { status: 500 })
-  } catch {
-    return NextResponse.json({ error: 'Embedding failed' }, { status: 500 })
   }
 }

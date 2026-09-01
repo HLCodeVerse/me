@@ -226,33 +226,33 @@ export default function SettingsPage() {
           </form>
         </Section>
 
-        {/* AI Engine OpenRouter Configuration */}
-        <Section icon={Cpu} label="AI Engine & OpenRouter (BYOK)" color="#7C3AED">
+        {/* AI Engine Configuration (xAI Grok & OpenRouter BYOK) */}
+        <Section icon={Cpu} label="AI Engine & Grok (BYOK)" color="#7C3AED">
           <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.2)', borderRadius: 'var(--radius-btn)' }}>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
-              NIRMAAN AI uses OpenRouter SDK with active models (<strong style={{ color: '#7C3AED' }}>minimax/minimax-m2.7:free</strong> and <strong style={{ color: '#3B82F6' }}>liquid/lfm-2.5-embedding-350m:free</strong>).
+              NIRMAAN AI natively supports <strong style={{ color: '#7C3AED' }}>xAI Grok-2</strong>, <strong style={{ color: '#7C3AED' }}>Grok Beta</strong>, and OpenRouter models. Provide your API keys below to unlock dedicated endpoints.
             </p>
           </div>
-          {keyStored && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, color: '#10B981', fontSize: 13, fontWeight: 600 }}>
-              <Shield size={14} /> Custom API key active & encrypted
-            </div>
-          )}
+
           <form onSubmit={saveApiKey} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ position: 'relative' }}>
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={openRouterKey}
-                onChange={e => setOpenRouterKey(e.target.value)}
-                placeholder={keyStored ? 'Enter new key to update...' : 'sk-or-v1-...'}
-                style={{ paddingRight: 40 }}
-              />
-              <button type="button" onClick={() => setShowKey(p => !p)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>xAI GROK API KEY</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showKey ? 'text' : 'password'}
+                  value={openRouterKey}
+                  onChange={e => setOpenRouterKey(e.target.value)}
+                  placeholder={keyStored ? 'xai-...' : 'Enter your xAI Grok API Key (xai-...)'}
+                  style={{ paddingRight: 40 }}
+                />
+                <button type="button" onClick={() => setShowKey(p => !p)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                  {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
-            <button type="submit" disabled={savingKey || !openRouterKey} className="btn btn-secondary" style={{ alignSelf: 'flex-end', height: 36, fontSize: 13 }}>
-              {savingKey ? <Loader2 size={14} className="animate-spin" /> : <><Key size={14} /> Save Key</>}
+
+            <button type="submit" disabled={savingKey || !openRouterKey} className="btn btn-primary" style={{ alignSelf: 'flex-end', height: 36, fontSize: 13 }}>
+              {savingKey ? <Loader2 size={14} className="animate-spin" /> : <><Key size={14} /> Save Grok Key</>}
             </button>
           </form>
         </Section>
