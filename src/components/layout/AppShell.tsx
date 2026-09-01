@@ -8,9 +8,10 @@ import { initPWAAutoUpdate, autoPromptNotificationPermission } from '@/lib/push-
 import AppHeader from './AppHeader'
 import DesktopSidebar from './DesktopSidebar'
 import BottomNav from './BottomNav'
+import GlobalMediaPlayer from '@/components/media/GlobalMediaPlayer'
 import {
   LayoutDashboard, CheckSquare, ListTodo, BookOpen, Bot, Flame,
-  StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, X, ShieldCheck, Activity, Zap
+  StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, X, ShieldCheck, Activity, Zap, Disc
 } from 'lucide-react'
 
 interface AppShellProps {
@@ -25,6 +26,7 @@ const ALL_MODULES = [
   { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#3B82F6' },
   { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#EF4444' },
   { href: '/health',    icon: Activity,        label: 'Health',      color: '#10B981' },
+  { href: '/player',    icon: Disc,            label: 'Media Player',color: '#7C3AED' },
   { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4' },
   { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B' },
   { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#8B5CF6' },
@@ -63,11 +65,14 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
           maxWidth: noPadding ? '100%' : 1440,
           width: '100%',
           margin: '0 auto',
-          paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 0px))',
         }}>
           {children}
         </main>
       </div>
+
+      {/* Persistent Global Floating Media Player */}
+      <GlobalMediaPlayer />
 
       {/* Off-Canvas Navigation Drawer for Mobile (<768px) */}
       {showDrawer && (

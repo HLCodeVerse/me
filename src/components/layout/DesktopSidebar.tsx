@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import {
   LayoutDashboard, CheckSquare, ListTodo, BookOpen,
   Target, GraduationCap, Bot, Settings, Zap, Bell,
-  StickyNote, Flame, ChevronRight, BarChart2, ShieldCheck, Activity
+  StickyNote, Flame, ChevronRight, BarChart2, ShieldCheck, Activity, Disc
 } from 'lucide-react'
 
 const NAV_GROUPS = [
@@ -18,6 +18,7 @@ const NAV_GROUPS = [
       { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#3B82F6' },
       { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#EF4444' },
       { href: '/health',    icon: Activity,        label: 'Health',      color: '#10B981' },
+      { href: '/player',    icon: Disc,            label: 'Media player', color: '#7C3AED' },
       { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4' },
       { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B' },
       { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#8B5CF6' },
