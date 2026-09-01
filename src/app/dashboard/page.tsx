@@ -10,7 +10,7 @@ import {
   Zap, Flame, Target, CheckCircle2, Droplets, Bell,
   Sparkles, X, RotateCcw, RefreshCw, Award, StickyNote, Plus,
   BookOpen, Bot, Clock, ChevronRight, ChevronLeft, Send, ShieldCheck, Calendar as CalendarIcon,
-  Play, Pause, CircleCheck, CircleX, Check, Trash2
+  Play, Pause, CircleCheck, CircleX, Check, Trash2, ListTodo, FileText
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Task, Todo, Habit, Reminder, Note, Goal, JournalEntry } from '@/lib/supabase/database.types'
@@ -58,15 +58,17 @@ export default function DashboardPage() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(todayStr)
   const [calendarQuickTaskTitle, setCalendarQuickTaskTitle] = useState('')
 
-  // Modals & Timers
-  const [focusMode, setFocusMode] = useState(false)
-  const [focusTime, setFocusTime] = useState(25 * 60)
-  const [focusTimerRunning, setFocusTimerRunning] = useState(false)
+  // Quick Add Item State
   const [quickAddTitle, setQuickAddTitle] = useState('')
   const [quickAddDueDate, setQuickAddDueDate] = useState('')
   const [quickAddDueTime, setQuickAddDueTime] = useState('')
   const [quickAddPriority, setQuickAddPriority] = useState(3)
   const [savingItem, setSavingItem] = useState(false)
+
+  // Pomodoro Focus Mode State
+  const [focusMode, setFocusMode] = useState(false)
+  const [focusTime, setFocusTime] = useState(25 * 60)
+  const [focusTimerRunning, setFocusTimerRunning] = useState(false)
 
   // Load All Live Supabase Table Data
   const loadDashboardData = useCallback(async () => {
@@ -244,6 +246,22 @@ export default function DashboardPage() {
         })
         createTodoistTask(quickAddTitle.trim(), undefined, quickAddDueDate).catch(() => {})
         toast.success('Todo added & synced to Todoist! 📝')
+      } else if (activeTab === 'habits') {
+        await client.from('habits').insert({
+          user_id: user.id,
+          name: quickAddTitle.trim(),
+          frequency: 'daily',
+          target_count: 1,
+          archived: false,
+        })
+        toast.success('New Habit Created! 🔥')
+      } else if (activeTab === 'goals') {
+        await client.from('goals').insert({
+          user_id: user.id,
+          title: quickAddTitle.trim(),
+          status: 'in_progress',
+        })
+        toast.success('New Goal Set! 🎯')
       }
       setQuickAddTitle('')
       setQuickAddDueDate('')
@@ -326,6 +344,19 @@ export default function DashboardPage() {
   const doneTodosCount = todos.filter(t => t.is_done).length
   const totalTodosCount = todos.length
   const todosPercent = totalTodosCount > 0 ? Math.round((doneTodosCount / totalTodosCount) * 100) : 0
+
+  // Filtered Task & Todo Tab Lists
+  const filteredTasks = tasks.filter(t => {
+    if (taskFilter === 'pending') return t.status !== 'done'
+    if (taskFilter === 'completed') return t.status === 'done'
+    return true
+  })
+
+  const filteredTodos = todos.filter(t => {
+    if (todoFilter === 'pending') return !t.is_done
+    if (todoFilter === 'completed') return t.is_done
+    return true
+  })
 
   return (
     <AppShell>
@@ -712,9 +743,19 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Workspace Tables Section Header & Tabs */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        {/* WORKSPACE COMMAND CENTER TABBED RECORD HUBS */}
+        <div style={{
+          background: '#0A0B0D',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: 22,
+          padding: 22,
+          boxShadow: '0 12px 36px rgba(0,0,0,0.6)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 18,
+        }}>
+          {/* Header & Tabs */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 Workspace Command Center <ChevronRight size={16} color="#F59E0B" />
@@ -722,25 +763,191 @@ export default function DashboardPage() {
               <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>Access live records across all system tables (Pending & Completed)</p>
             </div>
 
-            {/* Quick Create Input Form */}
-            <form onSubmit={handleCreateItemSubmit} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1, maxWidth: 540 }}>
-              <input
-                type="text"
-                placeholder={`Add new ${activeTab.slice(0, -1)}...`}
-                value={quickAddTitle}
-                onChange={e => setQuickAddTitle(e.target.value)}
-                style={{ flex: 1, height: 38, background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 10, color: '#FFFFFF', fontSize: 12.5, padding: '0 12px', outline: 'none' }}
-              />
+            {/* Tab Navigation Pill Bar */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', background: '#121318', padding: 6, borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
+              {[
+                { id: 'tasks', label: `Tasks (${tasks.length})`, icon: CheckCircle2 },
+                { id: 'todos', label: `Todos (${todos.length})`, icon: ListTodo },
+                { id: 'habits', label: `Habits (${habits.length})`, icon: Flame },
+                { id: 'goals', label: `Goals (${goals.length})`, icon: Target },
+                { id: 'journal', label: `Journal (${journalEntries.length})`, icon: BookOpen },
+                { id: 'notes', label: `Notes (${pinnedNotes.length})`, icon: FileText },
+              ].map(tab => {
+                const IconComponent = tab.icon
+                const isActive = activeTab === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as ActiveTab)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 10,
+                      border: 'none',
+                      background: isActive ? 'linear-gradient(135deg, #FFD700, #F59E0B)' : 'transparent',
+                      color: isActive ? '#000000' : '#FFFFFF',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <IconComponent size={14} color={isActive ? '#000000' : '#F59E0B'} />
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Quick Create Entry Form */}
+          <form onSubmit={handleCreateItemSubmit} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: '#121318', padding: 12, borderRadius: 14, border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+            <input
+              type="text"
+              placeholder={`Add new ${activeTab.slice(0, -1)}...`}
+              value={quickAddTitle}
+              onChange={e => setQuickAddTitle(e.target.value)}
+              style={{ flex: 1, height: 38, background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 10, color: '#FFFFFF', fontSize: 12.5, padding: '0 12px', outline: 'none' }}
+            />
+            {activeTab === 'tasks' && (
               <input
                 type="date"
                 value={quickAddDueDate}
                 onChange={e => setQuickAddDueDate(e.target.value)}
                 style={{ height: 38, background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 10, color: '#FFFFFF', fontSize: 12, padding: '0 8px', outline: 'none' }}
               />
-              <button type="submit" disabled={savingItem} className="btn btn-primary" style={{ height: 38, padding: '0 14px', fontSize: 12.5 }}>
-                <Plus size={15} /> Add
-              </button>
-            </form>
+            )}
+            <button type="submit" disabled={savingItem} className="btn btn-primary" style={{ height: 38, padding: '0 16px', fontSize: 12.5 }}>
+              <Plus size={15} /> Add Item
+            </button>
+          </form>
+
+          {/* Active Tab Records Display */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 380, overflowY: 'auto' }}>
+
+            {/* TAB 1: TASKS */}
+            {activeTab === 'tasks' && (
+              filteredTasks.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '30px 0' }}>No tasks found in workspace.</div>
+              ) : (
+                filteredTasks.map(t => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121318', padding: '12px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <button onClick={() => handleToggleTaskStatus(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.status === 'done' ? '#10B981' : '#9CA3AF' }}>
+                        {t.status === 'done' ? <CheckCircle2 size={18} color="#10B981" /> : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid #9CA3AF' }} />}
+                      </button>
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF', textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>
+                          {t.title}
+                        </div>
+                        {t.due_date && (
+                          <div style={{ fontSize: 11, color: '#9CA3AF' }}>Due: {new Date(t.due_date).toLocaleDateString()}</div>
+                        )}
+                      </div>
+                    </div>
+                    <span className={`badge ${t.status === 'done' ? 'badge-success' : 'badge-info'}`}>
+                      {t.status === 'done' ? 'Completed' : `Priority ${t.priority || 3}`}
+                    </span>
+                  </div>
+                ))
+              )
+            )}
+
+            {/* TAB 2: TODOS */}
+            {activeTab === 'todos' && (
+              filteredTodos.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '30px 0' }}>No checklist todos found.</div>
+              ) : (
+                filteredTodos.map(t => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121318', padding: '12px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <button onClick={() => handleToggleTodoStatus(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.is_done ? '#10B981' : '#9CA3AF' }}>
+                        {t.is_done ? <CircleCheck size={18} color="#10B981" /> : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid #9CA3AF' }} />}
+                      </button>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF', textDecoration: t.is_done ? 'line-through' : 'none' }}>
+                        {t.title}
+                      </div>
+                    </div>
+                    <span className={`badge ${t.is_done ? 'badge-success' : 'badge-warning'}`}>
+                      {t.is_done ? 'Checked' : 'Pending'}
+                    </span>
+                  </div>
+                ))
+              )
+            )}
+
+            {/* TAB 3: HABITS */}
+            {activeTab === 'habits' && (
+              habits.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '30px 0' }}>No daily habits recorded.</div>
+              ) : (
+                habits.map(h => (
+                  <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121318', padding: '12px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Flame size={18} color="#FFD700" />
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF' }}>{h.name}</div>
+                    </div>
+                    <span className="badge badge-warning">Streak: {h.streak_count || 0} Days</span>
+                  </div>
+                ))
+              )
+            )}
+
+            {/* TAB 4: GOALS */}
+            {activeTab === 'goals' && (
+              goals.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '30px 0' }}>No life goals set.</div>
+              ) : (
+                goals.map(g => (
+                  <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121318', padding: '12px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Target size={18} color="#EF4444" />
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF' }}>{g.title}</div>
+                    </div>
+                    <span className="badge badge-danger">{g.status || 'in_progress'}</span>
+                  </div>
+                ))
+              )
+            )}
+
+            {/* TAB 5: JOURNAL */}
+            {activeTab === 'journal' && (
+              journalEntries.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '30px 0' }}>No journal reflections recorded.</div>
+              ) : (
+                journalEntries.map(j => (
+                  <div key={j.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121318', padding: '12px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <BookOpen size={18} color="#10B981" />
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF' }}>{j.title || 'Journal Entry'}</div>
+                        <div style={{ fontSize: 11, color: '#9CA3AF' }}>{new Date(j.created_at).toLocaleDateString()}</div>
+                      </div>
+                    </div>
+                    <span className="badge badge-success">Mood: {j.mood || 'good'}</span>
+                  </div>
+                ))
+              )
+            )}
+
+            {/* TAB 6: NOTES */}
+            {activeTab === 'notes' && (
+              pinnedNotes.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '30px 0' }}>No scratchpad notes found.</div>
+              ) : (
+                pinnedNotes.map(n => (
+                  <div key={n.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121318', padding: '12px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <FileText size={18} color="#F59E0B" />
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF' }}>{n.title || 'Untitled Note'}</div>
+                    </div>
+                    <span className="badge badge-warning">Note</span>
+                  </div>
+                ))
+              )
+            )}
+
           </div>
         </div>
 
