@@ -5,7 +5,7 @@ let lastBackPressTime = 0
 export function initDoubleBackToExit(pathname: string) {
   if (typeof window === 'undefined') return
 
-  const handlePopState = (e: PopStateEvent) => {
+  const handlePopState = () => {
     // Only intercept exit on root pages (e.g. /dashboard or /)
     if (pathname === '/dashboard' || pathname === '/') {
       const now = Date.now()
