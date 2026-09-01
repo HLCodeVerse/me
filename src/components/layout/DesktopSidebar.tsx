@@ -8,7 +8,7 @@ import {
   LayoutDashboard, CheckSquare, ListTodo, BookOpen,
   Target, GraduationCap, Bot, Settings, Zap, Bell,
   StickyNote, Flame, ChevronRight, BarChart2, ShieldCheck, Activity, Disc,
-  PanelLeftClose, PanelLeftOpen
+  PanelLeftClose, PanelLeftOpen, CheckCircle2
 } from 'lucide-react'
 
 const NAV_GROUPS = [
@@ -18,6 +18,7 @@ const NAV_GROUPS = [
       { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',    color: '#FFD700' },
       { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',        color: '#EF4444' },
       { href: '/todos',     icon: ListTodo,        label: 'Todos',        color: '#FACC15' },
+      { href: '/todoist',   icon: CheckCircle2,    label: 'Todoist Sync', color: '#E44332' },
       { href: '/habits',    icon: Flame,           label: 'Habits',       color: '#EF4444' },
       { href: '/health',    icon: Activity,        label: 'Health',       color: '#10B981' },
       { href: '/player',    icon: Disc,            label: 'Media Player', color: '#F59E0B' },

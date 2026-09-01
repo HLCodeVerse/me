@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner'
 import { formatDate, stripMarkdown } from '@/lib/utils'
 import type { Task } from '@/lib/supabase/database.types'
+import { createTodoistTask } from '@/lib/todoist'
 
 type ViewMode = 'list' | 'kanban'
 type FilterStatus = 'all' | 'today' | 'p1' | 'todo' | 'in_progress' | 'done'
@@ -87,7 +88,8 @@ export default function TasksPage() {
       status: 'todo',
     })
     if (error) { toast.error('Failed to add task'); setSaving(false); return }
-    toast.success('Task added!')
+    createTodoistTask(cleanTitleText, cleanDescText, newDueDate, newDueTime, newPriority).catch(() => {})
+    toast.success('Task added & synced to Todoist! 📝')
     setNewTitle(''); setNewDesc(''); setNewDueDate(''); setNewDueTime(''); setNewPriority(3)
     setShowAddForm(false)
     setSaving(false)

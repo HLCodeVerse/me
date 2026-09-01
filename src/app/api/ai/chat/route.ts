@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { OpenRouter } from '@openrouter/sdk'
+import { createTodoistTask } from '@/lib/todoist'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mfzulmibfmktllnshxox.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1menVsbWliZm1rdGxsbnNoeG94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjk0OTMsImV4cCI6MjA5NzkwNTQ5M30.QYiOYZ9eQ_epSBRPZhyjOjl185do7tKVQtIBlgdiY0M'
@@ -574,14 +575,18 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
 
     // ── Tasks ──
     case 'create_task': {
+      const taskTitle = (args.title as string).trim()
+      const taskDesc = (args.description as string) || undefined
+      const taskPriority = (args.priority as number) || 3
       const { data } = await client.from('tasks').insert({
         user_id: userId,
-        title: (args.title as string).trim(),
-        description: (args.description as string) || null,
-        priority: (args.priority as number) || 3,
+        title: taskTitle,
+        description: taskDesc || null,
+        priority: taskPriority,
         status: 'todo',
       }).select().single()
-      return { success: true, message: `Task "${args.title}" created!`, task: data }
+      createTodoistTask(taskTitle, taskDesc, undefined, undefined, taskPriority).catch(() => {})
+      return { success: true, message: `Task "${taskTitle}" created & synced to Todoist!`, task: data }
     }
     case 'update_task': {
       const { targetId, queryStr } = extractTargetIdAndQuery(args, ['task_id'])
@@ -650,11 +655,13 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
 
     // ── Todos ──
     case 'create_todo': {
+      const todoTitle = (args.title as string).trim()
       const { data } = await client.from('todos').insert({
         user_id: userId,
-        title: (args.title as string).trim(),
+        title: todoTitle,
       }).select().single()
-      return { success: true, message: `Todo "${args.title}" added!`, todo: data }
+      createTodoistTask(todoTitle).catch(() => {})
+      return { success: true, message: `Todo "${todoTitle}" added & synced to Todoist!`, todo: data }
     }
     case 'complete_todo':
     case 'update_todo': {

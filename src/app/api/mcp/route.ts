@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createTodoistTask } from '@/lib/todoist'
 
 const DEFAULT_URL = 'https://mfzulmibfmktllnshxox.supabase.co'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1menVsbWliZm1rdGxsbnNoeG94Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjMyOTQ5MywiZXhwIjoyMDk3OTA1NDkzfQ.KaV1NcBeZRWTtYurPyRWqpuUpghk8wJWVK0CtqO4dA0'
@@ -643,7 +644,8 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
       status: 'todo',
     }).select('id, title, priority, status').single()
     if (error) return mcpError(id, -32603, `Failed to create task: ${error.message}`)
-    return mcpOk(id, `✅ Task created: "${data.title}" (ID: ${data.id})`)
+    createTodoistTask(args.title.trim(), args.description || undefined, args.due_date || undefined, undefined, args.priority || 3).catch(() => {})
+    return mcpOk(id, `✅ Task created & synced to Todoist: "${data.title}" (ID: ${data.id})`)
   }
 
   if (toolName === 'create_task_with_subtasks') {
@@ -759,7 +761,8 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
       due_date: args.due_date || null,
     }).select('id, title').single()
     if (error) return mcpError(id, -32603, `Failed to create todo: ${error.message}`)
-    return mcpOk(id, `☑️ Todo created: "${data.title}" (ID: ${data.id})`)
+    createTodoistTask(args.title.trim(), undefined, args.due_date || undefined).catch(() => {})
+    return mcpOk(id, `☑️ Todo created & synced to Todoist: "${data.title}" (ID: ${data.id})`)
   }
 
   if (toolName === 'batch_add_todos') {

@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner'
 import { stripMarkdown } from '@/lib/utils'
 import type { Todo } from '@/lib/supabase/database.types'
+import { createTodoistTask } from '@/lib/todoist'
 
 type FilterTab = 'all' | 'pending' | 'done'
 
@@ -66,8 +67,10 @@ export default function TodosPage() {
     }).select().single()
 
     if (error) { toast.error('Failed to add todo'); setSaving(false); return }
+    createTodoistTask(cleanTitle, undefined, dueDate).catch(() => {})
     setTodos(prev => [data, ...prev])
     setInputVal('')
+    toast.success('Todo added & synced to Todoist!')
     setDueDate('')
     setSaving(false)
     toast.success('Todo added!')

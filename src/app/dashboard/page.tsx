@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Task, Todo, Habit, Reminder, Note, Goal, JournalEntry } from '@/lib/supabase/database.types'
+import { createTodoistTask } from '@/lib/todoist'
 
 type ActiveTab = 'tasks' | 'todos' | 'habits' | 'goals' | 'reminders' | 'journal' | 'notes'
 type TaskFilter = 'all' | 'pending' | 'completed'
@@ -285,7 +286,8 @@ export default function DashboardPage() {
           due_time: quickAddDueTime || null,
           status: 'todo',
         })
-        toast.success('Task added to workspace! 📋')
+        createTodoistTask(quickAddTitle.trim(), undefined, quickAddDueDate, quickAddDueTime, quickAddPriority).catch(() => {})
+        toast.success('Task added to workspace & synced to Todoist! 📋')
       } else if (activeTab === 'todos') {
         await client.from('todos').insert({
           user_id: user.id,
@@ -294,7 +296,8 @@ export default function DashboardPage() {
           due_time: quickAddDueTime || null,
           is_done: false,
         })
-        toast.success('Todo added! 📝')
+        createTodoistTask(quickAddTitle.trim(), undefined, quickAddDueDate).catch(() => {})
+        toast.success('Todo added & synced to Todoist! 📝')
       } else if (activeTab === 'goals') {
         await client.from('goals').insert({
           user_id: user.id,
