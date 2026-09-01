@@ -16,7 +16,7 @@ export async function initNativeHardware() {
     await StatusBar.setBackgroundColor({ color: '#0A0B0D' })
 
     // 2. Hide Native Splash Screen smoothly
-    await SplashScreen.hide({ fadeDuration: 300 })
+    await SplashScreen.hide({ fadeOutDuration: 300 })
 
     // 3. Keyboard Setup
     await Keyboard.setAccessoryBarVisible({ isVisible: false })
