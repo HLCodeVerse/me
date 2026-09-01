@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
@@ -11,7 +11,7 @@ import { stripMarkdown } from '@/lib/utils'
 import type { Task, WaterLog } from '@/lib/supabase/database.types'
 
 export default function HealthPage() {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const supabase = createClient()
 
@@ -28,14 +28,17 @@ export default function HealthPage() {
   const targetWaterMl = 3000
 
   useEffect(() => {
-    if (!loading && !user) router.replace('/auth')
-  }, [user, loading, router])
+    if (!authLoading && !user) router.replace('/auth')
+  }, [user, authLoading, router])
 
-  useEffect(() => {
-    if (!user) return
-    const loadData = async () => {
-      const today = new Date().toISOString().split('T')[0]
+  const loadData = useCallback(async () => {
+    if (!user) {
+      if (!authLoading) setDataLoading(false)
+      return
+    }
+    const today = new Date().toISOString().split('T')[0]
 
+    try {
       const [waterRes, tasksRes] = await Promise.all([
         supabase
           .from('water_logs')
@@ -52,12 +55,19 @@ export default function HealthPage() {
 
       setWaterLogs(waterRes.data ?? [])
       setExercises(tasksRes.data ?? [])
+    } catch {
+      setWaterLogs([])
+      setExercises([])
+    } finally {
       setDataLoading(false)
     }
-    loadData()
-  }, [user, supabase])
+  }, [user, authLoading, supabase])
 
-  const totalWaterMl = waterLogs.reduce((acc, log) => acc + log.amount_ml, 0)
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const totalWaterMl = waterLogs.reduce((acc, log) => acc + (log.amount_ml || 0), 0)
   const waterPct = Math.min(Math.round((totalWaterMl / targetWaterMl) * 100), 100)
 
   async function addWaterIntake(amountMl: number) {
@@ -146,7 +156,7 @@ export default function HealthPage() {
     }
   }
 
-  if (loading || !user || dataLoading) return <LoadingSkeleton />
+  if (authLoading || dataLoading) return <LoadingSkeleton />
 
   const completedExercises = exercises.filter(e => e.status === 'done').length
   const totalExercises = exercises.length > 0 ? exercises.length : 5

@@ -29,14 +29,22 @@ export default function TodosPage() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const fetchTodos = useCallback(async () => {
-    if (!user) return
-    const { data } = await supabase
-      .from('todos')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-    setTodos(data ?? [])
-    setLoading(false)
+    if (!user) {
+      setLoading(false)
+      return
+    }
+    try {
+      const { data } = await supabase
+        .from('todos')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      setTodos(data ?? [])
+    } catch {
+      setTodos([])
+    } finally {
+      setLoading(false)
+    }
   }, [user, supabase])
 
   useEffect(() => { fetchTodos() }, [fetchTodos])

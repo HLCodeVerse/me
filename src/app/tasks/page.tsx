@@ -39,12 +39,20 @@ export default function TasksPage() {
   const [saving, setSaving] = useState(false)
 
   const fetchTasks = useCallback(async () => {
-    if (!user) return
-    let q = supabase.from('tasks').select('*').eq('user_id', user.id).is('parent_task_id', null).order('priority', { ascending: false }).order('created_at', { ascending: false })
-    if (filter !== 'all') q = q.eq('status', filter)
-    const { data } = await q
-    setTasks(data ?? [])
-    setLoading(false)
+    if (!user) {
+      setLoading(false)
+      return
+    }
+    try {
+      let q = supabase.from('tasks').select('*').eq('user_id', user.id).is('parent_task_id', null).order('priority', { ascending: false }).order('created_at', { ascending: false })
+      if (filter !== 'all') q = q.eq('status', filter)
+      const { data } = await q
+      setTasks(data ?? [])
+    } catch {
+      setTasks([])
+    } finally {
+      setLoading(false)
+    }
   }, [user, supabase, filter])
 
   useEffect(() => { fetchTasks() }, [fetchTasks])

@@ -36,14 +36,23 @@ export default function GoalsPage() {
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
-    if (!user) return
-    const [goalsRes, areasRes] = await Promise.all([
-      supabase.from('goals').select('*').eq('user_id', user.id).order('priority', { ascending: false }),
-      supabase.from('life_areas').select('*').eq('user_id', user.id),
-    ])
-    setGoals(goalsRes.data ?? [])
-    setAreas(areasRes.data ?? [])
-    setLoading(false)
+    if (!user) {
+      setLoading(false)
+      return
+    }
+    try {
+      const [goalsRes, areasRes] = await Promise.all([
+        supabase.from('goals').select('*').eq('user_id', user.id).order('priority', { ascending: false }),
+        supabase.from('life_areas').select('*').eq('user_id', user.id),
+      ])
+      setGoals(goalsRes.data ?? [])
+      setAreas(areasRes.data ?? [])
+    } catch {
+      setGoals([])
+      setAreas([])
+    } finally {
+      setLoading(false)
+    }
   }, [user, supabase])
 
   useEffect(() => { load() }, [load])

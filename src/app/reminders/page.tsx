@@ -10,7 +10,7 @@ import { stripMarkdown } from '@/lib/utils'
 import type { Reminder } from '@/lib/supabase/database.types'
 
 export default function RemindersPage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const supabase = createClient()
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [loading, setLoading] = useState(true)
@@ -26,15 +26,23 @@ export default function RemindersPage() {
   const [saving, setSaving] = useState(false)
 
   const loadReminders = useCallback(async () => {
-    if (!user) return
-    const { data } = await supabase
-      .from('reminders')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('remind_at', { ascending: true })
-    setReminders(data ?? [])
-    setLoading(false)
-  }, [user, supabase])
+    if (!user) {
+      if (!authLoading) setLoading(false)
+      return
+    }
+    try {
+      const { data } = await supabase
+        .from('reminders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('remind_at', { ascending: true })
+      setReminders(data ?? [])
+    } catch {
+      setReminders([])
+    } finally {
+      setLoading(false)
+    }
+  }, [user, authLoading, supabase])
 
   useEffect(() => { loadReminders() }, [loadReminders])
 

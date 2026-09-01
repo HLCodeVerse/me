@@ -50,8 +50,11 @@ export default function JournalPage() {
   const [recording, setRecording] = useState(false)
 
   const fetchEntries = useCallback(async () => {
+    if (!user) {
+      setLoading(false)
+      return
+    }
     try {
-      if (!user) { setLoading(false); return }
       const { data } = await supabase
         .from('journal_entries')
         .select('*')
