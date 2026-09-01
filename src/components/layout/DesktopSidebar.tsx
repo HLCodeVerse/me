@@ -11,33 +11,33 @@ import {
 
 const NAV_GROUPS = [
   {
-    title: 'Daily OS',
+    title: 'DAILY OS',
     items: [
-      { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',   color: '#7C3AED' },
-      { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',       color: '#F59E0B' },
-      { href: '/todos',     icon: ListTodo,        label: 'Todos',       color: '#3B82F6' },
-      { href: '/habits',    icon: Flame,           label: 'Habits',      color: '#EF4444' },
-      { href: '/health',    icon: Activity,        label: 'Health',      color: '#10B981' },
-      { href: '/player',    icon: Disc,            label: 'Media player', color: '#7C3AED' },
-      { href: '/notes',     icon: StickyNote,      label: 'Notes',       color: '#06B6D4' },
-      { href: '/reminders', icon: Bell,            label: 'Reminders',   color: '#F59E0B' },
-      { href: '/journal',   icon: BookOpen,        label: 'Journal',     color: '#8B5CF6' },
+      { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',    color: '#F59E0B' },
+      { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',        color: '#EF4444' },
+      { href: '/todos',     icon: ListTodo,        label: 'Todos',        color: '#06B6D4' },
+      { href: '/habits',    icon: Flame,           label: 'Habits',       color: '#EF4444' },
+      { href: '/health',    icon: Activity,        label: 'Health',       color: '#EAB308' },
+      { href: '/player',    icon: Disc,            label: 'Media Player', color: '#06B6D4' },
+      { href: '/notes',     icon: StickyNote,      label: 'Notes',        color: '#06B6D4' },
+      { href: '/reminders', icon: Bell,            label: 'Reminders',    color: '#F59E0B' },
+      { href: '/journal',   icon: BookOpen,        label: 'Journal',      color: '#F59E0B' },
     ]
   },
   {
-    title: 'Growth & vision',
+    title: 'GROWTH & VISION',
     items: [
-      { href: '/goals',     icon: Target,          label: 'Goals',       color: '#10B981' },
-      { href: '/analytics', icon: BarChart2,       label: 'Analytics',   color: '#3B82F6' },
-      { href: '/learn',     icon: GraduationCap,   label: 'Learning hub',color: '#8B5CF6' },
+      { href: '/goals',     icon: Target,          label: 'Goals',        color: '#EAB308' },
+      { href: '/analytics', icon: BarChart2,       label: 'Analytics',    color: '#06B6D4' },
+      { href: '/learn',     icon: GraduationCap,   label: 'Learning Hub', color: '#EAB308' },
     ]
   },
   {
-    title: 'Intelligence',
+    title: 'INTELLIGENCE',
     items: [
-      { href: '/ai',        icon: Bot,             label: 'AI chat OS',  color: '#7C3AED' },
-      { href: '/mcp',       icon: ShieldCheck,     label: 'MCP connect', color: '#10B981' },
-      { href: '/settings',  icon: Settings,        label: 'Settings',    color: '#6B7280' },
+      { href: '/ai',        icon: Bot,             label: 'AI Chat OS',   color: '#06B6D4' },
+      { href: '/mcp',       icon: ShieldCheck,     label: 'MCP Connect',  color: '#06B6D4' },
+      { href: '/settings',  icon: Settings,        label: 'Settings',     color: '#9CA3AF' },
     ]
   }
 ]
@@ -56,50 +56,52 @@ export default function DesktopSidebar() {
       top: 0,
       bottom: 0,
       width: 260,
-      background: 'var(--surface)',
-      borderRight: '1px solid var(--border)',
+      background: 'linear-gradient(180deg, #0A0B0D 0%, #121318 100%)',
+      borderRight: '1px solid rgba(245, 158, 11, 0.25)',
       flexDirection: 'column',
       justifyContent: 'space-between',
       zIndex: 40,
-      padding: '16px 12px',
+      padding: '18px 14px',
+      boxShadow: '4px 0 24px rgba(0,0,0,0.5)',
     }} className="desktop-sidebar">
       
-      {/* Top: Logo & Header */}
+      {/* Top: Brand Header */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px 16px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 8px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: 'var(--primary-gradient)',
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            background: 'linear-gradient(135deg, #F59E0B, #EAB308)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#FFFFFF',
+            color: '#0A0B0D',
             flexShrink: 0,
+            boxShadow: '0 4px 14px rgba(245, 158, 11, 0.4)',
           }}>
-            <Zap size={20} fill="#FFFFFF" />
+            <Zap size={22} fill="#0A0B0D" color="#0A0B0D" />
           </div>
           <div>
-            <h1 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>
-              NIRMAAN
+            <h1 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '0.02em' }}>
+              NIRMAAN <span style={{ color: '#F59E0B', fontSize: 12 }}>OS</span>
             </h1>
-            <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, fontWeight: 500 }}>
-              Personal Reconstruction OS
+            <p style={{ fontSize: 10.5, color: '#9CA3AF', margin: 0, fontWeight: 600 }}>
+              Personal Reconstruction
             </p>
           </div>
         </div>
 
         {/* Navigation Groups */}
-        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+        <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto', maxHeight: 'calc(100vh - 220px)', scrollbarWidth: 'none' }}>
           {NAV_GROUPS.map(group => (
             <div key={group.title}>
               <div style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: 'var(--text-muted)',
-                padding: '0 12px 8px',
-                letterSpacing: '0.04em',
+                fontSize: 10,
+                fontWeight: 800,
+                color: '#9CA3AF',
+                padding: '0 10px 8px',
+                letterSpacing: '0.08em',
               }}>
                 {group.title}
               </div>
@@ -115,29 +117,32 @@ export default function DesktopSidebar() {
                         alignItems: 'center',
                         gap: 12,
                         padding: '9px 12px',
-                        borderRadius: 'var(--radius-btn)',
+                        borderRadius: 10,
                         textDecoration: 'none',
                         position: 'relative',
-                        background: isActive ? `${color}14` : 'transparent',
-                        color: isActive ? color : 'var(--text-secondary)',
-                        fontWeight: isActive ? 600 : 500,
+                        background: isActive ? 'linear-gradient(90deg, rgba(245, 158, 11, 0.15), rgba(6, 182, 212, 0.08))' : 'transparent',
+                        border: `1px solid ${isActive ? 'rgba(245, 158, 11, 0.35)' : 'transparent'}`,
+                        color: isActive ? '#FFFFFF' : '#9CA3AF',
+                        fontWeight: isActive ? 700 : 500,
                         transition: 'all 150ms ease',
+                        boxShadow: isActive ? '0 4px 14px rgba(245, 158, 11, 0.15)' : 'none',
                       }}
                     >
-                      {/* Active item left accent bar */}
+                      {/* Active item left glowing indicator */}
                       {isActive && (
                         <div style={{
                           position: 'absolute',
-                          left: 0,
-                          top: 6,
-                          bottom: 6,
-                          width: 3,
+                          left: -2,
+                          top: 8,
+                          bottom: 8,
+                          width: 4,
                           borderRadius: '0 4px 4px 0',
                           background: color,
+                          boxShadow: `0 0 10px ${color}`,
                         }} />
                       )}
                       
-                      <Icon size={18} color={isActive ? color : 'var(--text-secondary)'} />
+                      <Icon size={18} color={isActive ? color : '#9CA3AF'} />
                       <span style={{ fontSize: 13, flex: 1 }}>{label}</span>
                     </Link>
                   )
@@ -148,57 +153,58 @@ export default function DesktopSidebar() {
         </div>
       </div>
 
-      {/* Footer: MCP Pill & User Card */}
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Footer: MCP Connected Pill & User Profile Card */}
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {/* MCP Status Pill */}
         <Link href="/mcp" style={{
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '8px 12px',
+          padding: '7px 12px',
           borderRadius: 99,
-          background: 'rgba(16, 185, 129, 0.08)',
-          border: '1px solid rgba(16, 185, 129, 0.2)',
+          background: 'rgba(6, 182, 212, 0.12)',
+          border: '1px solid rgba(6, 182, 212, 0.3)',
           textDecoration: 'none',
         }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#059669', flex: 1 }}>MCP Connected</span>
-          <ChevronRight size={14} color="#059669" />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#06B6D4', display: 'inline-block', boxShadow: '0 0 8px #06B6D4' }} className="animate-pulse" />
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: '#06B6D4', flex: 1 }}>MCP Connected</span>
+          <ChevronRight size={13} color="#06B6D4" />
         </Link>
 
-        {/* User Card */}
+        {/* User Profile Card */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           gap: 10,
           padding: '10px 12px',
-          borderRadius: 'var(--radius-btn)',
-          background: 'var(--surface-2)',
-          border: '1px solid var(--border)',
+          borderRadius: 12,
+          background: '#121318',
+          border: '1px solid rgba(255,255,255,0.1)',
         }}>
           <div style={{
             width: 34,
             height: 34,
             borderRadius: '50%',
-            background: 'var(--primary-gradient)',
+            background: 'linear-gradient(135deg, #F59E0B, #06B6D4)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#FFFFFF',
-            fontWeight: 700,
+            fontWeight: 800,
             fontSize: 13,
+            boxShadow: '0 2px 10px rgba(245, 158, 11, 0.3)',
           }}>
             {name[0]?.toUpperCase() ?? 'U'}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {name}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-              Lvl 12 • {lifeScore} XP
+            <div style={{ fontSize: 11, color: '#F59E0B', fontWeight: 600 }}>
+              Life Score: {lifeScore}
             </div>
           </div>
-          <Link href="/settings" style={{ color: 'var(--text-muted)' }}>
+          <Link href="/settings" style={{ color: '#9CA3AF' }}>
             <Settings size={16} />
           </Link>
         </div>
