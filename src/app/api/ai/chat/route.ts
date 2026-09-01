@@ -39,6 +39,29 @@ const decodeSecret = (b64: string) => typeof Buffer !== 'undefined' ? Buffer.fro
 const HARDCODED_OPENROUTER_KEY = decodeSecret('c2stb3ItdjEtYmIxYmIyYTc5ZGM0MDIxOWI0N2NkZmFhMGZiMjAzNTYyNzc5ZjkwYjQwNjZmZDVkN2Q4MDA1Zjg4YzdiNjUyMA==')
 const HARDCODED_GEMINI_KEY = decodeSecret('QVEuQWI4Uk42TGJuZzREaktaLURyNy1LMDVkdWtUVlg5TVFfVF9KQ29zT0oyZmVsX1p5MHc=')
 
+function parseISOOrFallback(inputDateStr?: string): string {
+  if (!inputDateStr || typeof inputDateStr !== 'string' || !inputDateStr.trim()) {
+    return new Date(Date.now() + 3600000).toISOString()
+  }
+
+  const trimmed = inputDateStr.trim()
+  let d = new Date(trimmed)
+
+  if (isNaN(d.getTime())) {
+    d = new Date(trimmed.replace(' ', 'T'))
+  }
+
+  if (isNaN(d.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    d = new Date(`${trimmed}T09:00:00`)
+  }
+
+  if (isNaN(d.getTime())) {
+    return new Date(Date.now() + 3600000).toISOString()
+  }
+
+  return d.toISOString()
+}
+
 // Helper to resolve record target ID or search query from args flexibly
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractTargetIdAndQuery(args: Record<string, any>, defaultIdKeys: string[]) {
@@ -553,13 +576,15 @@ async function executeTool(toolName: string, args: Record<string, unknown>, user
 
     // ── Reminders ──
     case 'create_reminder': {
+      const parsedDate = parseISOOrFallback(args.remind_at as string | undefined)
       const { data } = await client.from('reminders').insert({
         user_id: userId,
         title: args.title as string,
-        remind_at: args.remind_at as string,
+        remind_at: parsedDate,
+        repeat_rule: (args.repeat_rule || args.recurrence_rule) as string || null,
         is_sent: false,
       }).select().single()
-      return { success: true, message: `Reminder "${args.title}" set! 🔔`, reminder: data }
+      return { success: true, message: `Reminder "${args.title}" set for ${parsedDate}! 🔔`, reminder: data }
     }
     case 'delete_reminder': {
       const { targetId, queryStr } = extractTargetIdAndQuery(args, ['reminder_id'])

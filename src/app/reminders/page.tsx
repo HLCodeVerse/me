@@ -58,22 +58,35 @@ export default function RemindersPage() {
     await sendTestPushNotification(user.id)
   }
 
+  function parseISOOrFallback(inputDateStr?: string): string {
+    if (!inputDateStr || typeof inputDateStr !== 'string' || !inputDateStr.trim()) {
+      return new Date(Date.now() + 3600000).toISOString()
+    }
+
+    const trimmed = inputDateStr.trim()
+    let d = new Date(trimmed)
+
+    if (isNaN(d.getTime())) {
+      d = new Date(trimmed.replace(' ', 'T'))
+    }
+
+    if (isNaN(d.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      d = new Date(`${trimmed}T09:00:00`)
+    }
+
+    if (isNaN(d.getTime())) {
+      return new Date(Date.now() + 3600000).toISOString()
+    }
+
+    return d.toISOString()
+  }
+
   async function createReminder(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim() || !user) return
     setSaving(true)
 
-    // Properly parse input datetime to ISO string
-    let parsedDateIso: string
-    if (remindAt) {
-      try {
-        parsedDateIso = new Date(remindAt).toISOString()
-      } catch {
-        parsedDateIso = new Date(Date.now() + 3600000).toISOString()
-      }
-    } else {
-      parsedDateIso = new Date(Date.now() + 3600000).toISOString()
-    }
+    const parsedDateIso = parseISOOrFallback(remindAt)
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,8 +94,7 @@ export default function RemindersPage() {
         user_id: user.id,
         title: stripMarkdown(title.trim()),
         remind_at: parsedDateIso,
-        is_recurring: isRecurring,
-        recurrence_rule: isRecurring ? recurrenceRule : null,
+        repeat_rule: isRecurring ? recurrenceRule : null,
         is_sent: false,
       })
 
@@ -93,8 +105,9 @@ export default function RemindersPage() {
       setRemindAt('')
       setShowAddModal(false)
       loadReminders()
-    } catch {
-      toast.error('Failed to set reminder. Check date format.')
+    } catch (err: unknown) {
+      console.error('Reminder error:', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to set reminder.')
     } finally {
       setSaving(false)
     }
@@ -249,9 +262,9 @@ export default function RemindersPage() {
                     </h4>
                     <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span>{new Date(rem.remind_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-                      {rem.is_recurring && (
+                      {(rem.repeat_rule || (rem as unknown as Record<string, string>).recurrence_rule) && (
                         <span className="badge badge-warning" style={{ fontSize: 9 }}>
-                          <Repeat size={10} /> {rem.recurrence_rule}
+                          <Repeat size={10} /> {rem.repeat_rule || (rem as unknown as Record<string, string>).recurrence_rule}
                         </span>
                       )}
                     </p>

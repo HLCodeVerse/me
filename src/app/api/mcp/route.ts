@@ -515,6 +515,29 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',
 }
 
+function parseISOOrFallback(inputDateStr?: string): string {
+  if (!inputDateStr || typeof inputDateStr !== 'string' || !inputDateStr.trim()) {
+    return new Date(Date.now() + 3600000).toISOString()
+  }
+
+  const trimmed = inputDateStr.trim()
+  let d = new Date(trimmed)
+
+  if (isNaN(d.getTime())) {
+    d = new Date(trimmed.replace(' ', 'T'))
+  }
+
+  if (isNaN(d.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    d = new Date(`${trimmed}T09:00:00`)
+  }
+
+  if (isNaN(d.getTime())) {
+    return new Date(Date.now() + 3600000).toISOString()
+  }
+
+  return d.toISOString()
+}
+
 // ─── Tool Execution Handlers ──────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -833,16 +856,16 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
   }
 
   if (toolName === 'create_reminder') {
+    const parsedDate = parseISOOrFallback(args.remind_at as string | undefined)
     const { error } = await db.from('reminders').insert({
       user_id: userId,
       title: args.title.trim(),
-      remind_at: args.remind_at || new Date(Date.now() + 3600000).toISOString(),
-      is_recurring: args.is_recurring || false,
-      recurrence_rule: args.recurrence_rule || null,
+      remind_at: parsedDate,
+      repeat_rule: args.repeat_rule || args.recurrence_rule || null,
       is_sent: false,
     })
     if (error) return mcpError(id, -32603, `Failed to create reminder: ${error.message}`)
-    return mcpOk(id, `🔔 Reminder scheduled: "${args.title}"`)
+    return mcpOk(id, `🔔 Reminder scheduled: "${args.title}" for ${parsedDate}`)
   }
 
   if (toolName === 'update_reminder') {
