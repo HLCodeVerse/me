@@ -1,6 +1,4 @@
-// Official Todoist REST API v2 Integration Module
-const TODOIST_API_TOKEN = 'a6e352d5b0f5d60530c9841b91a07bb760f2d910'
-const TODOIST_BASE_URL = 'https://api.todoist.com/rest/v2'
+// Official Todoist REST API Integration Client via Server-Side Proxy
 
 export interface TodoistTask {
   id: string
@@ -17,25 +15,18 @@ export interface TodoistTask {
   url: string
 }
 
-function getAuthHeaders() {
-  return {
-    'Authorization': `Bearer ${TODOIST_API_TOKEN}`,
-    'Content-Type': 'application/json',
-  }
-}
-
 /**
- * Fetch all active tasks from Todoist
+ * Fetch all active tasks from Todoist via server-side proxy
  */
 export async function getTodoistTasks(): Promise<TodoistTask[]> {
   try {
-    const res = await fetch(`${TODOIST_BASE_URL}/tasks`, {
+    const res = await fetch('/api/todoist', {
       method: 'GET',
-      headers: getAuthHeaders(),
       cache: 'no-store',
     })
     if (!res.ok) return []
-    return await res.json()
+    const data = await res.json()
+    return data.tasks || []
   } catch (err) {
     console.error('Failed to fetch Todoist tasks:', err)
     return []
@@ -43,7 +34,7 @@ export async function getTodoistTasks(): Promise<TodoistTask[]> {
 }
 
 /**
- * Create a new task in Todoist
+ * Create a new task in Todoist via server-side proxy
  */
 export async function createTodoistTask(
   content: string,
@@ -53,43 +44,22 @@ export async function createTodoistTask(
   priority: number = 1
 ): Promise<TodoistTask | null> {
   try {
-    // Map NIRMAAN priority (4=P1, 1=P4) to Todoist priority (4=p1, 1=p4)
-    let todoistPriority = priority
-    if (priority === 4) todoistPriority = 4
-    else if (priority === 3) todoistPriority = 3
-    else if (priority === 2) todoistPriority = 2
-    else todoistPriority = 1
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const payload: any = {
-      content: content.trim(),
-      priority: todoistPriority,
-    }
-
-    if (description && description.trim()) {
-      payload.description = description.trim()
-    }
-
-    if (dueDate) {
-      if (dueTime) {
-        payload.due_datetime = `${dueDate}T${dueTime}:00Z`
-      } else {
-        payload.due_date = dueDate
-      }
-    }
-
-    const res = await fetch(`${TODOIST_BASE_URL}/tasks`, {
+    const res = await fetch('/api/todoist', {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create',
+        content,
+        description,
+        dueDate,
+        dueTime,
+        priority,
+      }),
     })
 
-    if (!res.ok) {
-      const errText = await res.text()
-      console.error('Todoist task creation error:', errText)
-      return null
-    }
-    return await res.json()
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.task || null
   } catch (err) {
     console.error('Failed to create Todoist task:', err)
     return null
@@ -97,15 +67,17 @@ export async function createTodoistTask(
 }
 
 /**
- * Close / Mark Complete a task in Todoist
+ * Close / Mark Complete a task in Todoist via server-side proxy
  */
 export async function closeTodoistTask(taskId: string): Promise<boolean> {
   try {
-    const res = await fetch(`${TODOIST_BASE_URL}/tasks/${taskId}/close`, {
+    const res = await fetch('/api/todoist', {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'close', taskId }),
     })
-    return res.ok
+    const data = await res.json()
+    return data.success
   } catch (err) {
     console.error('Failed to close Todoist task:', err)
     return false
@@ -113,15 +85,17 @@ export async function closeTodoistTask(taskId: string): Promise<boolean> {
 }
 
 /**
- * Reopen a completed task in Todoist
+ * Reopen a completed task in Todoist via server-side proxy
  */
 export async function reopenTodoistTask(taskId: string): Promise<boolean> {
   try {
-    const res = await fetch(`${TODOIST_BASE_URL}/tasks/${taskId}/reopen`, {
+    const res = await fetch('/api/todoist', {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reopen', taskId }),
     })
-    return res.ok
+    const data = await res.json()
+    return data.success
   } catch (err) {
     console.error('Failed to reopen Todoist task:', err)
     return false
@@ -129,15 +103,17 @@ export async function reopenTodoistTask(taskId: string): Promise<boolean> {
 }
 
 /**
- * Delete a task in Todoist
+ * Delete a task in Todoist via server-side proxy
  */
 export async function deleteTodoistTask(taskId: string): Promise<boolean> {
   try {
-    const res = await fetch(`${TODOIST_BASE_URL}/tasks/${taskId}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
+    const res = await fetch('/api/todoist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', taskId }),
     })
-    return res.ok
+    const data = await res.json()
+    return data.success
   } catch (err) {
     console.error('Failed to delete Todoist task:', err)
     return false

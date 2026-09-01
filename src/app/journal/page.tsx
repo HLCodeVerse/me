@@ -4,50 +4,62 @@ import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
+import FormattedAIResponse from '@/components/common/FormattedAIResponse'
 import {
-  Plus, Mic, Sparkles, ChevronRight, X, Loader2,
-  BookOpen, Smile, Meh, Frown, Zap, Heart, Brain, Search, Sparkle, Trash2
+  BookOpen, Sparkles, Plus, Trash2, Calendar, Search, RefreshCw,
+  Zap, Smile, Meh, Frown, Heart, Check, ArrowRight, Wand2, Tag, ShieldCheck
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDate, stripMarkdown } from '@/lib/utils'
 import type { JournalEntry } from '@/lib/supabase/database.types'
 
 type EntryType = 'free' | 'prompted' | 'voice'
 
-const MOODS = [
-  { id: 'amazing', icon: Zap,   color: '#F59E0B', label: 'Amazing 🔥' },
-  { id: 'good',    icon: Smile, color: '#10B981', label: 'Good 😊'    },
-  { id: 'meh',     icon: Meh,   color: '#3B82F6', label: 'Meh 😐'     },
-  { id: 'bad',     icon: Frown, color: '#60A5FA', label: 'Bad 😔'     },
-  { id: 'awful',   icon: Heart, color: '#EF4444', label: 'Awful 😫'   },
+const MOOD_OPTIONS = [
+  { id: 'amazing', icon: Zap, color: '#FFD700', label: '😁 Amazing' },
+  { id: 'good', icon: Smile, color: '#10B981', label: '😊 Good' },
+  { id: 'meh', icon: Meh, color: '#F59E0B', label: '😐 Meh' },
+  { id: 'bad', icon: Frown, color: '#60A5FA', label: '😔 Bad' },
+  { id: 'awful', icon: Heart, color: '#EF4444', label: '😫 Overwhelmed' },
 ]
 
 const PROMPTS = [
-  'What are 3 things I learned today?',
-  'What am I grateful for right now?',
-  'What progress did I make on my goals?',
-  'What challenge did I overcome today?',
-  'What would make tomorrow even better?',
+  'What are 3 meaningful things I accomplished or learned today?',
+  'What is a challenge I faced today, and how did I adapt?',
+  'What am I deeply grateful for in this exact moment?',
+  'What is one limiting belief I want to let go of today?',
+  'What would make tomorrow a high-performance win?',
 ]
+
+interface AIReframeSuggestions {
+  growth: string
+  mindful: string
+  bullet: string
+}
 
 export default function JournalPage() {
   const { user } = useAuth()
   const supabase = createClient()
+
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
-  const [generatingReflection, setGeneratingReflection] = useState(false)
   const [search, setSearch] = useState('')
+  const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
 
-  // Form state
+  // Form State
   const [entryType, setEntryType] = useState<EntryType>('free')
+  const [title, setTitle] = useState('')
+  const [rawThoughts, setRawThoughts] = useState('')
   const [content, setContent] = useState('')
   const [selectedMood, setSelectedMood] = useState('good')
-  const [selectedPrompt, setSelectedPrompt] = useState('')
-  const [title, setTitle] = useState('')
+  const [energyLevel, setEnergyLevel] = useState(80)
+  const [selectedTags, setSelectedTags] = useState<string[]>(['#growth'])
   const [saving, setSaving] = useState(false)
-  const [recording, setRecording] = useState(false)
+
+  // AI Rephrase & Enhancer State
+  const [generatingSuggestions, setGeneratingSuggestions] = useState(false)
+  const [reframeSuggestions, setReframeSuggestions] = useState<AIReframeSuggestions | null>(null)
+  const [generatingReflection, setGeneratingReflection] = useState(false)
 
   const fetchEntries = useCallback(async () => {
     if (!user) {
@@ -60,7 +72,7 @@ export default function JournalPage() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(40)
+        .limit(30)
       setEntries(data ?? [])
     } catch {
       setEntries([])
@@ -71,38 +83,142 @@ export default function JournalPage() {
 
   useEffect(() => { fetchEntries() }, [fetchEntries])
 
-  async function saveEntry() {
-    if (!content.trim() || !user) return
+  // Generate 3 AI Reframe & Enhancement Suggestions
+  async function generateAIReframeSuggestions() {
+    const textToProcess = rawThoughts.trim() || content.trim()
+    if (!textToProcess) {
+      toast.error('Please enter your raw thoughts or notes first!')
+      return
+    }
+    if (!user) return
+
+    setGeneratingSuggestions(true)
+    toast.info('AI is generating 3 rephrased & enhanced journal options...')
+
+    try {
+      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
+      const prompt = `Rephrase and enhance the following raw journal thoughts into 3 distinct, beautifully formatted journal entries.
+Raw Thoughts: "${textToProcess}"
+
+Respond strictly in valid JSON format with keys:
+"growth": (High-performance, stoic reframe focused on mindset and learning),
+"mindful": (Deep emotional reframe focused on self-compassion and gratitude),
+"bullet": (Bullet-journal executive summary with key takeaways)`
+
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user.id,
+        },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: prompt }],
+          model: 'x-ai/grok-2-1212',
+          enableTools: false,
+          grokApiKey: customGrokKey,
+        }),
+      })
+
+      if (res.ok) {
+        const text = await res.text()
+        const lines = text.split('\n').filter(l => l.startsWith('data: ')).map(l => l.replace('data: ', ''))
+        let fullOutput = ''
+        for (const line of lines) {
+          if (line === '[DONE]') continue
+          try {
+            const parsed = JSON.parse(line)
+            fullOutput += parsed.choices?.[0]?.delta?.content || ''
+          } catch {}
+        }
+
+        try {
+          const jsonMatch = fullOutput.match(/\{[\s\S]*\}/)
+          if (jsonMatch) {
+            const parsedObj = JSON.parse(jsonMatch[0])
+            setReframeSuggestions({
+              growth: parsedObj.growth || fullOutput,
+              mindful: parsedObj.mindful || fullOutput,
+              bullet: parsedObj.bullet || fullOutput,
+            })
+            toast.success('3 AI Rephrase options generated! Select your favorite below 🌟')
+          } else {
+            setReframeSuggestions({
+              growth: fullOutput,
+              mindful: fullOutput,
+              bullet: fullOutput,
+            })
+          }
+        } catch {
+          setReframeSuggestions({
+            growth: fullOutput,
+            mindful: fullOutput,
+            bullet: fullOutput,
+          })
+        }
+      }
+    } catch {
+      toast.error('Failed to generate AI suggestions')
+    } finally {
+      setGeneratingSuggestions(false)
+    }
+  }
+
+  // Select AI Suggestion into Main Content Editor
+  function applySuggestion(text: string) {
+    setContent(text)
+    toast.success('Applied AI suggestion to main journal entry! ✍️')
+  }
+
+  // Save Journal Entry
+  async function handleSaveEntry(e: React.FormEvent) {
+    e.preventDefault()
+    const finalContent = content.trim() || rawThoughts.trim()
+    if (!finalContent || !user) {
+      toast.error('Please enter content before saving')
+      return
+    }
     setSaving(true)
-    const cleanTitle = stripMarkdown(title.trim() || selectedPrompt || '')
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from('journal_entries') as any).insert({
         user_id: user.id,
-        title: cleanTitle || null,
-        content: content.trim(),
-        mood: selectedMood || null,
-        mood_score: getMoodScore(selectedMood),
+        title: title.trim() || null,
+        content: finalContent,
+        mood: selectedMood,
+        mood_score: energyLevel,
         entry_type: entryType,
-        tags: [],
+        tags: selectedTags,
       }).select().single()
-      if (error) { toast.error('Failed to save journal entry'); setSaving(false); return }
-      toast.success('Journal entry saved! 📓')
+
+      if (error) {
+        toast.error('Failed to save journal entry')
+        setSaving(false)
+        return
+      }
+
+      toast.success('Journal Entry Saved! +25 XP 📖')
       setEntries(prev => [data, ...prev])
       setShowForm(false)
-      setContent(''); setTitle(''); setSelectedMood('good'); setSelectedPrompt('')
+      setTitle('')
+      setRawThoughts('')
+      setContent('')
+      setReframeSuggestions(null)
+
+      // Auto-generate AI Reflection for newly saved entry
+      generateAIReflection(data.id, finalContent)
     } catch {
-      toast.error('Could not save entry')
+      toast.error('Error saving entry')
     } finally {
       setSaving(false)
     }
   }
 
-  async function generateAIReflection(entry: JournalEntry) {
+  // Generate AI Psychological Reflection on Entry
+  async function generateAIReflection(entryId: string, entryText: string) {
     if (!user) return
     setGeneratingReflection(true)
-    toast.info('AI Mindset Coach is analyzing your entry...')
+
     try {
       const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
       const res = await fetch('/api/ai/chat', {
@@ -112,387 +228,400 @@ export default function JournalPage() {
           'X-User-Id': user.id,
         },
         body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Read this journal entry and provide a 2-sentence empowering plain text AI reflection without markdown symbols:\n"${entry.content}"`
-          }],
+          messages: [
+            {
+              role: 'user',
+              content: `Give a 2-sentence psychological reflection and encouragement for this journal entry: "${entryText}"`,
+            },
+          ],
+          model: 'x-ai/grok-2-1212',
           enableTools: false,
-          userId: user.id,
           grokApiKey: customGrokKey,
-        })
+        }),
       })
 
-      if (!res.ok) throw new Error('AI reflection failed')
+      if (res.ok) {
+        const text = await res.text()
+        const lines = text.split('\n').filter(l => l.startsWith('data: ')).map(l => l.replace('data: ', ''))
+        let fullOutput = ''
+        for (const line of lines) {
+          if (line === '[DONE]') continue
+          try {
+            const parsed = JSON.parse(line)
+            fullOutput += parsed.choices?.[0]?.delta?.content || ''
+          } catch {}
+        }
 
-      const reader = res.body?.getReader()
-      const decoder = new TextDecoder()
-      let reflectionText = ''
+        if (fullOutput.trim()) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.from('journal_entries') as any)
+            .update({ ai_reflection: fullOutput.trim() })
+            .eq('id', entryId)
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          const chunk = decoder.decode(value)
-          for (const line of chunk.split('\n')) {
-            if (!line.startsWith('data: ')) continue
-            const data = line.slice(6)
-            if (data === '[DONE]') continue
-            try {
-              const parsed = JSON.parse(data)
-              const delta = parsed.choices?.[0]?.delta?.content ?? ''
-              if (delta) reflectionText += delta
-            } catch {}
-          }
+          setEntries(prev => prev.map(e => e.id === entryId ? { ...e, ai_reflection: fullOutput.trim() } : e))
+          toast.success('AI Psychological Reflection attached to journal!')
         }
       }
-
-      const cleanReflection = stripMarkdown(reflectionText)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('journal_entries') as any)
-        .update({ ai_reflection: cleanReflection })
-        .eq('id', entry.id)
-
-      setSelectedEntry(prev => prev ? { ...prev, ai_reflection: cleanReflection } : null)
-      setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, ai_reflection: cleanReflection } : e))
-      toast.success('AI reflection saved!')
     } catch {
-      toast.error('Failed to generate AI reflection')
     } finally {
       setGeneratingReflection(false)
     }
   }
 
-  function getMoodScore(mood: string) {
-    const map: Record<string, number> = { amazing: 100, good: 75, meh: 50, bad: 25, awful: 0 }
-    return map[mood] ?? 50
-  }
-
-  function startVoice() {
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      toast.error('Voice input not supported')
-      return
-    }
+  async function handleDeleteEntry(entryId: string) {
+    if (!user) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const recognition = new (SR as any)()
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognition.lang = 'en-US'
-    setRecording(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (e: any) => {
-      const transcript = Array.from(e.results as ArrayLike<Record<number, { transcript: string }>>).map(r => r[0].transcript).join('')
-      setContent(transcript)
-    }
-    recognition.onend = () => setRecording(false)
-    recognition.start()
-    setTimeout(() => { recognition.stop() }, 60000)
+    await (supabase.from('journal_entries') as any).delete().eq('id', entryId).eq('user_id', user.id)
+    setEntries(prev => prev.filter(e => e.id !== entryId))
+    if (selectedEntry?.id === entryId) setSelectedEntry(null)
+    toast.success('Journal entry deleted')
   }
 
   const filteredEntries = entries.filter(e =>
-    (e.title?.toLowerCase() || '').includes(search.toLowerCase()) ||
-    e.content.toLowerCase().includes(search.toLowerCase())
+    (e.title || '').toLowerCase().includes(search.toLowerCase()) ||
+    (e.content || '').toLowerCase().includes(search.toLowerCase()) ||
+    (e.mood || '').toLowerCase().includes(search.toLowerCase())
   )
-
-  const grouped: Record<string, JournalEntry[]> = {}
-  for (const e of filteredEntries) {
-    const date = formatDate(e.created_at, 'long')
-    if (!grouped[date]) grouped[date] = []
-    grouped[date].push(e)
-  }
 
   return (
     <AppShell
       header={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BookOpen size={20} color="#7C3AED" />
-            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Mindful Journal</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: 'linear-gradient(135deg, #10B981, #059669)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+            }}>
+              <BookOpen size={20} color="#FFFFFF" />
+            </div>
+            <div>
+              <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 6 }}>
+                AI Reflection Journal <ShieldCheck size={16} color="#10B981" />
+              </h1>
+              <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>Smart Rephraser, Mood Analytics & Psychological Insights</p>
+            </div>
           </div>
-          <button onClick={() => setShowForm(true)} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 13 }}>
-            <Plus size={15} /> Write
+
+          <button
+            onClick={() => { setShowForm(true); setSelectedEntry(null) }}
+            className="btn btn-primary"
+            style={{ padding: '8px 16px', fontSize: 13, background: 'linear-gradient(135deg, #10B981, #059669)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Plus size={16} /> New Journal Entry
           </button>
         </div>
       }
     >
-      <div style={{ paddingTop: 8 }}>
-        {/* Search */}
-        <div style={{ position: 'relative', marginBottom: 16 }}>
-          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-          <input
-            placeholder="Search entries..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ paddingLeft: 38 }}
-          />
-        </div>
+      <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-        {loading ? (
-          [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 'var(--radius-card)', marginBottom: 10 }} />)
-        ) : filteredEntries.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <BookOpen size={28} color="#7C3AED" />
-            </div>
-            <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>Your story begins here</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13, maxWidth: 300, margin: '0 auto 20px' }}>
-              Capture your daily thoughts, track your mood, and receive AI mindset reflections.
-            </p>
-            <button onClick={() => setShowForm(true)} className="btn btn-primary">
-              <Plus size={15} /> Write First Entry
-            </button>
-          </div>
-        ) : (
-          Object.entries(grouped).map(([date, dayEntries]) => (
-            <div key={date} style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 10 }}>
-                {date}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {dayEntries.map(entry => {
-                  const moodObj = MOODS.find(m => m.id === entry.mood)
-                  const MoodIcon = moodObj ? moodObj.icon : BookOpen
-                  const moodColor = moodObj ? moodObj.color : '#7C3AED'
-
-                  return (
-                    <button
-                      key={entry.id}
-                      onClick={() => setSelectedEntry(entry)}
-                      className="card"
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-                        cursor: 'pointer', textAlign: 'left', width: '100%',
-                      }}
-                    >
-                      <div style={{
-                        width: 38, height: 38, borderRadius: 'var(--radius-sm)',
-                        background: `${moodColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0,
-                      }}>
-                        <MoodIcon size={18} color={moodColor} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {stripMarkdown(entry.title || entry.content.slice(0, 50))}
-                        </p>
-                        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                          {new Date(entry.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                      {entry.ai_reflection && <Sparkle size={15} color="#7C3AED" />}
-                      <ChevronRight size={14} color="var(--text-muted)" />
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Write Entry Modal */}
-      {showForm && (
-        <>
-          <div className="overlay" onClick={() => setShowForm(false)} />
-          <div className="animate-fade-in" style={{
-            position: 'fixed', inset: 0, zIndex: 110,
-            background: 'var(--bg)', display: 'flex', flexDirection: 'column',
-            overflow: 'hidden',
+        {/* AI Rephrase & Enhancer Hero Editor Form */}
+        {(showForm || entries.length === 0) && (
+          <div style={{
+            background: 'linear-gradient(135deg, #0A0B0D 0%, #121318 100%)',
+            border: '1px solid #10B981',
+            borderRadius: 24,
+            padding: 24,
+            boxShadow: '0 20px 50px rgba(0,0,0,0.85)',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {(['free', 'prompted', 'voice'] as EntryType[]).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setEntryType(t)}
-                    style={{
-                      padding: '5px 12px', borderRadius: 99, border: 'none', cursor: 'pointer',
-                      fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
-                      background: entryType === t ? '#7C3AED' : 'var(--surface-2)',
-                      color: entryType === t ? '#FFFFFF' : 'var(--text-secondary)',
-                    }}
-                  >
-                    {t === 'voice' ? 'Voice' : t === 'prompted' ? 'Prompted' : 'Free Form'}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} color="var(--text-secondary)" />
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Wand2 size={20} color="#10B981" /> Create Journal Entry with AI Reframe
+              </h2>
+              {entries.length > 0 && (
+                <button onClick={() => setShowForm(false)} className="btn-ghost btn-icon">
+                  ✕
+                </button>
+              )}
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-              <div style={{ marginBottom: 16 }}>
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 10 }}>Current Mood</p>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {MOODS.map(m => {
-                    const MIcon = m.icon
-                    const isSel = selectedMood === m.id
-                    return (
-                      <button
-                        key={m.id}
-                        onClick={() => setSelectedMood(m.id)}
-                        style={{
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                          padding: '10px 8px', borderRadius: 'var(--radius-btn)',
-                          border: `1px solid ${isSel ? m.color : 'var(--border)'}`,
-                          background: isSel ? `${m.color}15` : 'var(--surface)',
-                          cursor: 'pointer', flex: 1,
-                        }}
-                      >
-                        <MIcon size={20} color={isSel ? m.color : 'var(--text-muted)'} />
-                        <span style={{ fontSize: 10, color: isSel ? m.color : 'var(--text-muted)', fontWeight: 600 }}>{m.label}</span>
-                      </button>
-                    )
-                  })}
+            <form onSubmit={handleSaveEntry} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Title & Entry Type */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: '#10B981', marginBottom: 4, display: 'block' }}>ENTRY TITLE (OPTIONAL)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Evening Reflection & Wins..."
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    style={{ width: '100%', height: 42, background: '#121318', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 12, color: '#FFFFFF', fontSize: 13, padding: '0 14px', outline: 'none' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: '#10B981', marginBottom: 4, display: 'block' }}>DAILY AI PROMPT PICKER</label>
+                  <select
+                    onChange={e => {
+                      if (e.target.value) {
+                        setTitle(e.target.value)
+                        setEntryType('prompted')
+                      }
+                    }}
+                    style={{ width: '100%', height: 42, background: '#121318', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 12, color: '#FFFFFF', fontSize: 12, padding: '0 10px', outline: 'none' }}
+                  >
+                    <option value="">Choose a Reflection Prompt...</option>
+                    {PROMPTS.map((p, idx) => (
+                      <option key={idx} value={p}>{p}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              <input
-                placeholder="Entry title (optional)..."
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                style={{ marginBottom: 14, fontSize: 16, fontWeight: 600 }}
-              />
-
-              {entryType === 'prompted' && (
-                <div style={{ marginBottom: 16 }}>
-                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 8 }}>Pick a reflection prompt:</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {PROMPTS.map(p => (
+              {/* Mood & Energy Level Selector */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 14, background: '#121318', padding: 14, borderRadius: 14, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: '#9CA3AF', marginBottom: 6, display: 'block' }}>HOW ARE YOU FEELING?</label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {MOOD_OPTIONS.map(m => (
                       <button
-                        key={p}
-                        onClick={() => setSelectedPrompt(p)}
+                        key={m.id}
+                        type="button"
+                        onClick={() => setSelectedMood(m.id)}
                         style={{
-                          padding: '10px 14px', borderRadius: 'var(--radius-btn)', textAlign: 'left',
-                          border: `1px solid ${selectedPrompt === p ? '#7C3AED' : 'var(--border)'}`,
-                          background: selectedPrompt === p ? 'rgba(124,58,237,0.1)' : 'var(--surface-2)',
-                          color: selectedPrompt === p ? '#7C3AED' : 'var(--text-secondary)',
-                          fontSize: 13, cursor: 'pointer',
+                          padding: '6px 12px',
+                          borderRadius: 10,
+                          border: `1px solid ${selectedMood === m.id ? m.color : 'rgba(255,255,255,0.1)'}`,
+                          background: selectedMood === m.id ? `${m.color}25` : '#0A0B0D',
+                          color: selectedMood === m.id ? m.color : '#FFFFFF',
+                          fontSize: 12.5,
+                          fontWeight: 700,
+                          cursor: 'pointer',
                         }}
                       >
-                        {p}
+                        {m.label}
                       </button>
                     ))}
                   </div>
                 </div>
-              )}
 
-              {entryType === 'voice' && (
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ width: 180 }}>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: '#9CA3AF', marginBottom: 6, display: 'block' }}>ENERGY METER: {energyLevel}%</label>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    value={energyLevel}
+                    onChange={e => setEnergyLevel(Number(e.target.value))}
+                    style={{ width: '100%', cursor: 'pointer', accentColor: '#10B981' }}
+                  />
+                </div>
+              </div>
+
+              {/* Raw Unorganized Thoughts Input */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: '#FFD700' }}>
+                    1. WRITE RAW UNFILTERED THOUGHTS HERE:
+                  </label>
                   <button
-                    onClick={startVoice}
-                    disabled={recording}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px',
-                      background: recording ? 'rgba(239,68,68,0.1)' : 'var(--surface-2)',
-                      border: `1px solid ${recording ? '#EF4444' : 'var(--border)'}`,
-                      borderRadius: 'var(--radius-btn)', cursor: 'pointer', width: '100%',
-                      justifyContent: 'center',
-                    }}
+                    type="button"
+                    onClick={generateAIReframeSuggestions}
+                    disabled={generatingSuggestions}
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 14px', fontSize: 12, color: '#FFD700', border: '1px solid rgba(255, 215, 0, 0.4)' }}
                   >
-                    <Mic size={18} color={recording ? '#EF4444' : 'var(--text-muted)'} />
-                    <span style={{ fontSize: 14, color: recording ? '#EF4444' : 'var(--text-secondary)', fontWeight: 600 }}>
-                      {recording ? 'Recording... Speak now 🎙️' : 'Tap to start voice dictation'}
-                    </span>
+                    {generatingSuggestions ? <RefreshCw size={14} className="animate-spin" /> : <Wand2 size={14} color="#FFD700" />}
+                    <span>{generatingSuggestions ? 'Rephrasing...' : 'Generate 3 AI Reframes'}</span>
                   </button>
                 </div>
-              )}
 
-              <textarea
-                value={content}
-                onChange={e => setContent(e.target.value)}
-                placeholder={selectedPrompt ? `Respond to: "${selectedPrompt}"` : 'Write freely about your day, thoughts, or ideas...'}
-                style={{
-                  width: '100%', minHeight: 220, resize: 'none',
-                  fontSize: 15, lineHeight: 1.7, background: 'transparent',
-                  border: 'none', outline: 'none', color: 'var(--text-primary)', padding: 0,
-                }}
-              />
-            </div>
-
-            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10 }}>
-              <div style={{ flex: 1, color: 'var(--text-muted)', fontSize: 13, display: 'flex', alignItems: 'center' }}>
-                {content.split(' ').filter(Boolean).length} words
+                <textarea
+                  placeholder="Type your unorganized thoughts, what happened today, feelings, or quick notes... (e.g. Had a chaotic day at work, got overwhelmed by meetings but finished the core module)"
+                  value={rawThoughts}
+                  onChange={e => setRawThoughts(e.target.value)}
+                  rows={3}
+                  style={{ width: '100%', background: '#121318', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: 12, color: '#FFFFFF', padding: 12, fontSize: 13, resize: 'none', outline: 'none' }}
+                />
               </div>
-              <button onClick={saveEntry} disabled={saving || !content.trim()} className="btn btn-primary" style={{ padding: '10px 24px' }}>
-                {saving ? <Loader2 size={16} className="animate-spin" /> : 'Save Entry'}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
 
-      {/* Read Entry Modal */}
-      {selectedEntry && (
-        <>
-          <div className="overlay" onClick={() => setSelectedEntry(null)} />
-          <div className="animate-fade-in" style={{
-            position: 'fixed', inset: 0, zIndex: 110,
-            background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-              <div>
-                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{stripMarkdown(selectedEntry.title || 'Journal Entry')}</p>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{formatDate(selectedEntry.created_at, 'long')}</p>
-              </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <button
-                  onClick={async () => {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    await (supabase.from('journal_entries') as any).delete().eq('id', selectedEntry.id)
-                    setEntries(prev => prev.filter(e => e.id !== selectedEntry.id))
-                    setSelectedEntry(null)
-                    toast.success('Journal entry deleted')
-                  }}
-                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', borderRadius: 'var(--radius-btn)', padding: '4px 10px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                >
-                  <Trash2 size={13} /> Delete
-                </button>
-                <button onClick={() => setSelectedEntry(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                  <X size={20} color="var(--text-secondary)" />
-                </button>
-              </div>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }}>
-              <p style={{ fontSize: 15, lineHeight: 1.8, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
-                {selectedEntry.content}
-              </p>
-
-              {selectedEntry.ai_reflection ? (
-                <div className="card" style={{
-                  marginTop: 24, padding: '18px',
-                  background: 'rgba(124,58,237,0.06)',
-                  border: '1px solid rgba(124,58,237,0.2)',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <Brain size={16} color="#7C3AED" />
-                    <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase' }}>AI Growth Insight</span>
+              {/* AI 3-Reframe Suggestions Display Cards */}
+              {reframeSuggestions && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, background: '#0A0B0D', padding: 16, borderRadius: 16, border: '1px solid #FFD700' }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#FFD700', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={16} color="#FFD700" /> SELECT YOUR FAVORITE AI REPHRASED VERSION:
                   </div>
-                  <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, fontStyle: 'italic' }}>
-                    {stripMarkdown(selectedEntry.ai_reflection)}
-                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+                    {/* Option 1: High-Performance Reframe */}
+                    <div style={{ background: '#121318', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#10B981', marginBottom: 6 }}>🌟 OPTION 1: HIGH-PERFORMANCE GROWTH</div>
+                        <div style={{ fontSize: 12.5, color: '#FFFFFF', lineHeight: 1.5 }}>{reframeSuggestions.growth}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => applySuggestion(reframeSuggestions.growth)}
+                        className="btn btn-secondary"
+                        style={{ marginTop: 12, fontSize: 11.5, padding: '6px 10px', alignSelf: 'flex-start' }}
+                      >
+                        <Check size={14} color="#10B981" /> Use This Version
+                      </button>
+                    </div>
+
+                    {/* Option 2: Deep Mindful Reframe */}
+                    <div style={{ background: '#121318', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#3B82F6', marginBottom: 6 }}>🧘 OPTION 2: DEEP MINDFUL REFLECTION</div>
+                        <div style={{ fontSize: 12.5, color: '#FFFFFF', lineHeight: 1.5 }}>{reframeSuggestions.mindful}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => applySuggestion(reframeSuggestions.mindful)}
+                        className="btn btn-secondary"
+                        style={{ marginTop: 12, fontSize: 11.5, padding: '6px 10px', alignSelf: 'flex-start' }}
+                      >
+                        <Check size={14} color="#3B82F6" /> Use This Version
+                      </button>
+                    </div>
+
+                    {/* Option 3: Bullet Journal Summary */}
+                    <div style={{ background: '#121318', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#F59E0B', marginBottom: 6 }}>⚡ OPTION 3: BULLET JOURNAL SUMMARY</div>
+                        <div style={{ fontSize: 12.5, color: '#FFFFFF', lineHeight: 1.5 }}>{reframeSuggestions.bullet}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => applySuggestion(reframeSuggestions.bullet)}
+                        className="btn btn-secondary"
+                        style={{ marginTop: 12, fontSize: 11.5, padding: '6px 10px', alignSelf: 'flex-start' }}
+                      >
+                        <Check size={14} color="#F59E0B" /> Use This Version
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <button
-                  onClick={() => generateAIReflection(selectedEntry)}
-                  disabled={generatingReflection}
-                  className="btn btn-secondary"
-                  style={{
-                    marginTop: 24, width: '100%', padding: '12px',
-                    border: '1px solid #7C3AED', color: '#7C3AED', fontSize: 13, fontWeight: 600,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                  }}
-                >
-                  {generatingReflection ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                  {generatingReflection ? 'Generating Reflection...' : 'Generate AI Reflection'}
-                </button>
               )}
-            </div>
+
+              {/* Main Final Journal Entry Editor */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: '#10B981', marginBottom: 6, display: 'block' }}>
+                  2. FINAL JOURNAL ENTRY TO SAVE:
+                </label>
+                <textarea
+                  placeholder="Your complete journal entry text (you can edit or paste an AI rephrased version above)..."
+                  value={content}
+                  onChange={e => setContent(e.target.value)}
+                  rows={4}
+                  required
+                  style={{ width: '100%', background: '#121318', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: 12, color: '#FFFFFF', padding: 14, fontSize: 13.5, resize: 'vertical', outline: 'none' }}
+                />
+              </div>
+
+              {/* Save Button */}
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn btn-primary"
+                style={{ height: 46, fontSize: 14, background: 'linear-gradient(135deg, #10B981, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              >
+                {saving ? <RefreshCw size={18} className="animate-spin" /> : <BookOpen size={18} />}
+                <span>{saving ? 'Saving Journal...' : 'Save Complete Journal Entry (+25 XP)'}</span>
+              </button>
+            </form>
           </div>
-        </>
-      )}
+        )}
+
+        {/* Journal Timeline Search & Toolbar */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
+            <Search size={16} color="#10B981" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              placeholder="Search past journal reflections, moods, or tags..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ width: '100%', height: 42, paddingLeft: 42, paddingRight: 14, background: '#121318', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 12, color: '#FFFFFF', fontSize: 13, outline: 'none' }}
+            />
+          </div>
+
+          <div style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 700 }}>
+            Total Journal Logs: <span style={{ color: '#10B981' }}>{entries.length}</span>
+          </div>
+        </div>
+
+        {/* Journal Timeline History Cards */}
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9CA3AF' }}>
+            <RefreshCw size={32} color="#10B981" className="animate-spin" style={{ margin: '0 auto 12px' }} />
+            <p style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>Loading your reflection timeline...</p>
+          </div>
+        ) : filteredEntries.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px', background: '#0A0B0D', borderRadius: 20, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+            <BookOpen size={40} color="#10B981" style={{ margin: '0 auto 12px' }} />
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: '0 0 4px' }}>No journal entries found</h3>
+            <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>Click "New Journal Entry" above to write your first reflection.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {filteredEntries.map(entry => (
+              <div
+                key={entry.id}
+                style={{
+                  background: '#0A0B0D',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: 20,
+                  padding: 20,
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}
+              >
+                {/* Entry Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span className="badge badge-success" style={{ fontSize: 12, fontWeight: 800 }}>
+                      Mood: {entry.mood || 'good'}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Calendar size={13} color="#10B981" /> {new Date(entry.created_at).toLocaleDateString()} at {new Date(entry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => handleDeleteEntry(entry.id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 4 }}
+                    title="Delete Entry"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
+                {/* Entry Title & Body */}
+                {entry.title && (
+                  <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                    {entry.title}
+                  </h3>
+                )}
+
+                <div style={{ fontSize: 13.5, color: '#FFFFFF', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                  {entry.content}
+                </div>
+
+                {/* AI Reflection Insights Box */}
+                {entry.ai_reflection && (
+                  <div style={{ background: '#121318', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: 14, padding: 14, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <Sparkles size={18} color="#FFD700" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: '#FFD700', marginBottom: 2 }}>AI PSYCHOLOGICAL REFLECTION</div>
+                      <div style={{ fontSize: 12.5, color: '#E5E7EB', lineHeight: 1.5 }}>{entry.ai_reflection}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+      </div>
     </AppShell>
   )
 }
