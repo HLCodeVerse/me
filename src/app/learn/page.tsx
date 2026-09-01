@@ -51,7 +51,7 @@ export default function LearnPage() {
     const { data: coursesData } = await supabase
       .from('courses')
       .select(`*, modules(*, lessons(*))`)
-      .order('order_index')
+      .order('order_index', { ascending: true })
 
     if (!coursesData) { setLoading(false); return }
 

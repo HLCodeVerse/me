@@ -134,7 +134,7 @@ export default function AIPage() {
 
   const loadMessages = useCallback(async (convId: string) => {
     try {
-      const { data } = await supabase.from('ai_messages').select('*').eq('conversation_id', convId).order('created_at')
+      const { data } = await supabase.from('ai_messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true })
       setMessages(data ?? [])
     } catch {
       setMessages([])

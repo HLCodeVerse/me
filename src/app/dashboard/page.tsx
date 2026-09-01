@@ -48,7 +48,7 @@ export default function DashboardPage() {
         supabase.from('tasks').select('*').eq('user_id', user.id).neq('status', 'done').order('priority', { ascending: true }).limit(5),
         supabase.from('todos').select('*').eq('user_id', user.id).eq('is_done', false).order('created_at', { ascending: false }).limit(5),
         supabase.from('habits').select('*').eq('user_id', user.id).eq('archived', false).limit(4),
-        supabase.from('reminders').select('*').eq('user_id', user.id).eq('is_sent', false).order('remind_at').limit(3),
+        supabase.from('reminders').select('*').eq('user_id', user.id).eq('is_sent', false).order('remind_at', { ascending: true }).limit(3),
         supabase.from('notes').select('*').eq('user_id', user.id).eq('is_pinned', true).limit(2),
         supabase.from('water_logs').select('amount_ml').eq('user_id', user.id).eq('date', today),
       ])
