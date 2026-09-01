@@ -88,10 +88,16 @@ export function sleep(ms: number) {
 export function stripMarkdown(str: string): string {
   if (!str) return ''
   return str
-    .replace(/[\*\_~`#]/g, '') // strip markdown syntax symbols *, _, ~, `, #
-    .replace(/^[\s-*+>]+/, '') // strip bullet points and list markers at start of string
-    .replace(/^\[[ xX]\]\s*/, '') // strip todo checkboxes [ ] or [x]
-    .replace(/^[\d]+\.\s*/, '') // strip numbered list prefixes e.g. 1.
-    .replace(/["']/g, '') // strip surrounding quotes
+    .replace(/#+\s*/g, '')          // strip headers (#, ##, ###)
+    .replace(/\*\*(.*?)\*\*/g, '$1') // strip bold **text** -> text
+    .replace(/\*(.*?)\*/g, '$1')     // strip italic *text* -> text
+    .replace(/__(.*?)__/g, '$1')     // strip underline __text__ -> text
+    .replace(/_(.*?)_/g, '$1')       // strip italic _text_ -> text
+    .replace(/`(.*?)`/g, '$1')       // strip inline code `code` -> code
+    .replace(/[\*\_~`#]/g, '')      // strip leftover raw markdown symbols
+    .replace(/^[\s-*+>]+/, '')      // strip bullet points and list markers at start
+    .replace(/^\[[ xX]\]\s*/, '')   // strip todo checkboxes [ ] or [x]
+    .replace(/^[\d]+\.\s*/, '')     // strip numbered list prefixes
     .trim()
 }
+

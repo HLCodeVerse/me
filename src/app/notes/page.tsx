@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
+import FormattedAIResponse from '@/components/common/FormattedAIResponse'
 import { Plus, StickyNote, Pin, Search, Loader2, X, Brain, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Note } from '@/lib/supabase/database.types'
@@ -299,12 +300,7 @@ export default function NotesPage() {
               </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }}>
-              <pre style={{
-                whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 14,
-                lineHeight: 1.8, color: 'var(--text-primary)'
-              }}>
-                {selectedNote.content}
-              </pre>
+              <FormattedAIResponse content={selectedNote.content} />
             </div>
           </div>
         </>

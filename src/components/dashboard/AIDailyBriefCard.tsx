@@ -1,6 +1,7 @@
 'use client'
 
 import { Sparkles, Loader2 } from 'lucide-react'
+import FormattedAIResponse from '@/components/common/FormattedAIResponse'
 
 interface AIDailyBriefCardProps {
   summary?: string | null
@@ -23,14 +24,15 @@ export default function AIDailyBriefCard({
             width: 32,
             height: 32,
             borderRadius: 8,
-            background: 'rgba(124, 58, 237, 0.1)',
+            background: 'rgba(245, 158, 11, 0.15)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
           }}>
-            <Sparkles size={18} color="#7C3AED" />
+            <Sparkles size={18} color="#FFD700" />
           </div>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
             AI Daily Brief
           </h3>
         </div>
@@ -56,22 +58,21 @@ export default function AIDailyBriefCard({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-        <p style={{ flex: 1, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-          {defaultSummary}
-        </p>
+        <FormattedAIResponse content={defaultSummary} style={{ flex: 1 }} />
 
         {/* Small AI Assistant Vector Illustration */}
         <div className="hidden sm:block" style={{ flexShrink: 0 }}>
           <svg width="60" height="60" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" rx="20" fill="#F1F4F9" />
-            <circle cx="50" cy="40" r="18" fill="#7C3AED" />
-            <circle cx="44" cy="38" r="3" fill="white" />
-            <circle cx="56" cy="38" r="3" fill="white" />
-            <path d="M44 46C46 48 54 48 56 46" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            <rect x="30" y="64" width="40" height="20" rx="6" fill="#3B82F6" />
+            <rect width="100" height="100" rx="20" fill="#121318" stroke="rgba(245, 158, 11, 0.3)" />
+            <circle cx="50" cy="40" r="18" fill="#F59E0B" />
+            <circle cx="44" cy="38" r="3" fill="black" />
+            <circle cx="56" cy="38" r="3" fill="black" />
+            <path d="M44 46C46 48 54 48 56 46" stroke="black" strokeWidth="2" strokeLinecap="round" />
+            <rect x="30" y="64" width="40" height="20" rx="6" fill="#10B981" />
           </svg>
         </div>
       </div>
     </div>
   )
 }
+

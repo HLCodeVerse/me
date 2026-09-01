@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
+import FormattedAIResponse from '@/components/common/FormattedAIResponse'
 import { ChevronRight, Play, CheckCircle2, GraduationCap, BookOpen, Brain, Sparkles, Loader2, ArrowLeft, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Course, Lesson, LessonProgress } from '@/lib/supabase/database.types'
@@ -339,9 +340,7 @@ export default function LearnPage() {
                   <Sparkles size={14} color="#7C3AED" />
                   <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase' }}>AI Tutor Insights</span>
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                  {aiSummary}
-                </div>
+                <FormattedAIResponse content={aiSummary} />
               </div>
             )}
 

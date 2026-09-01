@@ -53,6 +53,8 @@ const ACTION_LABELS: Record<string, string> = {
   plan_my_day: '📅 Day plan loaded',
 }
 
+import FormattedAIResponse from '@/components/common/FormattedAIResponse'
+
 // Typewriter Response Component for Smooth AI Typing Animation Effect
 function TypewriterResponse({ text }: { text: string }) {
   const [displayedText, setDisplayedText] = useState('')
@@ -78,112 +80,19 @@ function TypewriterResponse({ text }: { text: string }) {
   }, [text, displayedText])
 
   return (
-    <span>
-      {renderStylishContent(displayedText)}
-      {displayedText.length < text.length && (
-        <span style={{ color: '#06B6D4', fontWeight: 800 }} className="animate-pulse">|</span>
-      )}
-    </span>
-  )
-}
-
-function parseBoldText(text: string): string {
-  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-}
-
-// Stylish Markdown parser for headers, bold text, bullet lists, and artifacts
-function renderStylishContent(content: string) {
-  const artifactRegex = /<<<ARTIFACT:(.*?):(.*?)\>>>([\s\S]*?)<<<END_ARTIFACT\>>>/g
-  const parts = []
-  let lastIndex = 0
-  let match
-
-  while ((match = artifactRegex.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ type: 'text', text: content.substring(lastIndex, match.index) })
-    }
-    parts.push({
-      type: 'artifact',
-      title: match[1].trim(),
-      artifactType: match[2].trim(),
-      body: match[3].trim()
-    })
-    lastIndex = artifactRegex.lastIndex
-  }
-  if (lastIndex < content.length) {
-    parts.push({ type: 'text', text: content.substring(lastIndex) })
-  }
-
-  return (
     <div>
-      {parts.map((p, idx) => {
-        if (p.type === 'text') {
-          const lines = (p.text || '').split('\n')
-          return (
-            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {lines.map((line, lIdx) => {
-                const trimmed = line.trim()
-                if (!trimmed) return <div key={lIdx} style={{ height: 4 }} />
-
-                if (trimmed.startsWith('## ') || trimmed.startsWith('### ')) {
-                  const headerText = trimmed.replace(/^###?\s*/, '')
-                  return (
-                    <h3 key={lIdx} style={{
-                      fontSize: 15, fontWeight: 800, color: 'var(--text)',
-                      margin: '8px 0 2px', letterSpacing: '-0.01em',
-                    }}>
-                      {headerText}
-                    </h3>
-                  )
-                }
-
-                if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                  const bulletText = trimmed.replace(/^[-*]\s*/, '')
-                  return (
-                    <div key={lIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, paddingLeft: 2 }}>
-                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#F59E0B', marginTop: 7, flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontSize: 13.5, color: 'var(--text)', lineHeight: 1.55 }}
-                            dangerouslySetInnerHTML={{ __html: parseBoldText(bulletText) }} />
-                    </div>
-                  )
-                }
-
-                return (
-                  <p key={lIdx} style={{ fontSize: 13.5, color: 'var(--text)', lineHeight: 1.55, margin: 0 }}
-                     dangerouslySetInnerHTML={{ __html: parseBoldText(line) }} />
-                )
-              })}
-            </div>
-          )
-        }
-
-        return (
-          <div key={idx} style={{
-            margin: '12px 0', padding: '12px 14px', borderRadius: 'var(--radius-sm)',
-            background: 'rgba(245,158,11,0.08)', backdropFilter: 'blur(16px)', border: '1px solid rgba(245,158,11,0.3)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Sparkles size={14} color="#F59E0B" />
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#FFF' }}>{p.title || 'Artifact'}</span>
-              </div>
-              <button onClick={() => { navigator.clipboard.writeText(p.body || ''); toast.success('Copied artifact!') }} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 11, cursor: 'pointer', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Copy size={11} /> Copy
-              </button>
-            </div>
-            <pre style={{
-              background: 'rgba(10,11,13,0.95)', padding: '10px 12px', borderRadius: 'var(--radius-sm)',
-              fontSize: 11.5, fontFamily: 'Consolas, Monaco, monospace', color: '#E2E8F0', margin: 0,
-              maxHeight: 260, overflowY: 'auto', lineHeight: 1.5, border: '1px solid rgba(255,255,255,0.08)'
-            }}>
-              {p.body}
-            </pre>
-          </div>
-        )
-      })}
+      <FormattedAIResponse content={displayedText} />
+      {displayedText.length < text.length && (
+        <span style={{ color: '#F59E0B', fontWeight: 800 }} className="animate-pulse">|</span>
+      )}
     </div>
   )
 }
+
+function renderStylishContent(content: string) {
+  return <FormattedAIResponse content={content} />
+}
+
 
 export default function AIPage() {
   const { user } = useAuth()
