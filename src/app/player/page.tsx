@@ -61,6 +61,26 @@ export default function PlayerPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const currentTrack = tracks[currentTrackIndex]
 
+  // Auto-discover Native Device Audio files via Android JavascriptInterface bridge
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any
+    if (win.AndroidNativeAudio && typeof win.AndroidNativeAudio.getDeviceMusic === 'function') {
+      try {
+        const rawJson = win.AndroidNativeAudio.getDeviceMusic()
+        if (rawJson) {
+          const parsedTracks = JSON.parse(rawJson) as MediaTrack[]
+          if (Array.isArray(parsedTracks) && parsedTracks.length > 0) {
+            addTracks(parsedTracks)
+            toast.success(`Discovered ${parsedTracks.length} local audio track(s) from device storage! 🎵`)
+          }
+        }
+      } catch (err) {
+        console.warn('Native device music scan exception:', err)
+      }
+    }
+  }, [addTracks])
+
   // Dynamic Audio Visualizer Animation Loop
   useEffect(() => {
     if (!canvasRef.current || !isPlaying) return
