@@ -67,7 +67,7 @@ export default function AIVoiceTalkBar({
         setLastResponse(reply)
         toast.success('Action performed!')
 
-        // Trigger Mistral TTS Auto-Speech if sound is enabled
+        // Trigger TTS Auto-Speech if sound is enabled
         if (soundEnabled) {
           setIsSpeaking(true)
           speakText(cleanTextForSpeech(reply), () => {
@@ -137,15 +137,15 @@ export default function AIVoiceTalkBar({
   return (
     <div
       style={{
-        background: 'linear-gradient(135deg, #121318 0%, #1A1C24 100%)',
-        border: isListening ? '1.5px solid #10B981' : isSpeaking ? '1.5px solid #3B82F6' : '1px solid #F59E0B',
+        background: 'linear-gradient(135deg, #0D0E12 0%, #14161D 100%)',
+        border: isListening ? '1.5.px solid #10B981' : isSpeaking ? '1.5px solid #06B6D4' : '1px solid rgba(6, 182, 212, 0.3)',
         borderRadius: 20,
         padding: '18px 20px',
         boxShadow: isListening
           ? '0 0 25px rgba(16, 185, 129, 0.4)'
           : isSpeaking
-          ? '0 0 25px rgba(59, 130, 246, 0.4)'
-          : '0 12px 36px rgba(245, 158, 11, 0.25)',
+          ? '0 0 25px rgba(6, 182, 212, 0.4)'
+          : '0 12px 36px rgba(0, 0, 0, 0.5)',
         display: 'flex',
         flexDirection: 'column',
         gap: 12,
@@ -163,29 +163,29 @@ export default function AIVoiceTalkBar({
               background: isListening
                 ? 'linear-gradient(135deg, #10B981, #059669)'
                 : isSpeaking
-                ? 'linear-gradient(135deg, #3B82F6, #1D4ED8)'
-                : 'linear-gradient(135deg, #FFD700, #F59E0B)',
+                ? 'linear-gradient(135deg, #06B6D4, #0284C7)'
+                : 'linear-gradient(135deg, #06B6D4, #10B981)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#000000',
+              color: '#FFFFFF',
             }}
           >
             {isListening ? (
               <Radio size={18} color="#FFFFFF" className="animate-pulse" />
             ) : (
-              <Sparkles size={18} color="#000000" />
+              <Sparkles size={18} color="#FFFFFF" />
             )}
           </div>
           <div>
             <h3 style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-              NIRMAAN Real-Time Voice Talk & Mistral Audio TTS <Sparkles size={14} color="#FFD700" />
+              NIRMAAN Real-Time Voice Talk <Sparkles size={14} color="#06B6D4" />
             </h3>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
               {isListening
                 ? '🔴 Live Listening Active — Speak your command...'
                 : isSpeaking
-                ? '🔊 Mistral Audio TTS Speaking Reply Aloud...'
+                ? '🔊 Audio TTS Speaking Reply Aloud...'
                 : 'Speak live action commands or type prompts'}
             </span>
           </div>
@@ -195,12 +195,12 @@ export default function AIVoiceTalkBar({
         <button
           onClick={() => {
             setSoundEnabled(!soundEnabled)
-            toast.info(soundEnabled ? 'Mistral Audio TTS Muted' : 'Mistral Audio TTS Enabled')
+            toast.info(soundEnabled ? 'Audio TTS Muted' : 'Audio TTS Enabled')
           }}
           style={{
             background: 'none',
             border: 'none',
-            color: soundEnabled ? '#FFD700' : '#6B7280',
+            color: soundEnabled ? '#06B6D4' : '#64748B',
             cursor: 'pointer',
             padding: 4,
           }}
@@ -220,8 +220,8 @@ export default function AIVoiceTalkBar({
           style={{
             flex: 1,
             height: 44,
-            background: '#0A0B0D',
-            border: isListening ? '1px solid #10B981' : '1px solid rgba(245, 158, 11, 0.4)',
+            background: '#050505',
+            border: isListening ? '1px solid #10B981' : '1px solid rgba(6, 182, 212, 0.4)',
             borderRadius: 12,
             color: '#FFFFFF',
             fontSize: 13,
@@ -267,10 +267,10 @@ export default function AIVoiceTalkBar({
 
       {/* Response Box & TTS Playback Controls */}
       {lastResponse && (
-        <div style={{ background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.3)', padding: 14, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ background: '#050505', border: '1px solid rgba(6, 182, 212, 0.3)', padding: 14, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#FFD700', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Volume2 size={14} color="#FFD700" /> AI REPLY (MISTRAL AUDIO TTS):
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#06B6D4', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Volume2 size={14} color="#06B6D4" /> AI REPLY (AUDIO TTS):
             </span>
             <button
               onClick={() => {
@@ -278,9 +278,9 @@ export default function AIVoiceTalkBar({
                 speakText(cleanTextForSpeech(lastResponse), () => setIsSpeaking(false))
               }}
               style={{
-                background: 'rgba(255, 215, 0, 0.15)',
-                border: '1px solid rgba(255, 215, 0, 0.3)',
-                color: '#FFD700',
+                background: 'rgba(6, 182, 212, 0.15)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+                color: '#06B6D4',
                 fontSize: 11,
                 fontWeight: 700,
                 padding: '3px 10px',

@@ -82,7 +82,7 @@ export default function ActivityHeatmapGrid({
     return days
   }, [tasks, todos, habitLogs, daysCount])
 
-  // Get color for activity intensity level
+  // Get color for activity intensity level (Strict Green/Cyan/Black palette)
   function getTileColor(intensity: 0 | 1 | 2 | 3 | 4) {
     switch (intensity) {
       case 4:
@@ -94,7 +94,7 @@ export default function ActivityHeatmapGrid({
       case 1:
         return { bg: '#065F46', border: '#047857', shadow: 'none' }
       default:
-        return { bg: '#121318', border: 'rgba(255, 255, 255, 0.06)', shadow: 'none' }
+        return { bg: 'var(--surface-2)', border: 'var(--border)', shadow: 'none' }
     }
   }
 
@@ -104,7 +104,7 @@ export default function ActivityHeatmapGrid({
   return (
     <div
       style={{
-        background: '#0A0B0D',
+        background: 'var(--surface)',
         border: '1px solid rgba(16, 185, 129, 0.3)',
         borderRadius: 22,
         padding: 20,
@@ -132,10 +132,10 @@ export default function ActivityHeatmapGrid({
             <Flame size={18} />
           </div>
           <div>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.01em' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>
               Daily Consistency & Activeness Heatmap
             </h3>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
               Completed task, todo & habit intensity over the past 35 days
             </span>
           </div>
@@ -145,7 +145,7 @@ export default function ActivityHeatmapGrid({
           <span style={{ fontSize: 12, fontWeight: 800, color: '#10B981' }}>
             {activeDaysCount} Active Days
           </span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>
             {totalCompletedItems} Items Done
           </span>
         </div>
@@ -157,10 +157,10 @@ export default function ActivityHeatmapGrid({
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(34px, 1fr))',
           gap: 6,
-          background: '#121318',
+          background: 'var(--surface-2)',
           padding: 14,
           borderRadius: 14,
-          border: '1px solid rgba(255, 255, 255, 0.06)',
+          border: '1px solid var(--border)',
         }}
       >
         {activityData.map(d => {
@@ -175,7 +175,7 @@ export default function ActivityHeatmapGrid({
                 height: 34,
                 borderRadius: 8,
                 background: tileStyle.bg,
-                border: isToday ? '1.5px solid #FFD700' : `1px solid ${tileStyle.border}`,
+                border: isToday ? '1.5px solid #06B6D4' : `1px solid ${tileStyle.border}`,
                 boxShadow: tileStyle.shadow,
                 display: 'flex',
                 flexDirection: 'column',
@@ -192,7 +192,7 @@ export default function ActivityHeatmapGrid({
                 style={{
                   fontSize: 10,
                   fontWeight: 800,
-                  color: d.intensity > 0 ? '#FFFFFF' : '#6B7280',
+                  color: d.intensity > 0 ? '#FFFFFF' : 'var(--text-muted)',
                 }}
               >
                 {d.dayNum}
@@ -208,7 +208,7 @@ export default function ActivityHeatmapGrid({
       </div>
 
       {/* Heatmap Legend */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, fontSize: 11, color: '#9CA3AF' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, fontSize: 11, color: 'var(--text-muted)' }}>
         <span>Less</span>
         {([0, 1, 2, 3, 4] as const).map(lvl => {
           const s = getTileColor(lvl)

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { stripMarkdown } from '@/lib/utils'
-import type { Todo } from '@/lib/supabase/database.types'
+import type { Task } from '@/lib/supabase/database.types'
 import { createTodoistTask } from '@/lib/todoist'
 
 type FilterTab = 'all' | 'pending' | 'done'
@@ -18,7 +18,7 @@ type FilterTab = 'all' | 'pending' | 'done'
 export default function TodosPage() {
   const { user } = useAuth()
   const supabase = createClient()
-  const [todos, setTodos] = useState<Todo[]>([])
+  const [todos, setTodos] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [inputVal, setInputVal] = useState('')
   const [dueDate, setDueDate] = useState('')
@@ -38,9 +38,10 @@ export default function TodosPage() {
     }
     try {
       const { data } = await supabase
-        .from('todos')
+        .from('tasks')
         .select('*')
         .eq('user_id', user.id)
+        .eq('category', 'todo')
         .order('created_at', { ascending: false })
       setTodos(data ?? [])
     } catch {
@@ -59,21 +60,21 @@ export default function TodosPage() {
     const cleanTitle = stripMarkdown(inputVal.trim())
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from('todos') as any).insert({
+    const { data, error } = await (supabase.from('tasks') as any).insert({
       user_id: user.id,
       title: cleanTitle,
-      is_done: false,
-      due_date: dueDate || null,
+      category: 'todo',
+      status: 'todo',
+      due_date: dueDate ? new Date(dueDate).toISOString() : null,
     }).select().single()
 
     if (error) { toast.error('Failed to add todo'); setSaving(false); return }
     createTodoistTask(cleanTitle, undefined, dueDate).catch(() => {})
     setTodos(prev => [data, ...prev])
     setInputVal('')
-    toast.success('Todo added & synced to Todoist!')
     setDueDate('')
     setSaving(false)
-    toast.success('Todo added!')
+    toast.success('Todo added & synced!')
     inputRef.current?.focus()
   }
 
@@ -88,10 +89,11 @@ export default function TodosPage() {
     try {
       for (const line of lines) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data } = await (supabase.from('todos') as any).insert({
+        const { data } = await (supabase.from('tasks') as any).insert({
           user_id: user.id,
           title: line,
-          is_done: false,
+          category: 'todo',
+          status: 'todo',
         }).select().single()
 
         if (data) setTodos(prev => [data, ...prev])
@@ -107,42 +109,50 @@ export default function TodosPage() {
     }
   }
 
-  async function toggleTodoStatus(todo: Todo) {
+  async function toggleTodoStatus(todo: Task) {
     setCompleting(todo.id)
-    const newStatus = !todo.is_done
+    const newStatus = todo.status === 'done' ? 'todo' : 'done'
+    const today = new Date().toISOString().split('T')[0]
+    const completedDates = (todo.completed_dates as Record<string, boolean>) || {}
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('todos') as any).update({ is_done: newStatus }).eq('id', todo.id)
-    setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, is_done: newStatus } : t))
+    await (supabase.from('tasks') as any).update({
+      status: newStatus,
+      completed_at: newStatus === 'done' ? new Date().toISOString() : null,
+      completed_dates: { ...completedDates, [today]: newStatus === 'done' }
+    }).eq('id', todo.id)
+
+    setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, status: newStatus } : t))
     setCompleting(null)
-    toast.success(newStatus ? 'Todo completed! 🎉' : 'Todo reopened')
+    toast.success(newStatus === 'done' ? 'Todo completed! 🎉' : 'Todo reopened')
   }
 
   async function deleteTodo(id: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('todos') as any).delete().eq('id', id)
+    await (supabase.from('tasks') as any).delete().eq('id', id)
     setTodos(prev => prev.filter(t => t.id !== id))
     toast.success('Todo removed')
   }
 
   async function clearCompleted() {
     if (!user) return
-    const doneIds = todos.filter(t => t.is_done).map(t => t.id)
+    const doneIds = todos.filter(t => t.status === 'done').map(t => t.id)
     if (doneIds.length === 0) return
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('todos') as any).delete().in('id', doneIds)
-    setTodos(prev => prev.filter(t => !t.is_done))
+    await (supabase.from('tasks') as any).delete().in('id', doneIds)
+    setTodos(prev => prev.filter(t => t.status !== 'done'))
     toast.success(`Cleared ${doneIds.length} completed todos!`)
   }
 
   async function markAllComplete() {
     if (!user) return
-    const pendingIds = todos.filter(t => !t.is_done).map(t => t.id)
+    const pendingIds = todos.filter(t => t.status !== 'done').map(t => t.id)
     if (pendingIds.length === 0) return
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('todos') as any).update({ is_done: true }).in('id', pendingIds)
-    setTodos(prev => prev.map(t => ({ ...t, is_done: true })))
+    await (supabase.from('tasks') as any).update({ status: 'done', completed_at: new Date().toISOString() }).in('id', pendingIds)
+    setTodos(prev => prev.map(t => ({ ...t, status: 'done' })))
     toast.success('All todos marked complete!')
   }
 
@@ -151,7 +161,7 @@ export default function TodosPage() {
     if (!user) return
     const promptToUse = aiPrompt.trim() || 'Generate 3 high-impact daily todos for focus'
     setAiGenerating(true)
-    toast.info('AI is executing your todo prompt...')
+    toast.info('AI is generating todos...')
 
     try {
       const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
@@ -170,11 +180,6 @@ export default function TodosPage() {
       })
 
       if (!res.ok) throw new Error('AI generation failed')
-
-      const actionsHeader = res.headers.get('X-Actions')
-      if (actionsHeader) {
-        toast.success(`AI Executed Actions: ${actionsHeader}`, { icon: '⚡' })
-      }
 
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
@@ -201,16 +206,17 @@ export default function TodosPage() {
       const titles = generatedText.split('\n').map(s => stripMarkdown(s)).filter(s => s.length > 2)
       for (const t of titles.slice(0, 3)) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data } = await (supabase.from('todos') as any).insert({
+        const { data } = await (supabase.from('tasks') as any).insert({
           user_id: user.id,
           title: t,
-          is_done: false
+          category: 'todo',
+          status: 'todo'
         }).select().single()
         if (data) setTodos(prev => [data, ...prev])
       }
 
       setAiPrompt('')
-      toast.success('AI Todos synchronized!')
+      toast.success('AI Todos created!')
       fetchTodos()
     } catch {
       toast.error('Could not generate AI todos')
@@ -219,13 +225,13 @@ export default function TodosPage() {
     }
   }
 
-  const pending = todos.filter(t => !t.is_done)
-  const done = todos.filter(t => t.is_done)
+  const pending = todos.filter(t => t.status !== 'done')
+  const done = todos.filter(t => t.status === 'done')
   const completionRate = todos.length > 0 ? Math.round((done.length / todos.length) * 100) : 0
 
   const filteredTodos = todos.filter(t => {
-    if (filter === 'pending') return !t.is_done
-    if (filter === 'done') return t.is_done
+    if (filter === 'pending') return t.status !== 'done'
+    if (filter === 'done') return t.status === 'done'
     return true
   })
 
@@ -234,24 +240,24 @@ export default function TodosPage() {
       header={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <CheckSquare size={20} color="#3B82F6" />
+            <CheckSquare size={20} color="#06B6D4" />
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Quick Todos</h1>
           </div>
           <button
             onClick={() => setBatchMode(!batchMode)}
             className="btn btn-secondary"
-            style={{ padding: '6px 12px', fontSize: 12, display: 'flex', gap: 6 }}
+            style={{ padding: '6px 12px', fontSize: 12, display: 'flex', gap: 6, color: '#06B6D4', borderColor: 'rgba(6,182,212,0.3)' }}
           >
-            <ListPlus size={14} color="#3B82F6" /> {batchMode ? 'Single Add' : 'Batch Import'}
+            <ListPlus size={14} color="#06B6D4" /> {batchMode ? 'Single Add' : 'Batch Import'}
           </button>
         </div>
       }
     >
       <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* AI Custom Prompt Bar */}
+        {/* AI Prompt Bar */}
         <form onSubmit={handleAITodoGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
-          <Sparkles size={18} color="#3B82F6" style={{ flexShrink: 0 }} />
+          <Sparkles size={18} color="#06B6D4" style={{ flexShrink: 0 }} />
           <input
             className="glow-input"
             placeholder="Tell AI to generate todos (e.g., '3 quick tasks to prepare for meeting')..."
@@ -283,11 +289,11 @@ export default function TodosPage() {
             </span>
           </div>
           <div style={{ height: 6, background: 'var(--surface-2)', borderRadius: 99, overflow: 'hidden' }}>
-            <div style={{ width: `${completionRate}%`, background: '#3B82F6', height: '100%', borderRadius: 99, transition: 'width 400ms ease' }} />
+            <div style={{ width: `${completionRate}%`, background: '#06B6D4', height: '100%', borderRadius: 99, transition: 'width 400ms ease' }} />
           </div>
         </div>
 
-        {/* Add Form (Single or Batch Mode) */}
+        {/* Add Form */}
         {!batchMode ? (
           <form onSubmit={addTodo}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -318,11 +324,10 @@ export default function TodosPage() {
             </div>
           </form>
         ) : (
-          /* Todoist Batch Import Box */
           <form onSubmit={handleBatchAdd} className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Layers size={16} color="#3B82F6" />
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Batch Todoist Import</span>
+              <Layers size={16} color="#06B6D4" />
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Batch Todo Import</span>
             </div>
             <textarea
               className="glow-input"
@@ -343,7 +348,7 @@ export default function TodosPage() {
           </form>
         )}
 
-        {/* Filter Tabs & Batch Actions */}
+        {/* Filter Tabs */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
           <div style={{ display: 'flex', gap: 6 }}>
             {(['all', 'pending', 'done'] as FilterTab[]).map(t => (
@@ -353,7 +358,7 @@ export default function TodosPage() {
                 style={{
                   padding: '5px 12px', borderRadius: 99, border: 'none', cursor: 'pointer',
                   fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
-                  background: filter === t ? '#3B82F6' : 'var(--surface-2)',
+                  background: filter === t ? '#06B6D4' : 'var(--surface-2)',
                   color: filter === t ? '#FFFFFF' : 'var(--text-secondary)',
                   transition: 'all 150ms ease',
                 }}
@@ -389,59 +394,62 @@ export default function TodosPage() {
             [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 50, borderRadius: 'var(--radius-btn)', marginBottom: 8 }} />)
           ) : filteredTodos.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <Sparkles size={24} color="#3B82F6" />
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(6,182,212,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <Sparkles size={24} color="#06B6D4" />
               </div>
               <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', margin: 0 }}>No todos found</p>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Add a todo item or use AI prompt bar above!</p>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Add a todo item above!</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {filteredTodos.map(todo => (
-                <div
-                  key={todo.id}
-                  className="card"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 14px', background: todo.is_done ? 'var(--surface-2)' : 'var(--surface)',
-                    opacity: todo.is_done ? 0.6 : 1,
-                  }}
-                >
-                  <button
-                    onClick={() => toggleTodoStatus(todo)}
-                    disabled={completing === todo.id}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexShrink: 0 }}
+              {filteredTodos.map(todo => {
+                const isDone = todo.status === 'done'
+                return (
+                  <div
+                    key={todo.id}
+                    className="card"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 14px', background: isDone ? 'var(--surface-2)' : 'var(--surface)',
+                      opacity: isDone ? 0.6 : 1,
+                    }}
                   >
-                    {todo.is_done ? (
-                      <CheckCircle2 size={20} color="#10B981" className="check-pop" />
-                    ) : (
-                      <Circle size={20} color="var(--text-muted)" strokeWidth={1.5} />
-                    )}
-                  </button>
+                    <button
+                      onClick={() => toggleTodoStatus(todo)}
+                      disabled={completing === todo.id}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexShrink: 0 }}
+                    >
+                      {isDone ? (
+                        <CheckCircle2 size={20} color="#10B981" className="check-pop" />
+                      ) : (
+                        <Circle size={20} color="var(--text-muted)" strokeWidth={1.5} />
+                      )}
+                    </button>
 
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{
-                      fontSize: 14, color: todo.is_done ? 'var(--text-muted)' : 'var(--text-primary)',
-                      fontWeight: 600, textDecoration: todo.is_done ? 'line-through' : 'none',
-                      display: 'block'
-                    }}>
-                      {stripMarkdown(todo.title)}
-                    </span>
-                    {todo.due_date && (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
-                        Due: {new Date(todo.due_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{
+                        fontSize: 14, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)',
+                        fontWeight: 600, textDecoration: isDone ? 'line-through' : 'none',
+                        display: 'block'
+                      }}>
+                        {stripMarkdown(todo.title)}
                       </span>
-                    )}
-                  </div>
+                      {todo.due_date && (
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
+                          Due: {new Date(todo.due_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
+                    </div>
 
-                  <button
-                    onClick={() => deleteTodo(todo.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: 'var(--text-muted)' }}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              ))}
+                    <button
+                      onClick={() => deleteTodo(todo.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: '#EF4444' }}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

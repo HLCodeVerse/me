@@ -8,22 +8,21 @@ import FormattedAIResponse from '@/components/common/FormattedAIResponse'
 import {
   BookOpen, Sparkles, Plus, Trash2, Calendar, Search, RefreshCw,
   Zap, Smile, Meh, Frown, Heart, Check, Wand2, ShieldCheck,
-  Type, Download, Copy, Clock, ArrowLeft, Save
+  Type, Download, Copy, Clock, ArrowLeft, Save, Mic, MicOff
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { JournalEntry } from '@/lib/supabase/database.types'
+import { createVoiceRecognizer } from '@/lib/speech'
 
 type FontStyle = 'sans' | 'serif' | 'mono'
 
 const MOOD_OPTIONS = [
-  { id: 'amazing', icon: Zap, color: '#FFD700', label: '😁 Amazing' },
+  { id: 'amazing', icon: Zap, color: '#06B6D4', label: '😁 Amazing' },
   { id: 'good', icon: Smile, color: '#10B981', label: '😊 Good' },
-  { id: 'meh', icon: Meh, color: '#F59E0B', label: '😐 Meh' },
-  { id: 'bad', icon: Frown, color: '#60A5FA', label: '😔 Bad' },
+  { id: 'meh', icon: Meh, color: '#94A3B8', label: '😐 Meh' },
+  { id: 'bad', icon: Frown, color: '#06B6D4', label: '😔 Bad' },
   { id: 'awful', icon: Heart, color: '#EF4444', label: '😫 Overwhelmed' },
 ]
-
-
 
 interface AIReframeSuggestions {
   growth: string
@@ -65,6 +64,10 @@ export default function JournalPage() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle')
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null)
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Voice Dictation
+  const [isRecording, setIsRecording] = useState(false)
+  const recognizerRef = useRef<any>(null)
 
   // AI Rephrase & Enhancer State
   const [generatingSuggestions, setGeneratingSuggestions] = useState(false)
@@ -172,6 +175,44 @@ export default function JournalPage() {
     triggerAutoSave(readerTitle, readerContent, m)
   }
 
+  // Toggle Voice Dictation
+  function toggleVoiceDictation() {
+    if (isRecording) {
+      recognizerRef.current?.stop()
+      setIsRecording(false)
+      toast.info('Voice recording stopped.')
+    } else {
+      const recognizer = createVoiceRecognizer({
+        onTranscript: (text, isFinal) => {
+          if (isFinal) {
+            setReaderContent(prev => {
+              const updated = (prev ? prev + ' ' : '') + text
+              triggerAutoSave(readerTitle, updated, readerMood)
+              return updated
+            })
+          }
+        },
+        onError: (err) => {
+          toast.error(`Voice input error: ${err}`)
+          setIsRecording(false)
+        },
+        onEnd: () => {
+          setIsRecording(false)
+        }
+      })
+
+      if (!recognizer.isSupported) {
+        toast.error('Voice dictation is not supported in this browser environment.')
+        return
+      }
+
+      recognizerRef.current = recognizer
+      recognizer.start()
+      setIsRecording(true)
+      toast.success('Voice dictation started... Speak clearly into your mic! 🎙️')
+    }
+  }
+
   // Generate 3 AI Reframe & Enhancement Suggestions inside Reader
   async function generateAIReframeSuggestions() {
     const textToProcess = readerContent.trim()
@@ -202,7 +243,6 @@ Respond strictly in valid JSON format with keys:
         },
         body: JSON.stringify({
           messages: [{ role: 'user', content: prompt }],
-          model: 'x-ai/grok-2-1212',
           enableTools: false,
           grokApiKey: customGrokKey,
         }),
@@ -306,10 +346,10 @@ Respond strictly in valid JSON format with keys:
               <BookOpen size={20} color="#FFFFFF" />
             </div>
             <div>
-              <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 AI Reflection Journal <ShieldCheck size={16} color="#10B981" />
               </h1>
-              <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>Minimal Book Reader, Real-Time Auto-Save & AI Smart Rephraser</p>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0 }}>Book Reader, Real-Time Auto-Save, Voice STT & AI Rephraser</p>
             </div>
           </div>
 
@@ -328,11 +368,11 @@ Respond strictly in valid JSON format with keys:
         {/* FULL-SCREEN MODERN BOOK READER & LIVE AUTO-SAVE EDITOR */}
         {activeEntry ? (
           <div style={{
-            background: '#0A0B0D',
+            background: 'var(--surface)',
             border: '1px solid #10B981',
             borderRadius: 24,
             padding: '24px 28px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.9)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
             display: 'flex',
             flexDirection: 'column',
             gap: 20,
@@ -342,16 +382,16 @@ Respond strictly in valid JSON format with keys:
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, borderBottom: '1px solid rgba(16, 185, 129, 0.2)', paddingBottom: 16 }}>
               <button
                 onClick={() => setActiveEntry(null)}
-                style={{ background: '#121318', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 10, padding: '7px 14px', color: '#10B981', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                style={{ background: 'var(--surface-2)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 10, padding: '7px 14px', color: '#10B981', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
               >
                 <ArrowLeft size={16} /> Back to Library
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                 {/* Auto-save Status Indicator */}
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: autoSaveStatus === 'saving' ? '#F59E0B' : autoSaveStatus === 'saved' ? '#10B981' : '#9CA3AF', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: autoSaveStatus === 'saving' ? '#06B6D4' : autoSaveStatus === 'saved' ? '#10B981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   {autoSaveStatus === 'saving' ? (
-                    <><RefreshCw size={13} className="animate-spin" /> Auto-saving...</>
+                    <><RefreshCw size={13} className="animate-spin" color="#06B6D4" /> Auto-saving...</>
                   ) : autoSaveStatus === 'saved' ? (
                     <><Save size={13} color="#10B981" /> Auto-saved {lastSavedTime && `at ${lastSavedTime}`}</>
                   ) : (
@@ -359,9 +399,23 @@ Respond strictly in valid JSON format with keys:
                   )}
                 </div>
 
+                {/* Voice Dictation Button */}
+                <button
+                  onClick={toggleVoiceDictation}
+                  style={{
+                    padding: '6px 12px', borderRadius: 8, border: `1px solid ${isRecording ? '#EF4444' : 'var(--border)'}`,
+                    background: isRecording ? 'rgba(239,68,68,0.15)' : 'var(--surface-2)',
+                    color: isRecording ? '#EF4444' : 'var(--text-secondary)', fontSize: 12, fontWeight: 700,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
+                  }}
+                >
+                  {isRecording ? <MicOff size={14} className="animate-pulse" /> : <Mic size={14} />}
+                  {isRecording ? 'Recording...' : 'Voice Dictate'}
+                </button>
+
                 {/* Typography Font Selector */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#121318', padding: 4, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <Type size={14} color="#9CA3AF" style={{ margin: '0 4px' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--surface-2)', padding: 4, borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <Type size={14} color="var(--text-muted)" style={{ margin: '0 4px' }} />
                   {[
                     { id: 'sans', label: 'Sans' },
                     { id: 'serif', label: 'Serif' },
@@ -375,7 +429,7 @@ Respond strictly in valid JSON format with keys:
                         borderRadius: 6,
                         border: 'none',
                         background: fontStyle === f.id ? '#10B981' : 'transparent',
-                        color: fontStyle === f.id ? '#000000' : '#FFFFFF',
+                        color: fontStyle === f.id ? '#FFFFFF' : 'var(--text-secondary)',
                         fontSize: 11,
                         fontWeight: 700,
                         cursor: 'pointer',
@@ -387,10 +441,10 @@ Respond strictly in valid JSON format with keys:
                 </div>
 
                 {/* Export Buttons */}
-                <button onClick={copyToClipboard} style={{ background: '#121318', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: 6, color: '#9CA3AF', cursor: 'pointer' }} title="Copy entry text">
+                <button onClick={copyToClipboard} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: 6, color: 'var(--text-muted)', cursor: 'pointer' }} title="Copy entry text">
                   <Copy size={16} />
                 </button>
-                <button onClick={exportAsMarkdown} style={{ background: '#121318', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: 6, color: '#9CA3AF', cursor: 'pointer' }} title="Export as Markdown">
+                <button onClick={exportAsMarkdown} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: 6, color: 'var(--text-muted)', cursor: 'pointer' }} title="Export as Markdown">
                   <Download size={16} />
                 </button>
               </div>
@@ -402,7 +456,7 @@ Respond strictly in valid JSON format with keys:
                 <span className="badge badge-success">
                   Mood: {readerMood}
                 </span>
-                <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Clock size={13} color="#10B981" /> {wordCount} words • {readTimeMins} min read
                 </span>
               </div>
@@ -416,9 +470,9 @@ Respond strictly in valid JSON format with keys:
                     style={{
                       padding: '4px 8px',
                       borderRadius: 8,
-                      border: `1px solid ${readerMood === m.id ? m.color : 'rgba(255,255,255,0.1)'}`,
-                      background: readerMood === m.id ? `${m.color}25` : '#121318',
-                      color: readerMood === m.id ? m.color : '#9CA3AF',
+                      border: `1px solid ${readerMood === m.id ? m.color : 'var(--border)'}`,
+                      background: readerMood === m.id ? `${m.color}25` : 'var(--surface-2)',
+                      color: readerMood === m.id ? m.color : 'var(--text-secondary)',
                       fontSize: 11,
                       fontWeight: 700,
                       cursor: 'pointer',
@@ -440,7 +494,7 @@ Respond strictly in valid JSON format with keys:
                 width: '100%',
                 fontSize: 24,
                 fontWeight: 900,
-                color: '#FFFFFF',
+                color: 'var(--text-primary)',
                 background: 'transparent',
                 border: 'none',
                 outline: 'none',
@@ -449,29 +503,29 @@ Respond strictly in valid JSON format with keys:
             />
 
             {/* AI Reframe Bar inside Reader */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121318', padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(255, 215, 0, 0.3)' }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#FFD700', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Sparkles size={16} color="#FFD700" /> AI REFRAME ENGINE:
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-2)', padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(6, 182, 212, 0.3)' }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#06B6D4', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Sparkles size={16} color="#06B6D4" /> AI REFRAME ENGINE:
               </span>
               <button
                 onClick={generateAIReframeSuggestions}
                 disabled={generatingSuggestions}
                 className="btn btn-secondary"
-                style={{ padding: '6px 12px', fontSize: 11.5, color: '#FFD700', border: '1px solid rgba(255, 215, 0, 0.4)' }}
+                style={{ padding: '6px 12px', fontSize: 11.5, color: '#06B6D4', border: '1px solid rgba(6, 182, 212, 0.4)' }}
               >
-                {generatingSuggestions ? <RefreshCw size={13} className="animate-spin" /> : <Wand2 size={13} color="#FFD700" />}
+                {generatingSuggestions ? <RefreshCw size={13} className="animate-spin" /> : <Wand2 size={13} color="#06B6D4" />}
                 <span>{generatingSuggestions ? 'Rephrasing...' : 'Generate 3 AI Reframes'}</span>
               </button>
             </div>
 
             {/* AI 3-Reframe Suggestions Cards Display */}
             {reframeSuggestions && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, background: '#121318', padding: 14, borderRadius: 16, border: '1px solid #FFD700' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, background: 'var(--surface-2)', padding: 14, borderRadius: 16, border: '1px solid #06B6D4' }}>
                 {/* Option 1: Stoic Growth */}
-                <div style={{ background: '#0A0B0D', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div style={{ background: 'var(--surface)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 800, color: '#10B981', marginBottom: 4 }}>🌟 STOIC GROWTH REFRAME</div>
-                    <div style={{ fontSize: 12, color: '#FFFFFF', lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5 }}>
                       {formatValueAsString(reframeSuggestions.growth)}
                     </div>
                   </div>
@@ -486,10 +540,10 @@ Respond strictly in valid JSON format with keys:
                 </div>
 
                 {/* Option 2: Mindful Reflection */}
-                <div style={{ background: '#0A0B0D', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div style={{ background: 'var(--surface)', border: '1px solid rgba(6, 182, 212, 0.4)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: '#3B82F6', marginBottom: 4 }}>🧘 MINDFUL REFLECTION</div>
-                    <div style={{ fontSize: 12, color: '#FFFFFF', lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#06B6D4', marginBottom: 4 }}>🧘 MINDFUL REFLECTION</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5 }}>
                       {formatValueAsString(reframeSuggestions.mindful)}
                     </div>
                   </div>
@@ -499,15 +553,15 @@ Respond strictly in valid JSON format with keys:
                     className="btn btn-secondary"
                     style={{ marginTop: 10, fontSize: 11, padding: '4px 8px', alignSelf: 'flex-start' }}
                   >
-                    <Check size={13} color="#3B82F6" /> Apply & Save
+                    <Check size={13} color="#06B6D4" /> Apply & Save
                   </button>
                 </div>
 
                 {/* Option 3: Bullet Summary */}
-                <div style={{ background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div style={{ background: 'var(--surface)', border: '1px solid rgba(255, 255, 255, 0.3)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: '#F59E0B', marginBottom: 4 }}>⚡ BULLET SUMMARY</div>
-                    <div style={{ fontSize: 12, color: '#FFFFFF', lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#FFFFFF', marginBottom: 4 }}>⚡ BULLET SUMMARY</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5 }}>
                       {formatValueAsString(reframeSuggestions.bullet)}
                     </div>
                   </div>
@@ -517,13 +571,13 @@ Respond strictly in valid JSON format with keys:
                     className="btn btn-secondary"
                     style={{ marginTop: 10, fontSize: 11, padding: '4px 8px', alignSelf: 'flex-start' }}
                   >
-                    <Check size={13} color="#F59E0B" /> Apply & Save
+                    <Check size={13} color="#FFFFFF" /> Apply & Save
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Main Content Editable Textarea (Auto-Saves as you type!) */}
+            {/* Main Content Editable Textarea */}
             <textarea
               placeholder="Start writing your journal reflection... (Auto-saves continuously in real-time)"
               value={readerContent}
@@ -531,10 +585,10 @@ Respond strictly in valid JSON format with keys:
               rows={12}
               style={{
                 width: '100%',
-                background: '#121318',
+                background: 'var(--surface-2)',
                 border: '1px solid rgba(16, 185, 129, 0.3)',
                 borderRadius: 16,
-                color: '#FFFFFF',
+                color: 'var(--text-primary)',
                 padding: 18,
                 fontSize: 14.5,
                 lineHeight: 1.7,
@@ -546,11 +600,11 @@ Respond strictly in valid JSON format with keys:
 
             {/* AI Reflection Insights attached to active entry */}
             {activeEntry.ai_reflection && (
-              <div style={{ background: '#121318', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: 14, padding: 14, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <Sparkles size={18} color="#FFD700" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div style={{ background: 'var(--surface-2)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: 14, padding: 14, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <Sparkles size={18} color="#06B6D4" style={{ flexShrink: 0, marginTop: 2 }} />
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: '#FFD700', marginBottom: 2 }}>AI PSYCHOLOGICAL REFLECTION</div>
-                  <div style={{ fontSize: 12.5, color: '#E5E7EB', lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#06B6D4', marginBottom: 2 }}>AI PSYCHOLOGICAL REFLECTION</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.5 }}>
                     <FormattedAIResponse content={formatValueAsString(activeEntry.ai_reflection)} />
                   </div>
                 </div>
@@ -568,26 +622,26 @@ Respond strictly in valid JSON format with keys:
                   placeholder="Search past journal reflections, moods, or titles..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  style={{ width: '100%', height: 42, paddingLeft: 42, paddingRight: 14, background: '#121318', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 12, color: '#FFFFFF', fontSize: 13, outline: 'none' }}
+                  style={{ width: '100%', height: 42, paddingLeft: 42, paddingRight: 14, background: 'var(--surface)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 12, color: 'var(--text-primary)', fontSize: 13, outline: 'none' }}
                 />
               </div>
 
-              <div style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 700 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
                 Journal Library: <span style={{ color: '#10B981' }}>{entries.length} Pages</span>
               </div>
             </div>
 
             {/* Journal Entries Grid */}
             {loading ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9CA3AF' }}>
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
                 <RefreshCw size={32} color="#10B981" className="animate-spin" style={{ margin: '0 auto 12px' }} />
-                <p style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>Loading journal pages...</p>
+                <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Loading journal pages...</p>
               </div>
             ) : filteredEntries.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', background: '#0A0B0D', borderRadius: 20, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+              <div style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--surface)', borderRadius: 20, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
                 <BookOpen size={40} color="#10B981" style={{ margin: '0 auto 12px' }} />
-                <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: '0 0 4px' }}>No journal pages found</h3>
-                <p style={{ fontSize: 13, color: '#9CA3AF', margin: '0 0 16px' }}>Click &quot;New Journal Page&quot; above to open your blank editor.</p>
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>No journal pages found</h3>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>Click &quot;New Journal Page&quot; above to open your blank editor.</p>
                 <button onClick={handleCreateNewBlankEntry} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 13 }}>
                   <Plus size={16} /> Open Blank Journal Page
                 </button>
@@ -603,7 +657,7 @@ Respond strictly in valid JSON format with keys:
                       key={entry.id}
                       onClick={() => openReader(entry)}
                       style={{
-                        background: '#0A0B0D',
+                        background: 'var(--surface)',
                         border: '1px solid rgba(16, 185, 129, 0.3)',
                         borderRadius: 18,
                         padding: 18,
@@ -612,7 +666,7 @@ Respond strictly in valid JSON format with keys:
                         flexDirection: 'column',
                         justifyContent: 'space-between',
                         gap: 12,
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
                         transition: 'all 150ms ease',
                       }}
                     >
@@ -626,18 +680,18 @@ Respond strictly in valid JSON format with keys:
                               e.stopPropagation()
                               handleDeleteEntry(entry.id)
                             }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2 }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: 2 }}
                             title="Delete entry"
                           >
                             <Trash2 size={15} />
                           </button>
                         </div>
 
-                        <h3 style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', margin: '0 0 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {formatValueAsString(entry.title) || 'Untitled Reflection'}
                         </h3>
 
-                        <p style={{ fontSize: 12.5, color: '#9CA3AF', margin: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
+                        <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
                           {entryText || 'Tap to start writing in real-time auto-save mode...'}
                         </p>
                       </div>

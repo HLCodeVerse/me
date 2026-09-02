@@ -60,6 +60,9 @@ export interface Database {
           description: string | null
           due_date: string | null
           due_time: string | null
+          category: string
+          frequency: string
+          completed_dates: Json
           priority: number
           status: string
           recurrence_rule: string | null
@@ -75,6 +78,9 @@ export interface Database {
           description?: string | null
           due_date?: string | null
           due_time?: string | null
+          category?: string
+          frequency?: string
+          completed_dates?: Json
           priority?: number
           status?: string
           recurrence_rule?: string | null

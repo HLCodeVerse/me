@@ -133,20 +133,38 @@ const MCP_TOOLS = [
   // Tasks & Subtasks (Full CRUD)
   {
     name: 'list_tasks',
-    description: 'List tasks. Filter by status: todo, in_progress, done.',
+    description: 'List tasks. Filter by status (todo, in_progress, done) or category (health, todo, habit, journal, other).',
     inputSchema: {
       type: 'object',
-      properties: { status: { type: 'string', enum: ['todo', 'in_progress', 'done'] }, limit: { type: 'number' } },
+      properties: { status: { type: 'string', enum: ['todo', 'in_progress', 'done'] }, category: { type: 'string', enum: ['health', 'todo', 'habit', 'journal', 'other'] }, limit: { type: 'number' } },
       required: []
     }
   },
   {
     name: 'create_task',
-    description: 'Create a new task. Priority: 1=low, 2=med, 3=high, 4=urgent.',
+    description: 'Create a new task/habit item. Priority: 1=low, 2=med, 3=high, 4=urgent. Categories: health, todo, habit, journal, other.',
     inputSchema: {
       type: 'object',
-      properties: { title: { type: 'string' }, description: { type: 'string' }, priority: { type: 'number', enum: [1, 2, 3, 4] }, due_date: { type: 'string' }, goal_id: { type: 'string' } },
+      properties: {
+        title: { type: 'string' },
+        description: { type: 'string' },
+        category: { type: 'string', enum: ['health', 'todo', 'habit', 'journal', 'other'] },
+        priority: { type: 'number', enum: [1, 2, 3, 4] },
+        due_date: { type: 'string' },
+        due_time: { type: 'string' },
+        frequency: { type: 'string' },
+        goal_id: { type: 'string' }
+      },
       required: ['title']
+    }
+  },
+  {
+    name: 'toggle_task_date_completion',
+    description: 'Toggle completion state for a specific date (YYYY-MM-DD) on a task or habit.',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string' }, task_id: { type: 'string' }, title: { type: 'string' }, date: { type: 'string' }, completed: { type: 'boolean' } },
+      required: ['date']
     }
   },
   {
@@ -628,25 +646,55 @@ async function handleTool(toolName: string, args: Record<string, any>, userId: s
 
   // ── Tasks ──
   if (toolName === 'list_tasks') {
-    let query = db.from('tasks').select('id, title, priority, status, due_date, description').eq('user_id', userId).limit(args.limit || 30)
+    let query = db.from('tasks').select('id, title, priority, status, category, due_date, due_time, frequency, completed_dates, description').eq('user_id', userId).limit(args.limit || 30)
     if (args.status) query = query.eq('status', args.status)
+    if (args.category) query = query.eq('category', args.category)
     const { data } = await query
     return mcpOk(id, JSON.stringify(data || [], null, 2))
   }
 
   if (toolName === 'create_task') {
+    const category = args.category || 'todo'
     const { data, error } = await db.from('tasks').insert({
       user_id: userId,
       title: args.title.trim(),
+      category: category,
       priority: args.priority || 3,
       due_date: args.due_date || null,
+      due_time: args.due_time || null,
+      frequency: args.frequency || 'one-time',
       description: args.description || null,
       goal_id: args.goal_id || null,
       status: 'todo',
-    }).select('id, title, priority, status').single()
+    }).select('id, title, priority, status, category').single()
     if (error) return mcpError(id, -32603, `Failed to create task: ${error.message}`)
     createTodoistTask(args.title.trim(), args.description || undefined, args.due_date || undefined, undefined, args.priority || 3).catch(() => {})
-    return mcpOk(id, `✅ Task created & synced to Todoist: "${data.title}" (ID: ${data.id})`)
+    return mcpOk(id, `✅ Task created in [${category.toUpperCase()}] category: "${data.title}" (ID: ${data.id})`)
+  }
+
+  if (toolName === 'toggle_task_date_completion') {
+    const { targetId, queryStr } = extractTargetIdAndQuery(args, ['task_id'])
+    const targetDate = args.date || new Date().toISOString().split('T')[0]
+    
+    let taskId = targetId
+    if (!taskId && queryStr) {
+      const { data: found } = await db.from('tasks').select('id').eq('user_id', userId).ilike('title', `%${queryStr}%`).limit(1).maybeSingle()
+      if (found) taskId = found.id
+    }
+    if (!taskId) return mcpError(id, -32602, `Please provide task ID or title to toggle date completion.`)
+
+    const { data: current } = await db.from('tasks').select('completed_dates, status').eq('id', taskId).single()
+    const currentDates: Record<string, boolean> = current?.completed_dates || {}
+    const isCompleted = args.completed !== undefined ? args.completed : !currentDates[targetDate]
+    const updatedDates = { ...currentDates, [targetDate]: isCompleted }
+
+    await db.from('tasks').update({
+      completed_dates: updatedDates,
+      completed_at: isCompleted ? new Date().toISOString() : null,
+      status: isCompleted ? 'done' : 'todo'
+    }).eq('id', taskId)
+
+    return mcpOk(id, `📅 Set date ${targetDate} completion to ${isCompleted ? 'COMPLETE' : 'INCOMPLETE'} for task ID ${taskId}`)
   }
 
   if (toolName === 'create_task_with_subtasks') {

@@ -39,7 +39,7 @@ function SingleGaugeRing({
   badgeText,
   badgeVariant = 'info',
 }: SingleGaugeProps) {
-  // Compact SVG diameter for mobile alignment
+  // Compact SVG diameter
   const size = 76
   const strokeWidth = 7
   const center = size / 2
@@ -51,21 +51,19 @@ function SingleGaugeRing({
   const getBadgeStyle = () => {
     switch (badgeVariant) {
       case 'success':
-        return { background: 'rgba(16, 185, 129, 0.15)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.3)' }
-      case 'warning':
-        return { background: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.3)' }
+        return { background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.3)' }
       case 'danger':
-        return { background: 'rgba(244, 63, 94, 0.15)', color: '#FB7185', border: '1px solid rgba(244, 63, 94, 0.3)' }
+        return { background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.3)' }
       default:
-        return { background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', border: '1px solid rgba(59, 130, 246, 0.3)' }
+        return { background: 'rgba(6, 182, 212, 0.15)', color: '#06B6D4', border: '1px solid rgba(6, 182, 212, 0.3)' }
     }
   }
 
   return (
     <div
       style={{
-        background: 'linear-gradient(145deg, rgba(18, 19, 24, 0.9) 0%, rgba(10, 11, 13, 0.95) 100%)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'linear-gradient(145deg, rgba(20, 22, 29, 0.9) 0%, rgba(5, 5, 5, 0.95) 100%)',
+        border: '1px solid rgba(6, 182, 212, 0.2)',
         borderRadius: 16,
         padding: '12px 10px',
         display: 'flex',
@@ -113,7 +111,7 @@ function SingleGaugeRing({
           >
             {icon}
           </div>
-          <span style={{ fontSize: 11.5, fontWeight: 800, color: '#F3F4F6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span style={{ fontSize: 11.5, fontWeight: 800, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {title}
           </span>
         </div>
@@ -178,14 +176,14 @@ function SingleGaugeRing({
           <span style={{ fontSize: 16, fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.02em' }}>
             {clampedPercent}%
           </span>
-          <span style={{ fontSize: 8, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 8, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
             {label}
           </span>
         </div>
       </div>
 
       {/* Subtitle */}
-      <div style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
         {subtitle}
       </div>
     </div>
@@ -209,7 +207,7 @@ export default function CircularMetricsGauge({
     negligenceVariant = 'danger'
   } else if (negligencePercent > 15) {
     negligenceBadge = 'Attention'
-    negligenceVariant = 'warning'
+    negligenceVariant = 'danger'
   }
 
   let consistencyBadge = 'Building'
@@ -219,7 +217,7 @@ export default function CircularMetricsGauge({
     consistencyVariant = 'success'
   } else if (consistencyPercent >= 40) {
     consistencyBadge = 'On Track'
-    consistencyVariant = 'warning'
+    consistencyVariant = 'info'
   }
 
   return (
@@ -232,7 +230,7 @@ export default function CircularMetricsGauge({
       }}
       className="md:grid-cols-4"
     >
-      {/* 1. Consistency Level Line Ring */}
+      {/* 1. Consistency Level Line Ring (Green) */}
       <SingleGaugeRing
         title="Consistency"
         percentage={consistencyPercent}
@@ -240,50 +238,50 @@ export default function CircularMetricsGauge({
         subtitle={`${streakCount}d Streak`}
         gradientId="consistencyGrad"
         colorStart="#10B981"
-        colorEnd="#059669"
-        icon={<Flame size={14} />}
+        colorEnd="#34D399"
+        icon={<Flame size={14} color="#10B981" />}
         badgeText={consistencyBadge}
         badgeVariant={consistencyVariant}
       />
 
-      {/* 2. Productivity Level Line Ring */}
+      {/* 2. Productivity Level Line Ring (Cyan) */}
       <SingleGaugeRing
         title="Productivity"
         percentage={productivityPercent}
         label="Ratio"
         subtitle={`${completedCount}/${totalItems} Done`}
         gradientId="productivityGrad"
-        colorStart="#3B82F6"
-        colorEnd="#06B6D4"
-        icon={<TrendingUp size={14} />}
+        colorStart="#06B6D4"
+        colorEnd="#22D3EE"
+        icon={<TrendingUp size={14} color="#06B6D4" />}
         badgeText={productivityPercent >= 70 ? 'Focus ⚡' : 'Active'}
         badgeVariant={productivityPercent >= 70 ? 'success' : 'info'}
       />
 
-      {/* 3. Negligence Rate Gauge Ring */}
+      {/* 3. Negligence Rate Gauge Ring (Red) */}
       <SingleGaugeRing
         title="Negligence"
         percentage={negligencePercent}
         label="Overdue"
         subtitle={overdueCount > 0 ? `${overdueCount} Overdue` : 'Zero Overdue'}
         gradientId="negligenceGrad"
-        colorStart={negligencePercent > 20 ? '#F43F5E' : '#F59E0B'}
-        colorEnd={negligencePercent > 20 ? '#E11D48' : '#D97706'}
-        icon={overdueCount > 0 ? <AlertTriangle size={14} /> : <ShieldAlert size={14} />}
+        colorStart="#EF4444"
+        colorEnd="#F87171"
+        icon={overdueCount > 0 ? <AlertTriangle size={14} color="#EF4444" /> : <ShieldAlert size={14} color="#EF4444" />}
         badgeText={negligenceBadge}
         badgeVariant={negligenceVariant}
       />
 
-      {/* 4. Life Balance & Score Ring */}
+      {/* 4. Life Balance & Score Ring (Cyan-Green) */}
       <SingleGaugeRing
         title="Life Score"
         percentage={lifeScorePercent}
         label="Balance"
         subtitle="Harmony"
         gradientId="lifeScoreGrad"
-        colorStart="#8B5CF6"
-        colorEnd="#EC4899"
-        icon={<Target size={14} />}
+        colorStart="#06B6D4"
+        colorEnd="#10B981"
+        icon={<Target size={14} color="#06B6D4" />}
         badgeText={lifeScorePercent >= 80 ? 'Mastery 🌟' : 'Balanced'}
         badgeVariant={lifeScorePercent >= 80 ? 'success' : 'info'}
       />

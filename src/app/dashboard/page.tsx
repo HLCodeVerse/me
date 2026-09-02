@@ -65,9 +65,8 @@ export default function DashboardPage() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = supabase as any
-      const [tasksRes, todosRes, habitsRes, goalsRes, remindersRes, notesRes, journalRes, waterRes] = await Promise.all([
-        client.from('tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(60),
-        client.from('todos').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(60),
+      const [tasksRes, habitsRes, goalsRes, remindersRes, notesRes, journalRes, waterRes] = await Promise.all([
+        client.from('tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(80),
         client.from('habits').select('*').eq('user_id', user.id).eq('archived', false).limit(20),
         client.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(15),
         client.from('reminders').select('*').eq('user_id', user.id).order('remind_at', { ascending: true }).limit(15),
@@ -76,8 +75,21 @@ export default function DashboardPage() {
         client.from('water_logs').select('amount_ml').eq('user_id', user.id).eq('date', today),
       ])
 
-      setTasks(tasksRes.data ?? [])
-      setTodos(todosRes.data ?? [])
+      const rawTasks = (tasksRes.data ?? []) as Task[]
+      setTasks(rawTasks)
+
+      // Map todos from tasks with category = 'todo' or from legacy todos
+      const todoItems = rawTasks.filter(t => (t.category || 'todo') === 'todo').map(t => ({
+        id: t.id,
+        user_id: t.user_id,
+        title: t.title,
+        is_done: t.status === 'done',
+        due_date: t.due_date,
+        due_time: t.due_time,
+        created_at: t.created_at
+      })) as Todo[]
+      setTodos(todoItems)
+
       setHabits(habitsRes.data ?? [])
       setGoals(goalsRes.data ?? [])
       setReminders(remindersRes.data ?? [])

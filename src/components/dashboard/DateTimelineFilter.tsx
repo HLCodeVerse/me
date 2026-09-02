@@ -54,7 +54,7 @@ export default function DateTimelineFilter({
   const counts = useMemo(() => {
     const overdueTasks = tasks.filter(t => t.due_date && t.due_date.split('T')[0] < todayStr && t.status !== 'done').length
     const overdueTodos = todos.filter(t => t.due_date && t.due_date < todayStr && !t.is_done).length
-    
+
     const todayTasks = tasks.filter(t => t.due_date && t.due_date.split('T')[0] === todayStr).length
     const todayTodos = todos.filter(t => !t.due_date || t.due_date === todayStr).length
 
@@ -130,10 +130,10 @@ export default function DateTimelineFilter({
   }
 
   const filterButtons: { mode: DateFilterMode; label: string; count: number; badgeColor?: string }[] = [
-    { mode: 'today', label: 'Today', count: counts.today, badgeColor: '#3B82F6' },
+    { mode: 'today', label: 'Today', count: counts.today, badgeColor: '#06B6D4' },
     { mode: 'tomorrow', label: 'Tomorrow', count: counts.tomorrow, badgeColor: '#10B981' },
-    { mode: 'overdue', label: 'Overdue', count: counts.overdue, badgeColor: '#F43F5E' },
-    { mode: 'upcoming', label: 'Upcoming', count: counts.upcoming, badgeColor: '#8B5CF6' },
+    { mode: 'overdue', label: 'Overdue', count: counts.overdue, badgeColor: '#EF4444' },
+    { mode: 'upcoming', label: 'Upcoming', count: counts.upcoming, badgeColor: '#22D3EE' },
     { mode: 'all', label: 'All Dates', count: counts.all },
     { mode: 'custom', label: 'Custom Date', count: 0 },
   ]
@@ -141,8 +141,8 @@ export default function DateTimelineFilter({
   return (
     <div
       style={{
-        background: '#0A0B0D',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'var(--surface)',
+        border: '1px solid rgba(6, 182, 212, 0.2)',
         borderRadius: 22,
         padding: 22,
         boxShadow: '0 12px 36px rgba(0, 0, 0, 0.6)',
@@ -159,7 +159,7 @@ export default function DateTimelineFilter({
               width: 36,
               height: 36,
               borderRadius: 10,
-              background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+              background: 'linear-gradient(135deg, #06B6D4, #0284C7)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -170,9 +170,9 @@ export default function DateTimelineFilter({
           </div>
           <div>
             <h3 style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.01em' }}>
-              Date Timeline & Multi-Item Agenda
+              Date Timeline Agenda
             </h3>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
               Organized chronologically by dates across tasks, todos, journals & reminders
             </span>
           </div>
@@ -189,9 +189,9 @@ export default function DateTimelineFilter({
                 style={{
                   padding: '6px 12px',
                   borderRadius: 10,
-                  border: isActive ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid rgba(255, 255, 255, 0.06)',
-                  background: isActive ? 'linear-gradient(135deg, #3B82F6, #2563EB)' : '#121318',
-                  color: isActive ? '#FFFFFF' : '#9CA3AF',
+                  border: isActive ? '1px solid #06B6D4' : '1px solid var(--border)',
+                  background: isActive ? '#06B6D4' : 'var(--surface-2)',
+                  color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
                   fontSize: 12,
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -210,7 +210,7 @@ export default function DateTimelineFilter({
                       padding: '1px 6px',
                       borderRadius: 99,
                       background: isActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.06)',
-                      color: isActive ? '#FFFFFF' : b.badgeColor || '#9CA3AF',
+                      color: isActive ? '#FFFFFF' : b.badgeColor || 'var(--text-muted)',
                     }}
                   >
                     {b.count}
@@ -229,23 +229,23 @@ export default function DateTimelineFilter({
           alignItems: 'center',
           gap: 12,
           flexWrap: 'wrap',
-          background: '#121318',
+          background: 'var(--surface-2)',
           padding: 12,
           borderRadius: 14,
-          border: '1px solid rgba(255, 255, 255, 0.06)',
+          border: '1px solid var(--border)',
         }}
       >
         {filterMode === 'custom' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF' }}>Pick Date:</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Pick Date:</span>
             <input
               type="date"
               value={customDate}
               onChange={e => setCustomDate(e.target.value)}
               style={{
                 height: 36,
-                background: '#0A0B0D',
-                border: '1px solid rgba(59, 130, 246, 0.4)',
+                background: '#050505',
+                border: '1px solid #06B6D4',
                 borderRadius: 8,
                 color: '#FFFFFF',
                 fontSize: 12,
@@ -259,14 +259,14 @@ export default function DateTimelineFilter({
         <form onSubmit={handleQuickSubmit} style={{ display: 'flex', gap: 8, flex: 1 }}>
           <input
             type="text"
-            placeholder={`Add new task/item for ${filterMode === 'all' ? 'Today' : filterMode.toUpperCase()} (${activeDateStr})...`}
+            placeholder={`Add new task for ${filterMode === 'all' ? 'Today' : filterMode.toUpperCase()} (${activeDateStr})...`}
             value={quickTitle}
             onChange={e => setQuickTitle(e.target.value)}
             style={{
               flex: 1,
               height: 36,
-              background: '#0A0B0D',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: '#050505',
+              border: '1px solid var(--border)',
               borderRadius: 8,
               color: '#FFFFFF',
               fontSize: 12.5,
@@ -276,16 +276,13 @@ export default function DateTimelineFilter({
           />
           <button
             type="submit"
+            className="btn btn-primary"
             style={{
               height: 36,
               padding: '0 14px',
               borderRadius: 8,
-              background: '#3B82F6',
-              color: '#FFFFFF',
-              border: 'none',
               fontWeight: 700,
               fontSize: 12,
-              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: 4,
@@ -299,9 +296,9 @@ export default function DateTimelineFilter({
       {/* Unified Timeline Container */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 420, overflowY: 'auto' }}>
         {filteredTasks.length === 0 && filteredTodos.length === 0 && filteredJournals.length === 0 && filteredReminders.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '36px 16px', color: '#9CA3AF' }}>
+          <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
             <CalendarIcon size={32} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#F3F4F6' }}>No items scheduled for this date filter</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>No items scheduled for this date filter</div>
             <p style={{ fontSize: 12, margin: '4px 0 0' }}>Use the quick bar above to schedule a new task or todo!</p>
           </div>
         ) : (
@@ -309,8 +306,8 @@ export default function DateTimelineFilter({
             {/* 1. TASKS SECTION */}
             {filteredTasks.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: '#3B82F6', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <CheckCircle2 size={13} /> Tasks ({filteredTasks.length})
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#06B6D4', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <CheckCircle2 size={13} color="#06B6D4" /> Tasks ({filteredTasks.length})
                 </div>
                 {filteredTasks.map(t => (
                   <div
@@ -319,8 +316,8 @@ export default function DateTimelineFilter({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      background: '#121318',
-                      border: '1px solid rgba(59, 130, 246, 0.2)',
+                      background: 'var(--surface-2)',
+                      border: '1px solid rgba(6, 182, 212, 0.2)',
                       padding: '10px 14px',
                       borderRadius: 12,
                     }}
@@ -333,7 +330,7 @@ export default function DateTimelineFilter({
                         {t.status === 'done' ? (
                           <CheckCircle2 size={18} color="#10B981" />
                         ) : (
-                          <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid #9CA3AF' }} />
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid var(--text-muted)' }} />
                         )}
                       </button>
                       <div>
@@ -348,7 +345,7 @@ export default function DateTimelineFilter({
                           {t.title}
                         </div>
                         {t.due_date && (
-                          <div style={{ fontSize: 10.5, color: t.due_date.split('T')[0] < todayStr && t.status !== 'done' ? '#F43F5E' : '#9CA3AF' }}>
+                          <div style={{ fontSize: 10.5, color: t.due_date.split('T')[0] < todayStr && t.status !== 'done' ? '#EF4444' : 'var(--text-muted)' }}>
                             {t.due_date.split('T')[0] < todayStr && t.status !== 'done' ? '⚠️ Overdue: ' : 'Due: '}
                             {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                           </div>
@@ -363,15 +360,15 @@ export default function DateTimelineFilter({
                           fontWeight: 800,
                           padding: '2px 8px',
                           borderRadius: 6,
-                          background: t.status === 'done' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                          color: t.status === 'done' ? '#34D399' : '#60A5FA',
+                          background: t.status === 'done' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(6, 182, 212, 0.15)',
+                          color: t.status === 'done' ? '#10B981' : '#06B6D4',
                         }}
                       >
                         {t.status === 'done' ? 'Completed' : `P${t.priority || 3}`}
                       </span>
                       <button
                         onClick={() => onDeleteTask(t.id)}
-                        style={{ background: 'none', border: 'none', color: '#6B7280', cursor: 'pointer', padding: 2 }}
+                        style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 2 }}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -385,7 +382,7 @@ export default function DateTimelineFilter({
             {filteredTodos.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#10B981', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <CircleCheck size={13} /> Daily Todos ({filteredTodos.length})
+                  <CircleCheck size={13} color="#10B981" /> Daily Todos ({filteredTodos.length})
                 </div>
                 {filteredTodos.map(t => (
                   <div
@@ -394,7 +391,7 @@ export default function DateTimelineFilter({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      background: '#121318',
+                      background: 'var(--surface-2)',
                       border: '1px solid rgba(16, 185, 129, 0.2)',
                       padding: '10px 14px',
                       borderRadius: 12,
@@ -408,7 +405,7 @@ export default function DateTimelineFilter({
                         {t.is_done ? (
                           <CircleCheck size={18} color="#10B981" />
                         ) : (
-                          <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid #9CA3AF' }} />
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid var(--text-muted)' }} />
                         )}
                       </button>
                       <div
@@ -430,15 +427,15 @@ export default function DateTimelineFilter({
                           fontWeight: 800,
                           padding: '2px 8px',
                           borderRadius: 6,
-                          background: t.is_done ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                          color: t.is_done ? '#34D399' : '#FBBF24',
+                          background: t.is_done ? 'rgba(16, 185, 129, 0.15)' : 'rgba(6, 182, 212, 0.15)',
+                          color: t.is_done ? '#10B981' : '#06B6D4',
                         }}
                       >
                         {t.is_done ? 'Checked' : 'Pending'}
                       </span>
                       <button
                         onClick={() => onDeleteTodo(t.id)}
-                        style={{ background: 'none', border: 'none', color: '#6B7280', cursor: 'pointer', padding: 2 }}
+                        style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 2 }}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -451,28 +448,28 @@ export default function DateTimelineFilter({
             {/* 3. JOURNAL ENTRIES SECTION */}
             {filteredJournals.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: '#8B5CF6', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <BookOpen size={13} /> Journal Entries ({filteredJournals.length})
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#10B981', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <BookOpen size={13} color="#10B981" /> Journal Entries ({filteredJournals.length})
                 </div>
                 {filteredJournals.map(j => (
                   <div
                     key={`journal-${j.id}`}
                     style={{
-                      background: '#121318',
-                      border: '1px solid rgba(139, 92, 246, 0.25)',
+                      background: 'var(--surface-2)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
                       padding: '10px 14px',
                       borderRadius: 12,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#E9D5FF' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>
                         {j.title || 'Untitled Journal Entry'}
                       </div>
-                      <span style={{ fontSize: 10, color: '#C084FC', fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, color: '#10B981', fontWeight: 700 }}>
                         {j.mood ? `Mood: ${j.mood}` : 'Journal'}
                       </span>
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#9CA3AF', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {j.content}
                     </div>
                   </div>
@@ -483,8 +480,8 @@ export default function DateTimelineFilter({
             {/* 4. REMINDERS SECTION */}
             {filteredReminders.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: '#F59E0B', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Bell size={13} /> System Reminders ({filteredReminders.length})
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#06B6D4', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Bell size={13} color="#06B6D4" /> System Reminders ({filteredReminders.length})
                 </div>
                 {filteredReminders.map(r => (
                   <div
@@ -493,14 +490,14 @@ export default function DateTimelineFilter({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      background: '#121318',
-                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                      background: 'var(--surface-2)',
+                      border: '1px solid rgba(6, 182, 212, 0.25)',
                       padding: '10px 14px',
                       borderRadius: 12,
                     }}
                   >
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#FCD34D' }}>{r.title}</div>
-                    <span style={{ fontSize: 10, color: '#9CA3AF' }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF' }}>{r.title}</div>
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
                       {r.remind_at ? new Date(r.remind_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Scheduled'}
                     </span>
                   </div>
