@@ -67,6 +67,7 @@ export default function JournalPage() {
 
   // Voice Dictation
   const [isRecording, setIsRecording] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognizerRef = useRef<any>(null)
 
   // AI Rephrase & Enhancer State

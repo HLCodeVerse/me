@@ -22,7 +22,7 @@ const STATUSES = ['todo', 'in_progress', 'done']
 const STATUS_LABELS: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' }
 const STATUS_COLORS: Record<string, string> = { todo: 'var(--text-muted)', in_progress: '#22D3EE', done: '#10B981' }
 
-const CATEGORIES: { id: CategoryType; label: string; icon: any; color: string }[] = [
+const CATEGORIES: { id: CategoryType; label: string; icon: React.ElementType; color: string }[] = [
   { id: 'all', label: 'All', icon: Tag, color: '#7C3AED' },
   { id: 'todo', label: 'Todo Task', icon: CheckSquare, color: '#3B82F6' },
   { id: 'health', label: 'Health', icon: HeartPulse, color: '#FF4F81' },
