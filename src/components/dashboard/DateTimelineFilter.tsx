@@ -345,9 +345,24 @@ export default function DateTimelineFilter({
                           {t.title}
                         </div>
                         {t.due_date && (
-                          <div style={{ fontSize: 10.5, color: t.due_date.split('T')[0] < todayStr && t.status !== 'done' ? '#EF4444' : 'var(--text-muted)' }}>
-                            {t.due_date.split('T')[0] < todayStr && t.status !== 'done' ? '⚠️ Overdue: ' : 'Due: '}
+                          <div style={{ fontSize: 10.5, color: (() => {
+                            const due = new Date(t.due_date)
+                            if (t.due_time) {
+                              const [h, m] = t.due_time.split(':').map(Number)
+                              due.setHours(h || 0, m || 0, 0, 0)
+                            }
+                            return due < new Date() && t.status !== 'done' ? '#EF4444' : 'var(--text-muted)'
+                          })() }}>
+                            {(() => {
+                              const due = new Date(t.due_date)
+                              if (t.due_time) {
+                                const [h, m] = t.due_time.split(':').map(Number)
+                                due.setHours(h || 0, m || 0, 0, 0)
+                              }
+                              return due < new Date() && t.status !== 'done' ? '⚠️ PASSED: ' : 'Due: '
+                            })()}
                             {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            {t.due_time ? ` at ${t.due_time}` : ''}
                           </div>
                         )}
                       </div>
@@ -360,11 +375,32 @@ export default function DateTimelineFilter({
                           fontWeight: 800,
                           padding: '2px 8px',
                           borderRadius: 6,
-                          background: t.status === 'done' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(6, 182, 212, 0.15)',
-                          color: t.status === 'done' ? '#10B981' : '#06B6D4',
+                          background: t.status === 'done' ? 'rgba(16, 185, 129, 0.15)' : (() => {
+                            const due = t.due_date ? new Date(t.due_date) : null
+                            if (due && t.due_time) {
+                              const [h, m] = t.due_time.split(':').map(Number)
+                              due.setHours(h || 0, m || 0, 0, 0)
+                            }
+                            return due && due < new Date() ? 'rgba(239, 68, 68, 0.2)' : 'rgba(6, 182, 212, 0.15)'
+                          })(),
+                          color: t.status === 'done' ? '#10B981' : (() => {
+                            const due = t.due_date ? new Date(t.due_date) : null
+                            if (due && t.due_time) {
+                              const [h, m] = t.due_time.split(':').map(Number)
+                              due.setHours(h || 0, m || 0, 0, 0)
+                            }
+                            return due && due < new Date() ? '#EF4444' : '#06B6D4'
+                          })(),
                         }}
                       >
-                        {t.status === 'done' ? 'Completed' : `P${t.priority || 3}`}
+                        {t.status === 'done' ? 'Completed' : (() => {
+                          const due = t.due_date ? new Date(t.due_date) : null
+                          if (due && t.due_time) {
+                            const [h, m] = t.due_time.split(':').map(Number)
+                            due.setHours(h || 0, m || 0, 0, 0)
+                          }
+                          return due && due < new Date() ? 'PASSED' : `P${t.priority || 3}`
+                        })()}
                       </span>
                       <button
                         onClick={() => onDeleteTask(t.id)}

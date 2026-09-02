@@ -316,11 +316,12 @@ export default function RemindersPage() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
-                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>DATE & TIME</label>
+                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>DATE & TIME *</label>
                   <input
                     type="datetime-local"
                     value={remindAt}
                     onChange={e => setRemindAt(e.target.value)}
+                    required
                   />
                 </div>
                 <div>

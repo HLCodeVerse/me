@@ -21,6 +21,7 @@ export default function HabitsPage() {
   // Form state
   const [name, setName] = useState('')
   const [frequency, setFrequency] = useState('daily')
+  const [targetTime, setTargetTime] = useState('08:00')
   const [saving, setSaving] = useState(false)
 
   const todayStr = new Date().toISOString().split('T')[0]
@@ -65,6 +66,7 @@ export default function HabitsPage() {
         title: cleanName,
         category: 'habit',
         frequency,
+        due_time: targetTime || '08:00',
         completed_dates: {},
         status: 'todo',
       })
@@ -357,13 +359,19 @@ export default function HabitsPage() {
                   style={{ fontSize: 14 }}
                 />
               </div>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>FREQUENCY</label>
-                <select value={frequency} onChange={e => setFrequency(e.target.value)}>
-                  <option value="daily">Daily</option>
-                  <option value="weekdays">Weekdays</option>
-                  <option value="weekly">Weekly</option>
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>FREQUENCY</label>
+                  <select value={frequency} onChange={e => setFrequency(e.target.value)}>
+                    <option value="daily">Daily</option>
+                    <option value="weekdays">Weekdays</option>
+                    <option value="weekly">Weekly</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>EXECUTION TIME *</label>
+                  <input type="time" value={targetTime} onChange={e => setTargetTime(e.target.value)} required />
+                </div>
               </div>
               <button type="submit" disabled={saving || !name.trim()} className="btn btn-primary" style={{ height: 44, marginTop: 8 }}>
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <><Flame size={16} /> Create Habit</>}

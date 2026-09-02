@@ -400,8 +400,8 @@ export default function GoalsPage() {
                     </select>
                   </div>
                   <div>
-                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>TARGET DATE</label>
-                    <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} />
+                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>TARGET DATE *</label>
+                    <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} required />
                   </div>
                 </div>
                 <button type="submit" disabled={saving} className="btn btn-primary" style={{ height: 44, marginTop: 8 }}>

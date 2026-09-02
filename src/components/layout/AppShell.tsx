@@ -8,7 +8,6 @@ import { initPWAAutoUpdate, autoPromptNotificationPermission } from '@/lib/push-
 import AppHeader from './AppHeader'
 import DesktopSidebar from './DesktopSidebar'
 import BottomNav from './BottomNav'
-import GlobalMediaPlayer from '@/components/media/GlobalMediaPlayer'
 import SplashScreen from '@/components/common/SplashScreen'
 import { initDoubleBackToExit } from '@/lib/back-button-handler'
 import { requestAllPermissions } from '@/lib/permissions-handler'
@@ -26,19 +25,18 @@ interface AppShellProps {
 }
 
 const ALL_MODULES = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',    color: '#FFD700' },
-  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',        color: '#EF4444' },
-  { href: '/todos',     icon: ListTodo,        label: 'Todos',        color: '#FACC15' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',    color: '#06B6D4' },
+  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',        color: '#06B6D4' },
+  { href: '/todos',     icon: ListTodo,        label: 'Todos',        color: '#06B6D4' },
   { href: '/habits',    icon: Flame,           label: 'Habits',       color: '#EF4444' },
   { href: '/health',    icon: Activity,        label: 'Health',       color: '#10B981' },
-  { href: '/player',    icon: Disc,            label: 'Media Player', color: '#F59E0B' },
-  { href: '/notes',     icon: StickyNote,      label: 'Notes',        color: '#FACC15' },
+  { href: '/notes',     icon: StickyNote,      label: 'Notes',        color: '#06B6D4' },
   { href: '/reminders', icon: Bell,            label: 'Reminders',    color: '#EF4444' },
   { href: '/journal',   icon: BookOpen,        label: 'Journal',      color: '#10B981' },
   { href: '/goals',     icon: Target,          label: 'Goals',        color: '#10B981' },
-  { href: '/analytics', icon: BarChart2,       label: 'Analytics',    color: '#FACC15' },
-  { href: '/learn',     icon: GraduationCap,   label: 'Learning hub', color: '#FFD700' },
-  { href: '/ai',        icon: Bot,             label: 'AI chat OS',   color: '#FFD700' },
+  { href: '/analytics', icon: BarChart2,       label: 'Analytics',    color: '#06B6D4' },
+  { href: '/learn',     icon: GraduationCap,   label: 'Learning hub', color: '#10B981' },
+  { href: '/ai',        icon: Bot,             label: 'AI chat OS',   color: '#06B6D4' },
   { href: '/mcp',       icon: ShieldCheck,     label: 'MCP connect',  color: '#10B981' },
   { href: '/settings',  icon: Settings,        label: 'Settings',     color: '#FFFFFF' },
 ]
@@ -145,9 +143,6 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
           {children}
         </main>
       </div>
-
-      {/* Persistent Global Floating Media Player */}
-      <GlobalMediaPlayer />
 
       {/* Off-Canvas Navigation Drawer for Mobile ONLY (<1024px) */}
       {isMobile && showDrawer && (

@@ -494,12 +494,12 @@ export default function TasksPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
-                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>DUE DATE</label>
-                    <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} />
+                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>DUE DATE *</label>
+                    <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} required />
                   </div>
                   <div>
-                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>DUE TIME</label>
-                    <input type="time" value={newDueTime} onChange={e => setNewDueTime(e.target.value)} />
+                    <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>DUE TIME *</label>
+                    <input type="time" value={newDueTime} onChange={e => setNewDueTime(e.target.value)} required />
                   </div>
                 </div>
 
@@ -610,6 +610,23 @@ function TaskCard({ task, subtasks, expanded, onToggleExpand, onStatusChange, on
             <span className={`badge ${priorityInfo.badgeClass}`} style={{ fontSize: 10 }}>
               <Flag size={10} /> {priorityInfo.label}
             </span>
+            {!isDone && task.due_date && (() => {
+              const due = new Date(task.due_date)
+              if (task.due_time) {
+                const [h, m] = task.due_time.split(':').map(Number)
+                due.setHours(h || 0, m || 0, 0, 0)
+              } else {
+                due.setHours(23, 59, 59, 999)
+              }
+              if (due < new Date()) {
+                return (
+                  <span style={{ fontSize: 10, fontWeight: 800, background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #EF4444', color: '#EF4444', padding: '2px 8px', borderRadius: 99 }}>
+                    PASSED / OVERDUE
+                  </span>
+                )
+              }
+              return null
+            })()}
           </div>
 
           <div style={{ display: 'flex', gap: 10, marginTop: 4, alignItems: 'center', flexWrap: 'wrap' }}>
