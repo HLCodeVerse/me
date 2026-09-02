@@ -186,9 +186,10 @@ export default function HealthPage() {
 
         {/* AI Custom Prompt Bar */}
         <form onSubmit={handleAIHealthQuery} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
-          <Sparkles size={18} color="#10B981" style={{ flexShrink: 0 }} />
+          <Sparkles size={18} color="#06B6D4" style={{ flexShrink: 0 }} />
           <input
-            placeholder="Ask AI Health Coach (e.g., 'Give me recovery tips for my leg workout')..."
+            className="glow-input"
+            placeholder="Ask AI Health Coach (e.g., 'Log 500ml water and give workout tips')..."
             value={aiPrompt}
             onChange={e => setAiPrompt(e.target.value)}
             style={{ flex: 1, border: 'none', background: 'transparent', padding: 0, fontSize: 13 }}
@@ -202,7 +203,7 @@ export default function HealthPage() {
             {aiAnalyzing ? <Loader2 size={13} className="animate-spin" /> : <><Send size={13} /> AI Coach</>}
           </button>
         </form>
-        
+
         {/* Upper Grid: Liquid Belly Hydration Tracker + Exercise Velocity */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
 
@@ -210,8 +211,8 @@ export default function HealthPage() {
           <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20, position: 'relative', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Droplets size={18} color="#3B82F6" />
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(6, 182, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Droplets size={18} color="#06B6D4" />
                 </div>
                 <div>
                   <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
@@ -234,11 +235,11 @@ export default function HealthPage() {
                 width: 90,
                 height: 140,
                 borderRadius: '40px 40px 24px 24px',
-                border: '3px solid #3B82F6',
+                border: '3px solid #06B6D4',
                 position: 'relative',
                 overflow: 'hidden',
                 background: 'var(--surface-2)',
-                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.15)',
+                boxShadow: '0 4px 14px rgba(6, 182, 212, 0.2)',
                 display: 'flex',
                 alignItems: 'flex-end',
                 flexShrink: 0,
@@ -247,7 +248,7 @@ export default function HealthPage() {
                 <div style={{
                   width: '100%',
                   height: `${waterPct}%`,
-                  background: 'linear-gradient(180deg, #60A5FA 0%, #2563EB 100%)',
+                  background: 'linear-gradient(180deg, #22D3EE 0%, #06B6D4 100%)',
                   transition: 'height 600ms cubic-bezier(0.4, 0, 0.2, 1)',
                   position: 'relative',
                 }}>
@@ -291,17 +292,17 @@ export default function HealthPage() {
                     className="btn btn-secondary"
                     style={{ padding: '10px 6px', flexDirection: 'column', gap: 4, borderRadius: 'var(--radius-btn)' }}
                   >
-                    <GlassWater size={18} color="#3B82F6" />
+                    <GlassWater size={18} color="#06B6D4" />
                     <span style={{ fontSize: 11, fontWeight: 600 }}>+100 ml</span>
                   </button>
                   <button
                     onClick={() => addWaterIntake(250)}
                     disabled={loggingWater}
                     className="btn btn-secondary"
-                    style={{ padding: '10px 6px', flexDirection: 'column', gap: 4, borderRadius: 'var(--radius-btn)', border: '1px solid #3B82F6' }}
+                    style={{ padding: '10px 6px', flexDirection: 'column', gap: 4, borderRadius: 'var(--radius-btn)', border: '1px solid #06B6D4' }}
                   >
-                    <CupSoda size={18} color="#3B82F6" />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6' }}>+250 ml</span>
+                    <CupSoda size={18} color="#06B6D4" />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#06B6D4' }}>+250 ml</span>
                   </button>
                   <button
                     onClick={() => addWaterIntake(500)}
@@ -309,7 +310,7 @@ export default function HealthPage() {
                     className="btn btn-secondary"
                     style={{ padding: '10px 6px', flexDirection: 'column', gap: 4, borderRadius: 'var(--radius-btn)' }}
                   >
-                    <Droplets size={18} color="#3B82F6" />
+                    <Droplets size={18} color="#06B6D4" />
                     <span style={{ fontSize: 11, fontWeight: 600 }}>+500 ml</span>
                   </button>
                 </div>

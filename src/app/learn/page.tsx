@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import FormattedAIResponse from '@/components/common/FormattedAIResponse'
-import { ChevronRight, Play, CheckCircle2, GraduationCap, BookOpen, Brain, Sparkles, Loader2, ArrowLeft, Plus, Trash2, X } from 'lucide-react'
+import { ChevronRight, Play, CheckCircle2, GraduationCap, BookOpen, Brain, Sparkles, Loader2, ArrowLeft, Plus, Trash2, X, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Course, Lesson, LessonProgress } from '@/lib/supabase/database.types'
 
@@ -32,6 +32,8 @@ export default function LearnPage() {
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null)
   const [explaining, setExplaining] = useState(false)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiGenerating, setAiGenerating] = useState(false)
 
   // Create Course Modal State
   const [showCourseForm, setShowCourseForm] = useState(false)
@@ -112,6 +114,98 @@ export default function LearnPage() {
       toast.error('Failed to create course')
     } finally {
       setSavingCourse(false)
+    }
+  }
+
+  async function handleAICourseGenerate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!user || !aiPrompt.trim()) return
+    const topic = aiPrompt.trim()
+    setAiGenerating(true)
+    toast.info(`AI Learning Tutor is generating a mini-course for "${topic}"...`)
+
+    try {
+      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user.id,
+        },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Create a structured 3-lesson mini-course on topic: "${topic}". Return Title on line 1, Description on line 2, followed by 3 Lesson Titles.`
+          }],
+          enableTools: false,
+          grokApiKey: customGrokKey,
+        })
+      })
+
+      if (!res.ok) throw new Error('AI course generation failed')
+
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let genText = ''
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value)
+          for (const line of chunk.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6)
+            if (data === '[DONE]') continue
+            try {
+              const parsed = JSON.parse(data)
+              const delta = parsed.choices?.[0]?.delta?.content ?? ''
+              if (delta) genText += delta
+            } catch {}
+          }
+        }
+      }
+
+      const lines = genText.split('\n').filter(l => l.trim().length > 0)
+      const courseTitle = lines[0] ? lines[0].replace(/^#+\s*/, '') : topic
+      const courseDesc = lines[1] || `Mastering ${topic}`
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: newCourse } = await (supabase.from('courses') as any).insert({
+        title: courseTitle,
+        description: courseDesc,
+        category: 'skills',
+        order_index: courses.length + 1,
+      }).select().single()
+
+      if (newCourse) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: newMod } = await (supabase.from('modules') as any).insert({
+          course_id: newCourse.id,
+          title: 'Core Principles',
+          order_index: 1,
+        }).select().single()
+
+        const lessonTitles = lines.slice(2).filter(l => l.length > 3).slice(0, 3)
+        for (let idx = 0; idx < lessonTitles.length; idx++) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.from('lessons') as any).insert({
+            module_id: newMod.id,
+            title: lessonTitles[idx].replace(/^\d+[\.\)]\s*/, ''),
+            content: `Core concepts and practical application of ${topic}.`,
+            content_type: 'article',
+            order_index: idx + 1,
+          })
+        }
+      }
+
+      setAiPrompt('')
+      toast.success('AI Course generated & added to Learning Hub! 🎓')
+      loadCourses()
+    } catch {
+      toast.error('AI course generation failed')
+    } finally {
+      setAiGenerating(false)
     }
   }
 
@@ -227,11 +321,11 @@ export default function LearnPage() {
   }
 
   const CATEGORY_COLORS: Record<string, string> = {
-    career: '#3B82F6',
-    mindset: '#7C3AED',
+    career: '#06B6D4',
+    mindset: '#10B981',
     health: '#10B981',
-    finance: '#F59E0B',
-    skills: '#EC4899',
+    finance: '#06B6D4',
+    skills: '#22D3EE',
   }
 
   return (
@@ -239,7 +333,7 @@ export default function LearnPage() {
       header={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <GraduationCap size={20} color="#7C3AED" />
+            <GraduationCap size={20} color="#10B981" />
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Learning Hub</h1>
           </div>
           <button onClick={() => setShowCourseForm(true)} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 13 }}>
@@ -248,13 +342,34 @@ export default function LearnPage() {
         </div>
       }
     >
-      <div style={{ paddingTop: 8 }}>
+      <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* AI Custom Prompt Bar */}
+        <form onSubmit={handleAICourseGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
+          <Sparkles size={18} color="#06B6D4" style={{ flexShrink: 0 }} />
+          <input
+            className="glow-input"
+            placeholder="Ask AI Learning Tutor to generate a course (e.g., 'Generate a course on Time Blocking & Focus')..."
+            value={aiPrompt}
+            onChange={e => setAiPrompt(e.target.value)}
+            style={{ flex: 1, border: 'none', background: 'transparent', padding: 0, fontSize: 13 }}
+          />
+          <button
+            type="submit"
+            disabled={aiGenerating || !aiPrompt.trim()}
+            className="btn btn-primary"
+            style={{ height: 34, padding: '0 12px', fontSize: 12, flexShrink: 0 }}
+          >
+            {aiGenerating ? <Loader2 size={13} className="animate-spin" /> : <><Send size={13} /> AI Generate</>}
+          </button>
+        </form>
+
         {loading ? (
           [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 120, borderRadius: 'var(--radius-card)', marginBottom: 12 }} />)
         ) : courses.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <GraduationCap size={28} color="#7C3AED" />
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <GraduationCap size={28} color="#10B981" />
             </div>
             <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>No courses available</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: 13, maxWidth: 300, margin: '0 auto 20px' }}>Create custom learning paths to structure your skill acquisition.</p>
@@ -266,7 +381,7 @@ export default function LearnPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {courses.map(course => {
               const pct = course.total_lessons > 0 ? Math.round((course.completed_lessons / course.total_lessons) * 100) : 0
-              const color = CATEGORY_COLORS[course.category] ?? '#7C3AED'
+              const color = CATEGORY_COLORS[course.category] ?? '#10B981'
               return (
                 <div
                   key={course.id}
@@ -311,7 +426,7 @@ export default function LearnPage() {
           <div>
             <button
               onClick={() => { setActiveLesson(null); setAiSummary(null) }}
-              style={{ fontSize: 13, color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
+              style={{ fontSize: 13, color: '#10B981', background: 'none', border: 'none', cursor: 'pointer', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
             >
               <ArrowLeft size={14} /> Back to modules
             </button>
@@ -323,7 +438,7 @@ export default function LearnPage() {
               className="btn btn-secondary"
               style={{
                 marginBottom: 16, width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-btn)',
-                border: '1px solid #7C3AED', color: '#7C3AED', fontSize: 13, fontWeight: 600,
+                borderColor: '#06B6D4', color: '#06B6D4', fontSize: 13, fontWeight: 600,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
               }}
             >
@@ -334,11 +449,11 @@ export default function LearnPage() {
             {aiSummary && (
               <div style={{
                 marginBottom: 16, padding: '14px 16px', borderRadius: 'var(--radius-card)',
-                background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)',
+                background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.2)',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <Sparkles size={14} color="#7C3AED" />
-                  <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase' }}>AI Tutor Insights</span>
+                  <Sparkles size={14} color="#06B6D4" />
+                  <span style={{ fontSize: 11, color: '#06B6D4', fontWeight: 700, textTransform: 'uppercase' }}>AI Tutor Insights</span>
                 </div>
                 <FormattedAIResponse content={aiSummary} />
               </div>
@@ -372,7 +487,7 @@ export default function LearnPage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <button
                 onClick={() => setActiveCourse(null)}
-                style={{ fontSize: 13, color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
+                style={{ fontSize: 13, color: '#10B981', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
               >
                 <ArrowLeft size={14} /> All Courses
               </button>
@@ -395,16 +510,16 @@ export default function LearnPage() {
 
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>{activeCourse.title}</h2>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>{activeCourse.description}</p>
-            
+
             <div className="card" style={{ marginBottom: 24, padding: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Course Completion</span>
-                <span style={{ fontSize: 13, color: '#7C3AED', fontWeight: 700 }}>
+                <span style={{ fontSize: 13, color: '#10B981', fontWeight: 700 }}>
                   {activeCourse.completed_lessons}/{activeCourse.total_lessons} lessons
                 </span>
               </div>
               <div style={{ height: 6, background: 'var(--surface-2)', borderRadius: 99, overflow: 'hidden' }}>
-                <div style={{ width: `${activeCourse.total_lessons > 0 ? (activeCourse.completed_lessons / activeCourse.total_lessons) * 100 : 0}%`, background: '#7C3AED', height: '100%', borderRadius: 99 }} />
+                <div style={{ width: `${activeCourse.total_lessons > 0 ? (activeCourse.completed_lessons / activeCourse.total_lessons) * 100 : 0}%`, background: '#10B981', height: '100%', borderRadius: 99 }} />
               </div>
             </div>
 
@@ -457,19 +572,23 @@ export default function LearnPage() {
         <>
           <div className="overlay" onClick={() => setShowCourseForm(false)} />
           <div className="animate-fade-in" style={{
-            position: 'fixed', inset: 0, zIndex: 110,
-            background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden'
+            position: 'fixed', bottom: 0, left: 0, right: 0,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-card) var(--radius-card) 0 0',
+            padding: '24px 20px', zIndex: 110,
+            paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
+            maxWidth: 768, margin: '0 auto',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Create New Course</h3>
               <button onClick={() => setShowCourseForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                 <X size={20} color="var(--text-secondary)" />
               </button>
             </div>
-            <form onSubmit={createCourse} style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', gap: 16 }}>
+            <form onSubmit={createCourse} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>COURSE TITLE</label>
-                <input placeholder="e.g. Master Deep Work & Focus" value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} required />
+                <input className="glow-input" placeholder="e.g. Master Deep Work & Focus" value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} required />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>CATEGORY</label>
@@ -483,9 +602,9 @@ export default function LearnPage() {
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>DESCRIPTION</label>
-                <textarea placeholder="Course overview and objectives..." value={newCourseDesc} onChange={e => setNewCourseDesc(e.target.value)} rows={3} style={{ resize: 'none' }} />
+                <textarea className="glow-input" placeholder="Course overview and objectives..." value={newCourseDesc} onChange={e => setNewCourseDesc(e.target.value)} rows={3} style={{ resize: 'none' }} />
               </div>
-              <button type="submit" disabled={savingCourse} className="btn btn-primary" style={{ marginTop: 'auto', height: 44 }}>
+              <button type="submit" disabled={savingCourse} className="btn btn-primary" style={{ height: 44, marginTop: 8 }}>
                 {savingCourse ? <Loader2 size={16} className="animate-spin" /> : 'Save Course'}
               </button>
             </form>
@@ -498,29 +617,33 @@ export default function LearnPage() {
         <>
           <div className="overlay" onClick={() => setShowLessonForm(false)} />
           <div className="animate-fade-in" style={{
-            position: 'fixed', inset: 0, zIndex: 110,
-            background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden'
+            position: 'fixed', bottom: 0, left: 0, right: 0,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-card) var(--radius-card) 0 0',
+            padding: '24px 20px', zIndex: 110,
+            paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
+            maxWidth: 768, margin: '0 auto',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Add Lesson</h3>
               <button onClick={() => setShowLessonForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                 <X size={20} color="var(--text-secondary)" />
               </button>
             </div>
-            <form onSubmit={createLesson} style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', gap: 16 }}>
+            <form onSubmit={createLesson} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>LESSON TITLE</label>
-                <input placeholder="e.g. Eliminating Friction in Habits" value={newLessonTitle} onChange={e => setNewLessonTitle(e.target.value)} required />
+                <input className="glow-input" placeholder="e.g. Eliminating Friction in Habits" value={newLessonTitle} onChange={e => setNewLessonTitle(e.target.value)} required />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>LESSON CONTENT / NOTES</label>
-                <textarea placeholder="Lesson summary, takeaways, or study material..." value={newLessonContent} onChange={e => setNewLessonContent(e.target.value)} rows={4} style={{ resize: 'none' }} />
+                <textarea className="glow-input" placeholder="Lesson summary, takeaways, or study material..." value={newLessonContent} onChange={e => setNewLessonContent(e.target.value)} rows={4} style={{ resize: 'none' }} />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>RESOURCE OR EMBED URL (OPTIONAL)</label>
-                <input placeholder="e.g. https://www.youtube.com/embed/..." value={newLessonResourceUrl} onChange={e => setNewLessonResourceUrl(e.target.value)} />
+                <input className="glow-input" placeholder="e.g. https://www.youtube.com/embed/..." value={newLessonResourceUrl} onChange={e => setNewLessonResourceUrl(e.target.value)} />
               </div>
-              <button type="submit" disabled={savingLesson} className="btn btn-primary" style={{ marginTop: 'auto', height: 44 }}>
+              <button type="submit" disabled={savingLesson} className="btn btn-primary" style={{ height: 44, marginTop: 8 }}>
                 {savingLesson ? <Loader2 size={16} className="animate-spin" /> : 'Save Lesson'}
               </button>
             </form>

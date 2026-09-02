@@ -173,7 +173,7 @@ export default function RemindersPage() {
       header={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Bell size={20} color="#F59E0B" />
+            <Bell size={20} color="#EF4444" />
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Reminders & Alerts</h1>
           </div>
           <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 13 }}>
@@ -186,8 +186,9 @@ export default function RemindersPage() {
 
         {/* Interactive AI Prompt Input Bar */}
         <form onSubmit={handleAIPrompt} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
-          <Sparkles size={18} color="#F59E0B" style={{ flexShrink: 0 }} />
+          <Sparkles size={18} color="#06B6D4" style={{ flexShrink: 0 }} />
           <input
+            className="glow-input"
             placeholder="Ask AI to set a reminder (e.g., 'Remind me tomorrow at 4pm to call doctor')..."
             value={aiInput}
             onChange={e => setAiInput(e.target.value)}
@@ -204,9 +205,9 @@ export default function RemindersPage() {
         </form>
 
         {/* Automatic Background Push Notification Banner */}
-        <div style={{ padding: '14px 16px', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(124, 58, 237, 0.08))', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: 'var(--radius-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ padding: '14px 16px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Bell size={20} color="#F59E0B" />
+            <Bell size={20} color="#06B6D4" />
             <div>
               <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Automatic Background Push Alerts</p>
               <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '2px 0 0' }}>Receive alerts on your device even when NIRMAAN is closed.</p>
@@ -226,8 +227,8 @@ export default function RemindersPage() {
           [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 74, borderRadius: 'var(--radius-card)' }} />)
         ) : reminders.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Bell size={28} color="#F59E0B" />
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Bell size={28} color="#EF4444" />
             </div>
             <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>Never miss a commitment</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: 13, maxWidth: 300, margin: '0 auto 20px' }}>
@@ -246,7 +247,7 @@ export default function RemindersPage() {
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '14px 16px', opacity: rem.is_sent ? 0.6 : 1,
-                  borderLeft: `3px solid ${rem.is_sent ? 'var(--text-muted)' : '#F59E0B'}`,
+                  borderLeft: `3px solid ${rem.is_sent ? 'var(--text-muted)' : '#EF4444'}`,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -254,7 +255,7 @@ export default function RemindersPage() {
                     onClick={() => toggleReminderSent(rem)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                   >
-                    {rem.is_sent ? <CheckCircle2 size={18} color="#10B981" /> : <Clock size={18} color="#F59E0B" />}
+                    {rem.is_sent ? <CheckCircle2 size={18} color="#10B981" /> : <Clock size={18} color="#06B6D4" />}
                   </button>
                   <div>
                     <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0, textDecoration: rem.is_sent ? 'line-through' : 'none' }}>
@@ -263,7 +264,7 @@ export default function RemindersPage() {
                     <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span>{new Date(rem.remind_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
                       {(rem.repeat_rule || (rem as unknown as Record<string, string>).recurrence_rule) && (
-                        <span className="badge badge-warning" style={{ fontSize: 9 }}>
+                        <span className="badge badge-info" style={{ fontSize: 9 }}>
                           <Repeat size={10} /> {rem.repeat_rule || (rem as unknown as Record<string, string>).recurrence_rule}
                         </span>
                       )}
@@ -273,7 +274,7 @@ export default function RemindersPage() {
 
                 <button
                   onClick={() => deleteReminder(rem.id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444' }}
                 >
                   <Trash2 size={15} />
                 </button>
@@ -305,6 +306,7 @@ export default function RemindersPage() {
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>REMINDER TITLE</label>
                 <input
+                  className="glow-input"
                   placeholder="e.g. Call client regarding project update..."
                   value={title}
                   onChange={e => setTitle(e.target.value)}

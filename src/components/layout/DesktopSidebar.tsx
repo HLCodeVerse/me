@@ -5,9 +5,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import {
-  LayoutDashboard, CheckSquare, ListTodo, BookOpen,
+  LayoutDashboard, CheckSquare, BookOpen,
   Target, GraduationCap, Bot, Settings, Zap, Bell,
-  StickyNote, Flame, ChevronRight, BarChart2, ShieldCheck, Activity, Disc,
+  StickyNote, Flame, ChevronRight, BarChart2, ShieldCheck, Activity,
   PanelLeftClose, PanelLeftOpen, CheckCircle2
 } from 'lucide-react'
 
@@ -15,31 +15,29 @@ const NAV_GROUPS = [
   {
     title: 'DAILY OS',
     items: [
-      { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',    color: '#FFD700' },
-      { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',        color: '#EF4444' },
-      { href: '/todos',     icon: ListTodo,        label: 'Todos',        color: '#FACC15' },
-      { href: '/todoist',   icon: CheckCircle2,    label: 'Todoist Sync', color: '#E44332' },
+      { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',    color: '#06B6D4' },
+      { href: '/tasks',     icon: CheckSquare,     label: 'Tasks & Todos',color: '#06B6D4' },
       { href: '/habits',    icon: Flame,           label: 'Habits',       color: '#EF4444' },
-      { href: '/health',    icon: Activity,        label: 'Health',       color: '#10B981' },
-      { href: '/player',    icon: Disc,            label: 'Media Player', color: '#F59E0B' },
-      { href: '/notes',     icon: StickyNote,      label: 'Notes',        color: '#FACC15' },
+      { href: '/health',    icon: Activity,        label: 'Health & Water',color: '#10B981' },
+      { href: '/journal',   icon: BookOpen,        label: 'AI Journal',   color: '#10B981' },
+      { href: '/notes',     icon: StickyNote,      label: 'Notes Vault',  color: '#06B6D4' },
       { href: '/reminders', icon: Bell,            label: 'Reminders',    color: '#EF4444' },
-      { href: '/journal',   icon: BookOpen,        label: 'Journal',      color: '#10B981' },
     ]
   },
   {
     title: 'GROWTH & VISION',
     items: [
-      { href: '/goals',     icon: Target,          label: 'Goals',        color: '#10B981' },
-      { href: '/analytics', icon: BarChart2,       label: 'Analytics',    color: '#FACC15' },
-      { href: '/learn',     icon: GraduationCap,   label: 'Learning Hub', color: '#FFD700' },
+      { href: '/goals',     icon: Target,          label: 'Goals & Vision',color: '#10B981' },
+      { href: '/analytics', icon: BarChart2,       label: 'Analytics',    color: '#06B6D4' },
+      { href: '/learn',     icon: GraduationCap,   label: 'Learning Hub', color: '#10B981' },
+      { href: '/todoist',   icon: CheckCircle2,    label: 'Todoist Sync', color: '#EF4444' },
     ]
   },
   {
     title: 'INTELLIGENCE',
     items: [
-      { href: '/ai',        icon: Bot,             label: 'AI Chat OS',   color: '#FFD700' },
-      { href: '/mcp',       icon: ShieldCheck,     label: 'MCP Connect',  color: '#10B981' },
+      { href: '/ai',        icon: Bot,             label: 'AI Chat OS',   color: '#06B6D4' },
+      { href: '/mcp',       icon: ShieldCheck,     label: 'MCP Server',   color: '#10B981' },
       { href: '/settings',  icon: Settings,        label: 'Settings',     color: '#FFFFFF' },
     ]
   }
@@ -64,7 +62,6 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Never render desktop sidebar on mobile viewports (<1024px)
   if (isMobile) {
     return null
   }
@@ -82,8 +79,8 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
         top: 0,
         bottom: 0,
         width: sidebarWidth,
-        background: 'linear-gradient(180deg, #000000 0%, #0A0B0D 50%, #121318 100%)',
-        borderRight: '1px solid rgba(245, 158, 11, 0.3)',
+        background: 'linear-gradient(180deg, #050505 0%, #0D0E12 50%, #14161D 100%)',
+        borderRight: '1px solid rgba(6, 182, 212, 0.2)',
         justifyContent: 'space-between',
         zIndex: 40,
         padding: isCollapsed ? '18px 8px' : '18px 14px',
@@ -99,29 +96,29 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
           alignItems: 'center',
           justifyContent: isCollapsed ? 'center' : 'space-between',
           padding: isCollapsed ? '4px 0 16px' : '4px 4px 16px',
-          borderBottom: '1px solid rgba(245, 158, 11, 0.2)',
+          borderBottom: '1px solid rgba(6, 182, 212, 0.2)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 36,
               height: 36,
               borderRadius: 10,
-              background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
+              background: 'linear-gradient(135deg, #06B6D4, #0284C7)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#000000',
+              color: '#FFFFFF',
               flexShrink: 0,
-              boxShadow: '0 4px 14px rgba(245, 158, 11, 0.5)',
+              boxShadow: '0 4px 14px rgba(6, 182, 212, 0.4)',
             }}>
-              <Zap size={20} fill="#000000" color="#000000" />
+              <Zap size={20} fill="#FFFFFF" color="#FFFFFF" />
             </div>
             {!isCollapsed && (
               <div>
                 <h1 style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
-                  NIRMAAN <span style={{ color: '#F59E0B', fontSize: 11 }}>OS</span>
+                  NIRMAAN <span style={{ color: '#06B6D4', fontSize: 11 }}>OS</span>
                 </h1>
-                <p style={{ fontSize: 10, color: '#D1D5DB', margin: 0, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0, fontWeight: 600, whiteSpace: 'nowrap' }}>
                   Personal Reconstruction
                 </p>
               </div>
@@ -132,8 +129,8 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
             <button
               onClick={onToggleCollapse}
               style={{
-                background: 'rgba(245, 158, 11, 0.1)',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
+                background: 'rgba(6, 182, 212, 0.1)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
                 borderRadius: 8,
                 width: 32,
                 height: 32,
@@ -141,7 +138,7 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                color: '#FFD700',
+                color: '#06B6D4',
                 transition: 'all 150ms ease',
                 flexShrink: 0,
                 marginTop: isCollapsed ? 8 : 0,
@@ -169,7 +166,7 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
                 <div style={{
                   fontSize: 10,
                   fontWeight: 800,
-                  color: '#F59E0B',
+                  color: '#06B6D4',
                   padding: '0 8px 6px',
                   letterSpacing: '0.08em',
                   whiteSpace: 'nowrap',
@@ -194,15 +191,13 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
                         borderRadius: 10,
                         textDecoration: 'none',
                         position: 'relative',
-                        background: isActive ? 'linear-gradient(90deg, rgba(245, 158, 11, 0.2), rgba(250, 204, 21, 0.08))' : 'transparent',
-                        border: `1px solid ${isActive ? 'rgba(245, 158, 11, 0.4)' : 'transparent'}`,
-                        color: isActive ? '#FFFFFF' : '#9CA3AF',
+                        background: isActive ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                        border: `1px solid ${isActive ? 'rgba(6, 182, 212, 0.4)' : 'transparent'}`,
+                        color: isActive ? '#FFFFFF' : 'var(--text-muted)',
                         fontWeight: isActive ? 700 : 500,
                         transition: 'all 150ms ease',
-                        boxShadow: isActive ? '0 4px 14px rgba(245, 158, 11, 0.2)' : 'none',
                       }}
                     >
-                      {/* Active item left glowing indicator */}
                       {isActive && (
                         <div style={{
                           position: 'absolute',
@@ -215,8 +210,8 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
                           boxShadow: `0 0 10px ${color}`,
                         }} />
                       )}
-                      
-                      <Icon size={18} color={isActive ? color : '#9CA3AF'} style={{ flexShrink: 0 }} />
+
+                      <Icon size={18} color={isActive ? color : 'var(--text-muted)'} style={{ flexShrink: 0 }} />
                       {!isCollapsed && <span style={{ fontSize: 13, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>}
                     </Link>
                   )
@@ -227,9 +222,8 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
         </div>
       </div>
 
-      {/* Footer: MCP Connected Pill & User Profile Card */}
-      <div style={{ borderTop: '1px solid rgba(245, 158, 11, 0.2)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* MCP Status Pill */}
+      {/* Footer Profile */}
+      <div style={{ borderTop: '1px solid rgba(6, 182, 212, 0.2)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {!isCollapsed ? (
           <Link href="/mcp" style={{
             display: 'flex',
@@ -241,17 +235,16 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
             border: '1px solid rgba(16, 185, 129, 0.35)',
             textDecoration: 'none',
           }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', display: 'inline-block', boxShadow: '0 0 8px #10B981' }} className="animate-pulse" />
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981', flex: 1, whiteSpace: 'nowrap' }}>MCP Connected</span>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} className="animate-pulse" />
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981', flex: 1, whiteSpace: 'nowrap' }}>MCP Server Active</span>
             <ChevronRight size={13} color="#10B981" />
           </Link>
         ) : (
           <Link href="/mcp" style={{ display: 'flex', justifyContent: 'center', padding: '6px' }} title="MCP Connected">
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#10B981', display: 'inline-block', boxShadow: '0 0 8px #10B981' }} className="animate-pulse" />
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} className="animate-pulse" />
           </Link>
         )}
 
-        {/* User Profile Card */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -259,21 +252,20 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
           gap: 10,
           padding: isCollapsed ? '8px 0' : '10px 12px',
           borderRadius: 12,
-          background: '#0A0B0D',
-          border: '1px solid rgba(245, 158, 11, 0.3)',
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
         }}>
           <div style={{
             width: 32,
             height: 32,
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
+            background: 'linear-gradient(135deg, #06B6D4, #10B981)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#000000',
+            color: '#FFFFFF',
             fontWeight: 800,
             fontSize: 12,
-            boxShadow: '0 2px 10px rgba(245, 158, 11, 0.4)',
             flexShrink: 0,
           }}>
             {name[0]?.toUpperCase() ?? 'U'}
@@ -283,13 +275,13 @@ export default function DesktopSidebar({ isCollapsed = false, onToggleCollapse }
               <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {name}
               </div>
-              <div style={{ fontSize: 10.5, color: '#FFD700', fontWeight: 700 }}>
+              <div style={{ fontSize: 10.5, color: '#10B981', fontWeight: 700 }}>
                 Score: {lifeScore}
               </div>
             </div>
           )}
           {!isCollapsed && (
-            <Link href="/settings" style={{ color: '#F59E0B' }}>
+            <Link href="/settings" style={{ color: 'var(--text-muted)' }}>
               <Settings size={15} />
             </Link>
           )}

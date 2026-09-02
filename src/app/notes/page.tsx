@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import FormattedAIResponse from '@/components/common/FormattedAIResponse'
-import { Plus, StickyNote, Pin, Search, Loader2, X, Brain, Trash2 } from 'lucide-react'
+import { Plus, StickyNote, Pin, Search, Loader2, X, Brain, Trash2, Sparkles, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Note } from '@/lib/supabase/database.types'
 
@@ -18,6 +18,8 @@ export default function NotesPage() {
   const [showForm, setShowForm] = useState(false)
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [summarizing, setSummarizing] = useState(false)
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiGenerating, setAiGenerating] = useState(false)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -69,6 +71,80 @@ export default function NotesPage() {
     }
   }
 
+  async function handleAINoteGenerate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!user || !aiPrompt.trim()) return
+    const promptToUse = aiPrompt.trim()
+    setAiGenerating(true)
+    toast.info('AI is generating research note...')
+
+    try {
+      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': user.id,
+        },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Generate a structured research note for: "${promptToUse}". Include a clean Title on line 1, followed by body content.`
+          }],
+          enableTools: false,
+          grokApiKey: customGrokKey,
+        })
+      })
+
+      if (!res.ok) throw new Error('AI note generation failed')
+
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let genText = ''
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value)
+          for (const line of chunk.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6)
+            if (data === '[DONE]') continue
+            try {
+              const parsed = JSON.parse(data)
+              const delta = parsed.choices?.[0]?.delta?.content ?? ''
+              if (delta) genText += delta
+            } catch {}
+          }
+        }
+      }
+
+      const lines = genText.split('\n').filter(l => l.trim().length > 0)
+      const noteTitle = lines[0] ? lines[0].replace(/^#+\s*/, '') : 'AI Generated Note'
+      const noteBody = lines.slice(1).join('\n') || genText
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('notes') as any).insert({
+        user_id: user.id,
+        title: noteTitle,
+        content: noteBody,
+        is_pinned: false,
+        tags: ['AI Generated'],
+      })
+
+      if (error) throw error
+
+      setAiPrompt('')
+      toast.success('AI Note generated & saved to Knowledge Vault! 📝')
+      loadNotes()
+    } catch {
+      toast.error('AI note generation failed')
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
   async function togglePin(note: Note) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,7 +177,7 @@ export default function NotesPage() {
         body: JSON.stringify({
           messages: [{
             role: 'user',
-            content: `Summarize this note into 2 bullet points:\n"${note.content}"`
+            content: `Summarize this note into 2 key takeaways:\n"${note.content}"`
           }],
           enableTools: false
         })
@@ -159,11 +235,33 @@ export default function NotesPage() {
         </div>
       }
     >
-      <div style={{ paddingTop: 8 }}>
+      <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* AI Prompt Bar */}
+        <form onSubmit={handleAINoteGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
+          <Sparkles size={18} color="#06B6D4" style={{ flexShrink: 0 }} />
+          <input
+            className="glow-input"
+            placeholder="Tell AI to generate a note (e.g., 'Summarize key principles of Stoicism')..."
+            value={aiPrompt}
+            onChange={e => setAiPrompt(e.target.value)}
+            style={{ flex: 1, border: 'none', background: 'transparent', padding: 0, fontSize: 13 }}
+          />
+          <button
+            type="submit"
+            disabled={aiGenerating || !aiPrompt.trim()}
+            className="btn btn-primary"
+            style={{ height: 34, padding: '0 12px', fontSize: 12, flexShrink: 0 }}
+          >
+            {aiGenerating ? <Loader2 size={13} className="animate-spin" /> : <><Send size={13} /> AI Generate</>}
+          </button>
+        </form>
+
         {/* Search */}
-        <div style={{ position: 'relative', marginBottom: 16 }}>
+        <div style={{ position: 'relative' }}>
           <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
           <input
+            className="glow-input"
             placeholder="Search notes..."
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -222,7 +320,7 @@ export default function NotesPage() {
                   </span>
                   <button
                     onClick={e => { e.stopPropagation(); deleteNote(note.id) }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444' }}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -249,12 +347,14 @@ export default function NotesPage() {
             </div>
             <form onSubmit={createNote} style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px' }}>
               <input
+                className="glow-input"
                 placeholder="Note title (optional)..."
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 style={{ marginBottom: 14, fontSize: 16, fontWeight: 600 }}
               />
               <textarea
+                className="glow-input"
                 placeholder="Start typing your note content..."
                 value={content}
                 onChange={e => setContent(e.target.value)}
@@ -289,7 +389,7 @@ export default function NotesPage() {
                   onClick={() => summarizeNoteWithAI(selectedNote)}
                   disabled={summarizing}
                   className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: 12, border: '1px solid #06B6D4', color: '#06B6D4' }}
+                  style={{ padding: '4px 10px', fontSize: 12, borderColor: '#06B6D4', color: '#06B6D4' }}
                 >
                   {summarizing ? <Loader2 size={13} className="animate-spin" /> : <Brain size={13} />}
                   AI Summarize

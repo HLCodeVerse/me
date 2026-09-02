@@ -11,8 +11,8 @@ import type { Goal, LifeArea } from '@/lib/supabase/database.types'
 
 const STATUS_COLORS: Record<string, string> = {
   active: '#10B981',
-  on_hold: '#F59E0B',
-  completed: '#3B82F6',
+  on_hold: '#06B6D4',
+  completed: '#10B981',
   archived: 'var(--text-muted)',
 }
 
@@ -81,9 +81,9 @@ export default function GoalsPage() {
   async function handleAIGoalGenerate(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
-    const promptToUse = aiPrompt.trim() || 'Create a goal to launch my product'
+    const promptToUse = aiPrompt.trim() || 'Create a goal to launch my product v1'
     setAiGenerating(true)
-    toast.info('AI is executing your goal instruction...')
+    toast.info('AI is generating your goal & action roadmap...')
 
     try {
       const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
@@ -103,13 +103,8 @@ export default function GoalsPage() {
 
       if (!res.ok) throw new Error('AI goal generation failed')
 
-      const actionsHeader = res.headers.get('X-Actions')
-      if (actionsHeader) {
-        toast.success(`AI Executed Actions: ${actionsHeader}`, { icon: '⚡' })
-      }
-
       setAiPrompt('')
-      toast.success('AI Goal synchronized! 🎯')
+      toast.success('AI Goal created & synchronized! 🎯')
       load()
     } catch {
       toast.error('AI goal generation failed')
@@ -175,11 +170,12 @@ export default function GoalsPage() {
           goal_id: goal.id,
           title: tTitle,
           priority: 2,
+          category: 'todo',
           status: 'todo'
         })
       }
 
-      toast.success('AI Roadmap tasks created!')
+      toast.success('3 AI Roadmap tasks created under Tasks!')
     } catch {
       toast.error('Could not generate goal roadmap')
     } finally {
@@ -216,9 +212,10 @@ export default function GoalsPage() {
 
         {/* AI Custom Prompt Bar */}
         <form onSubmit={handleAIGoalGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
-          <Sparkles size={18} color="#10B981" style={{ flexShrink: 0 }} />
+          <Sparkles size={18} color="#06B6D4" style={{ flexShrink: 0 }} />
           <input
-            placeholder="Tell AI to create goals (e.g., 'Create a quarterly goal to launch product v1')..."
+            className="glow-input"
+            placeholder="Tell AI to generate goals (e.g., 'Create a quarterly goal to launch product v1')..."
             value={aiPrompt}
             onChange={e => setAiPrompt(e.target.value)}
             style={{ flex: 1, border: 'none', background: 'transparent', padding: 0, fontSize: 13 }}
@@ -238,7 +235,7 @@ export default function GoalsPage() {
           <button
             onClick={() => setSelectedArea(null)}
             style={{
-              padding: '6px 14px', borderRadius: 99, border: 'none', cursor: 'pointer',
+              padding: '6px 14px', borderRadius: 99, border: '1px solid var(--border)', cursor: 'pointer',
               fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
               background: !selectedArea ? '#10B981' : 'var(--surface-2)',
               color: !selectedArea ? '#FFFFFF' : 'var(--text-secondary)',
@@ -251,14 +248,14 @@ export default function GoalsPage() {
               key={area.id}
               onClick={() => setSelectedArea(a => a === area.name ? null : area.name)}
               style={{
-                padding: '6px 14px', borderRadius: 99, border: 'none', cursor: 'pointer',
+                padding: '6px 14px', borderRadius: 99, border: '1px solid var(--border)', cursor: 'pointer',
                 fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
-                background: selectedArea === area.name ? area.color + '20' : 'var(--surface-2)',
-                color: selectedArea === area.name ? area.color : 'var(--text-secondary)',
+                background: selectedArea === area.name ? '#06B6D4' : 'var(--surface-2)',
+                color: selectedArea === area.name ? '#FFFFFF' : 'var(--text-secondary)',
                 display: 'flex', alignItems: 'center', gap: 5,
               }}
             >
-              <Compass size={13} color={area.color} /> {area.name}
+              <Compass size={13} color={selectedArea === area.name ? '#FFFFFF' : '#06B6D4'} /> {area.name}
             </button>
           ))}
         </div>
@@ -271,8 +268,8 @@ export default function GoalsPage() {
             return (
               <div key={areaName} style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Compass size={16} color={area?.color ?? '#10B981'} />
-                  <span style={{ fontSize: 14, fontWeight: 700, color: area?.color ?? 'var(--text-primary)' }}>{areaName}</span>
+                  <Compass size={16} color="#10B981" />
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{areaName}</span>
                   <span className="badge badge-muted">{areaGoals.length}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -283,7 +280,7 @@ export default function GoalsPage() {
                       style={{
                         padding: '16px',
                         opacity: goal.status === 'completed' ? 0.6 : 1,
-                        borderLeft: `3px solid ${area?.color ?? 'var(--border)'}`,
+                        borderLeft: `3px solid ${goal.status === 'completed' ? '#10B981' : '#06B6D4'}`,
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -293,7 +290,7 @@ export default function GoalsPage() {
                         >
                           {goal.status === 'completed'
                             ? <CheckCircle2 size={20} color="#10B981" />
-                            : <Circle size={20} color={area?.color ?? 'var(--text-muted)'} strokeWidth={1.5} />
+                            : <Circle size={20} color="var(--text-muted)" strokeWidth={1.5} />
                           }
                         </button>
                         <div style={{ flex: 1 }}>
@@ -311,8 +308,8 @@ export default function GoalsPage() {
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                               <span style={{
                                 fontSize: 10, fontWeight: 700, padding: '2px 8px',
-                                borderRadius: 99, background: STATUS_COLORS[goal.status] + '20',
-                                color: STATUS_COLORS[goal.status], textTransform: 'uppercase'
+                                borderRadius: 99, background: (STATUS_COLORS[goal.status] || '#10B981') + '20',
+                                color: STATUS_COLORS[goal.status] || '#10B981', textTransform: 'uppercase'
                               }}>
                                 {goal.status.replace('_', ' ')}
                               </span>
@@ -328,7 +325,7 @@ export default function GoalsPage() {
                                   onClick={() => generateGoalRoadmap(goal)}
                                   disabled={generatingRoadmapId === goal.id}
                                   className="btn btn-secondary"
-                                  style={{ fontSize: 11, padding: '4px 10px', height: 28, border: '1px solid #7C3AED', color: '#7C3AED' }}
+                                  style={{ fontSize: 11, padding: '4px 10px', height: 28, borderColor: '#06B6D4', color: '#06B6D4' }}
                                 >
                                   {generatingRoadmapId === goal.id ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />}
                                   AI Roadmap
@@ -392,8 +389,8 @@ export default function GoalsPage() {
                 </button>
               </div>
               <form onSubmit={addGoal} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <input placeholder="Goal title..." value={title} onChange={e => setTitle(e.target.value)} required style={{ fontSize: 15 }} />
-                <textarea placeholder="Description (optional)" value={desc} onChange={e => setDesc(e.target.value)} rows={2} style={{ resize: 'none' }} />
+                <input className="glow-input" placeholder="Goal title..." value={title} onChange={e => setTitle(e.target.value)} required style={{ fontSize: 15 }} />
+                <textarea className="glow-input" placeholder="Description (optional)" value={desc} onChange={e => setDesc(e.target.value)} rows={2} style={{ resize: 'none' }} />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>LIFE AREA</label>
