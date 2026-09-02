@@ -11,7 +11,15 @@ import Globe3D from './Globe3D'
 function formatPlayableUrl(url: string) {
   if (!url) return ''
   if (url.startsWith('file://')) {
-    return Capacitor.convertFileSrc(url)
+    const cleanPath = url.replace(/^file:\/*/, '/')
+    try {
+      if (Capacitor.isNativePlatform()) {
+        return Capacitor.convertFileSrc(cleanPath)
+      }
+    } catch {
+      // Fallback
+    }
+    return `http://localhost/_capacitor_file_${cleanPath}`
   }
   return url
 }
@@ -52,7 +60,13 @@ export default function GlobalMediaPlayer() {
       audioRef.current.playbackRate = playbackRate || 1.0
       if (isPlaying) {
         audioRef.current.play().catch(err => {
-          console.warn('Playback error:', err)
+          console.warn('Primary audio play exception:', err)
+          // Try HTTPS localhost scheme fallback if HTTP scheme was blocked by WebView
+          if (currentTrack.url.startsWith('file://') && audioRef.current) {
+            const cleanPath = currentTrack.url.replace(/^file:\/*/, '/')
+            audioRef.current.src = `https://localhost/_capacitor_file_${cleanPath}`
+            audioRef.current.play().catch(e => console.warn('Fallback audio play exception:', e))
+          }
         })
       } else {
         audioRef.current.pause()
@@ -179,6 +193,13 @@ export default function GlobalMediaPlayer() {
         ref={audioRef}
         onTimeUpdate={(e) => updateTime(e.currentTarget.currentTime, e.currentTarget.duration || 0)}
         onEnded={handleEnded}
+        onError={() => {
+          if (audioRef.current && currentTrack && currentTrack.url.startsWith('file://')) {
+            const cleanPath = currentTrack.url.replace(/^file:\/*/, '/')
+            audioRef.current.src = `https://localhost/_capacitor_file_${cleanPath}`
+            audioRef.current.play().catch(() => {})
+          }
+        }}
       />
 
       {/* Progress Bar Top Line */}

@@ -83,12 +83,14 @@ public class MainActivity extends BridgeActivity {
 
                     String ext = filePath.contains(".") ? filePath.substring(filePath.lastIndexOf(".") + 1).toUpperCase() : "AUDIO";
 
+                    String cleanPath = filePath.startsWith("/") ? filePath : "/" + filePath;
                     track.put("id", "native-audio-" + id);
                     track.put("title", title != null && !title.isEmpty() ? title : "Device Audio Track");
                     track.put("artist", artist != null && !artist.isEmpty() ? artist : "Device Local Library");
                     track.put("album", album != null ? album : "Storage");
                     track.put("duration", durationMs / 1000);
-                    track.put("url", "file://" + filePath);
+                    track.put("url", "file://" + cleanPath);
+                    track.put("contentUri", "content://media/external/audio/media/" + id);
                     track.put("category", "Local Device Audio");
                     track.put("dateAdded", System.currentTimeMillis());
                     track.put("playCount", 1);
