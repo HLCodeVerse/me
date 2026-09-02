@@ -366,9 +366,9 @@ export default function AIPage() {
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', display: 'flex', alignItems: 'center' }}
               title="Chat History"
             >
-              <MessageSquare size={18} color="#F59E0B" />
+              <MessageSquare size={18} color="#8B5CF6" />
             </button>
-            <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>NIRMAAN AI Chat OS</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: '#FFFFFF' }}>Helpo AI Assistant</h1>
           </div>
 
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -377,10 +377,10 @@ export default function AIPage() {
               <button
                 onClick={() => setShowModelPicker(p => !p)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px',
-                  borderRadius: 99, background: 'rgba(245,158,11,0.12)',
-                  border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                  color: '#F59E0B',
+                  display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
+                  borderRadius: 99, background: 'rgba(124,58,237,0.15)',
+                  border: '1px solid rgba(124,58,237,0.35)', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                  color: '#8B5CF6',
                 }}
               >
                 <span>{currentModel.label}</span>
@@ -403,13 +403,13 @@ export default function AIPage() {
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           padding: '6px 8px', borderRadius: 6, width: '100%', border: 'none',
-                          background: selectedModel === m.id ? 'rgba(245,158,11,0.15)' : 'transparent',
-                          color: selectedModel === m.id ? '#F59E0B' : 'var(--text)', fontSize: 12, fontWeight: 600,
+                          background: selectedModel === m.id ? 'rgba(124,58,237,0.2)' : 'transparent',
+                          color: selectedModel === m.id ? '#8B5CF6' : 'var(--text)', fontSize: 12, fontWeight: 600,
                           cursor: 'pointer', textAlign: 'left',
                         }}
                       >
                         {m.label}
-                        {selectedModel === m.id && <Check size={12} color="#F59E0B" />}
+                        {selectedModel === m.id && <Check size={12} color="#8B5CF6" />}
                       </button>
                     ))}
                   </div>
@@ -417,16 +417,41 @@ export default function AIPage() {
               )}
             </div>
 
+            {/* Clear Chat Button */}
+            {messages.length > 0 && (
+              <button
+                onClick={() => {
+                  if (activeConv) {
+                    deleteConversation(activeConv.id)
+                  } else {
+                    setMessages([])
+                    toast.success('Chat cleared')
+                  }
+                }}
+                style={{
+                  height: 30, padding: '0 10px', borderRadius: 99,
+                  background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  cursor: 'pointer', color: '#EF4444', fontWeight: 700, fontSize: 11
+                }}
+                title="Clear current chat"
+              >
+                <Trash2 size={12} /> Clear
+              </button>
+            )}
+
+            {/* New Chat Button */}
             <button
-              onClick={() => { setActiveConv(null); setMessages([]) }}
+              onClick={() => { setActiveConv(null); setMessages([]); createNewConversation() }}
               style={{
-                height: 30, padding: '0 10px', borderRadius: 99,
-                background: 'linear-gradient(135deg, #F59E0B, #EAB308)', border: 'none',
+                height: 30, padding: '0 12px', borderRadius: 99,
+                background: 'linear-gradient(135deg, #7C3AED, #6366F1)', border: 'none',
                 display: 'flex', alignItems: 'center', gap: 4,
-                cursor: 'pointer', color: '#0A0B0D', fontWeight: 800, fontSize: 11
+                cursor: 'pointer', color: '#FFFFFF', fontWeight: 800, fontSize: 11,
+                boxShadow: '0 2px 10px rgba(124,58,237,0.4)',
               }}
             >
-              <Plus size={13} /> New
+              <Plus size={13} /> New Chat
             </button>
           </div>
         </div>

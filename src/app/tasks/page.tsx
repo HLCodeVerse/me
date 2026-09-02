@@ -20,22 +20,22 @@ type CategoryType = 'all' | 'health' | 'todo' | 'habit' | 'journal' | 'other'
 
 const STATUSES = ['todo', 'in_progress', 'done']
 const STATUS_LABELS: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' }
-const STATUS_COLORS: Record<string, string> = { todo: 'var(--text-muted)', in_progress: '#06B6D4', done: '#10B981' }
+const STATUS_COLORS: Record<string, string> = { todo: 'var(--text-muted)', in_progress: '#22D3EE', done: '#10B981' }
 
 const CATEGORIES: { id: CategoryType; label: string; icon: any; color: string }[] = [
-  { id: 'all', label: 'All', icon: Tag, color: '#06B6D4' },
-  { id: 'todo', label: 'Todo Task', icon: CheckSquare, color: '#06B6D4' },
-  { id: 'health', label: 'Health', icon: HeartPulse, color: '#EF4444' },
-  { id: 'habit', label: 'Habit', icon: Zap, color: '#10B981' },
-  { id: 'journal', label: 'Journal', icon: BookOpen, color: '#06B6D4' },
-  { id: 'other', label: 'Other', icon: Tag, color: '#FFFFFF' },
+  { id: 'all', label: 'All', icon: Tag, color: '#7C3AED' },
+  { id: 'todo', label: 'Todo Task', icon: CheckSquare, color: '#3B82F6' },
+  { id: 'health', label: 'Health', icon: HeartPulse, color: '#FF4F81' },
+  { id: 'habit', label: 'Habit', icon: Zap, color: '#FBBF24' },
+  { id: 'journal', label: 'Journal', icon: BookOpen, color: '#22D3EE' },
+  { id: 'other', label: 'Other', icon: Tag, color: '#8892B0' },
 ]
 
 const PRIORITY_FLAGS: Record<number, { label: string; badgeClass: string; color: string }> = {
   4: { label: 'P1 Urgent', badgeClass: 'badge-p1', color: '#EF4444' },
-  3: { label: 'P2 High', badgeClass: 'badge-p2', color: '#06B6D4' },
-  2: { label: 'P3 Medium', badgeClass: 'badge-p3', color: '#10B981' },
-  1: { label: 'P4 Low', badgeClass: 'badge-p4', color: '#94A3B8' },
+  3: { label: 'P2 High',   badgeClass: 'badge-p2', color: '#FF8A3D' },
+  2: { label: 'P3 Medium', badgeClass: 'badge-p3', color: '#3B82F6' },
+  1: { label: 'P4 Low',    badgeClass: 'badge-p4', color: '#8892B0' },
 }
 
 export default function TasksPage() {
@@ -258,7 +258,7 @@ export default function TasksPage() {
       header={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ListChecks size={20} color="#06B6D4" />
+            <ListChecks size={20} color="#7C3AED" />
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Tasks & Categories</h1>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -284,8 +284,8 @@ export default function TasksPage() {
       <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* AI Prompt Bar */}
-        <form onSubmit={handleAITaskGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
-          <Sparkles size={18} color="#06B6D4" style={{ flexShrink: 0 }} />
+        <form onSubmit={handleAITaskGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)' }}>
+          <Sparkles size={18} color="#7C3AED" style={{ flexShrink: 0 }} />
           <input
             className="glow-input"
             placeholder="Ask AI to generate tasks, health goals, or habits..."
@@ -316,7 +316,7 @@ export default function TasksPage() {
                   padding: '7px 14px', borderRadius: 99, border: '1px solid var(--border)', cursor: 'pointer',
                   fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
                   background: isActive ? cat.color : 'var(--surface-2)',
-                  color: isActive ? '#000000' : 'var(--text-secondary)',
+                  color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
                   transition: 'all 150ms ease', flexShrink: 0,
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}
@@ -347,15 +347,15 @@ export default function TasksPage() {
                 key={f}
                 onClick={() => setFilter(f)}
                 style={{
-                  padding: '5px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                  padding: '5px 12px', borderRadius: 8, border: filter === f ? '1px solid rgba(139,92,246,0.4)' : '1px solid var(--border)', cursor: 'pointer',
                   fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', textTransform: 'capitalize',
-                  background: filter === f ? '#06B6D4' : 'var(--surface-2)',
-                  color: filter === f ? '#FFFFFF' : 'var(--text-secondary)',
+                  background: filter === f ? 'rgba(139,92,246,0.1)' : 'var(--surface-2)',
+                  color: filter === f ? '#8B5CF6' : 'var(--text-secondary)',
                   transition: 'all 150ms ease', flexShrink: 0,
                   display: 'flex', alignItems: 'center', gap: 4,
                 }}
               >
-                {f === 'p1' && <Flag size={11} color={filter === f ? '#FFFFFF' : '#EF4444'} />}
+                {f === 'p1' && <Flag size={11} color={filter === f ? '#8B5CF6' : '#EF4444'} />}
                 {f === 'all' ? 'All Status' : f === 'p1' ? 'P1 Urgent' : f === 'today' ? 'Due Today' : STATUS_LABELS[f]}
               </button>
             ))}
@@ -443,7 +443,7 @@ export default function TasksPage() {
             <div className="overlay" onClick={() => setShowAddForm(false)} />
             <div className="animate-fade-in" style={{
               position: 'fixed', bottom: 0, left: 0, right: 0,
-              background: 'var(--surface)', border: '1px solid var(--border)',
+              background: 'var(--surface)', border: '1px solid rgba(124,58,237,0.3)',
               borderRadius: 'var(--radius-card) var(--radius-card) 0 0',
               padding: '24px 20px', zIndex: 110,
               paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',

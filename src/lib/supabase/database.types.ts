@@ -22,6 +22,8 @@ export interface Database {
           created_at: string
           phone: string | null
           password_hash: string | null
+          bio: string | null
+          total_tasks_completed: number
         }
         Insert: {
           id?: string
@@ -35,6 +37,8 @@ export interface Database {
           created_at?: string
           phone?: string | null
           password_hash?: string | null
+          bio?: string | null
+          total_tasks_completed?: number
         }
         Update: {
           id?: string
@@ -48,6 +52,8 @@ export interface Database {
           created_at?: string
           phone?: string | null
           password_hash?: string | null
+          bio?: string | null
+          total_tasks_completed?: number
         }
       }
       tasks: {
@@ -121,6 +127,7 @@ export interface Database {
           target_count: number
           archived: boolean
           created_at: string
+          streak_count: number
         }
         Insert: {
           id?: string
@@ -132,6 +139,7 @@ export interface Database {
           target_count?: number
           archived?: boolean
           created_at?: string
+          streak_count?: number
         }
         Update: Partial<Database['public']['Tables']['habits']['Insert']>
       }
@@ -214,6 +222,7 @@ export interface Database {
           target_date: string | null
           status: string
           priority: number
+          progress: number
         }
         Insert: {
           id?: string
@@ -224,6 +233,7 @@ export interface Database {
           target_date?: string | null
           status?: string
           priority?: number
+          progress?: number
         }
         Update: Partial<Database['public']['Tables']['goals']['Insert']>
       }
@@ -235,6 +245,7 @@ export interface Database {
           icon: string
           color: string
           target_score: number
+          current_score: number
         }
         Insert: {
           id?: string
@@ -243,6 +254,7 @@ export interface Database {
           icon: string
           color: string
           target_score?: number
+          current_score?: number
         }
         Update: Partial<Database['public']['Tables']['life_areas']['Insert']>
       }
@@ -392,6 +404,7 @@ export interface Database {
           date: string
           ai_generated_summary: string | null
           focus_area: string | null
+          plan_items: Json
         }
         Insert: {
           id?: string
@@ -399,6 +412,7 @@ export interface Database {
           date: string
           ai_generated_summary?: string | null
           focus_area?: string | null
+          plan_items?: Json
         }
         Update: Partial<Database['public']['Tables']['daily_plans']['Insert']>
       }

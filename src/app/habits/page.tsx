@@ -191,7 +191,7 @@ export default function HabitsPage() {
       header={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Flame size={20} color="#EF4444" />
+            <Flame size={20} color="#FF4F81" className="animate-flame" />
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Habits & Daily Tracker</h1>
           </div>
           <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 13 }}>
@@ -203,8 +203,8 @@ export default function HabitsPage() {
       <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* AI Custom Prompt Bar */}
-        <form onSubmit={handleAIHabitGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'var(--surface)' }}>
-          <Sparkles size={18} color="#06B6D4" style={{ flexShrink: 0 }} />
+        <form onSubmit={handleAIHabitGenerate} className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)' }}>
+          <Sparkles size={18} color="#7C3AED" style={{ flexShrink: 0 }} />
           <input
             className="glow-input"
             placeholder="Tell AI to generate habits (e.g., 'Create a daily habit to read 15 pages')..."
@@ -262,7 +262,11 @@ export default function HabitsPage() {
                   className="card"
                   style={{
                     padding: '16px', background: 'var(--surface)',
-                    borderLeft: `4px solid ${isTodayDone ? '#10B981' : '#EF4444'}`,
+                    borderLeft: `4px solid ${isTodayDone ? '#10B981' : '#FF4F81'}`,
+                    borderRadius: 'var(--radius-card)',
+                    borderTop: `1px solid ${isTodayDone ? 'rgba(16,185,129,0.3)' : 'rgba(255,79,129,0.2)'}`,
+                    borderRight: `1px solid ${isTodayDone ? 'rgba(16,185,129,0.3)' : 'rgba(255,79,129,0.2)'}`,
+                    borderBottom: `1px solid ${isTodayDone ? 'rgba(16,185,129,0.3)' : 'rgba(255,79,129,0.2)'}`,
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -271,7 +275,7 @@ export default function HabitsPage() {
                         <h4 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                           {stripMarkdown(habit.title)}
                         </h4>
-                        <span className="badge badge-danger" style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span className="badge badge-pink" style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
                           <Flame size={10} /> {streak} day streak
                         </span>
                       </div>
@@ -305,10 +309,11 @@ export default function HabitsPage() {
                             onClick={() => toggleDateCompletion(habit.id, dateStr)}
                             style={{
                               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                              padding: '6px 4px', borderRadius: 8, border: `1px solid ${isToday ? '#EF4444' : 'var(--border)'}`,
-                              background: isDoneOnDate ? 'rgba(16,185,129,0.2)' : 'var(--surface-2)',
+                              padding: '6px 4px', borderRadius: 8,
+                              border: `1px solid ${isToday ? '#FF4F81' : isDoneOnDate ? 'rgba(16,185,129,0.4)' : 'var(--border)'}`,
+                              background: isDoneOnDate ? 'rgba(16,185,129,0.18)' : 'var(--surface-2)',
                               color: isDoneOnDate ? '#10B981' : 'var(--text-secondary)',
-                              cursor: 'pointer', transition: 'all 150ms ease'
+                              cursor: 'pointer', transition: 'all 150ms ease',
                             }}
                           >
                             <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.8 }}>{dayLabel}</span>
@@ -334,7 +339,7 @@ export default function HabitsPage() {
           <div className="overlay" onClick={() => setShowAddModal(false)} />
           <div className="animate-fade-in" style={{
             position: 'fixed', bottom: 0, left: 0, right: 0,
-            background: 'var(--surface)', border: '1px solid var(--border)',
+            background: 'var(--surface)', border: '1px solid rgba(255,79,129,0.25)',
             borderRadius: 'var(--radius-card) var(--radius-card) 0 0',
             padding: '24px 20px', zIndex: 110,
             paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',

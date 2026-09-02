@@ -5,912 +5,801 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
-import CircularMetricsGauge from '@/components/dashboard/CircularMetricsGauge'
-import DateTimelineFilter from '@/components/dashboard/DateTimelineFilter'
-import AIVoiceTalkBar from '@/components/common/AIVoiceTalkBar'
-import ActivityHeatmapGrid from '@/components/dashboard/ActivityHeatmapGrid'
+import ProgressRing from '@/components/helpo/ProgressRing'
+import { AIInsightCard } from '@/components/helpo/AIComponents'
+import EmptyState from '@/components/helpo/EmptyState'
 import {
-  Zap, Flame, Target, CheckCircle2, Droplets, Bell,
+  Zap, Flame, Target, CheckCircle2, Bell,
   RefreshCw, StickyNote, Plus,
-  BookOpen, Clock, ShieldCheck,
-  CircleCheck, Check, Trash2, Layers, LayoutDashboard, CalendarDays
+  BookOpen, Clock, Bot, Sparkles,
+  ChevronRight, Check, Trash2,
+  TrendingUp, CalendarDays, Award,
+  Coffee, Sun, Sunset,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Task, Todo, Habit, Reminder, Note, Goal, JournalEntry } from '@/lib/supabase/database.types'
+import type { Task, Todo, Habit, Reminder, JournalEntry, Goal } from '@/lib/supabase/database.types'
 import { createTodoistTask } from '@/lib/todoist'
+import Link from 'next/link'
 
-type DashboardTab = 'overview' | 'timeline' | 'habits' | 'secondary'
+function getGreeting() {
+  const h = new Date().getHours()
+  if (h < 12) return { text: 'Good morning', icon: <Coffee size={20} color="#FBBF24" /> }
+  if (h < 17) return { text: 'Good afternoon', icon: <Sun size={20} color="#FF8A3D" /> }
+  return { text: 'Good evening', icon: <Sunset size={20} color="#FF4F81" /> }
+}
+
+function formatDate() {
+  return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+function getPriorityBadgeClass(priority: number) {
+  if (priority === 1) return 'badge badge-p1'
+  if (priority === 2) return 'badge badge-p2'
+  if (priority === 3) return 'badge badge-p3'
+  return 'badge badge-p4'
+}
+
+function getPriorityLabel(priority: number) {
+  if (priority === 1) return 'High'
+  if (priority === 2) return 'Medium'
+  if (priority === 3) return 'Normal'
+  return 'Low'
+}
 
 export default function DashboardPage() {
   const { user, profile } = useAuth()
   const router = useRouter()
   const supabase = createClient()
 
-  // Active Main Tab State
-  const [activeTab, setActiveTab] = useState<DashboardTab>('overview')
-
-  // Live Database States
   const [tasks, setTasks] = useState<Task[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
   const [habits, setHabits] = useState<Habit[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [reminders, setReminders] = useState<Reminder[]>([])
-  const [pinnedNotes, setPinnedNotes] = useState<Note[]>([])
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
-  const [waterMl, setWaterMl] = useState<number>(0)
+  const [habitLogs, setHabitLogs] = useState<Record<string, boolean>>({})
   const [dataLoading, setDataLoading] = useState(true)
 
-  // Quick Action Form States
-  const [newTasksTitle, setNewTasksTitle] = useState('')
-  const [newTasksDueDate, setNewTasksDueDate] = useState('')
-  const [newTasksPriority] = useState(3)
+  const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [activeTaskTab, setActiveTaskTab] = useState<'all' | 'high' | 'in_progress' | 'done'>('all')
 
-  const [newTodoTitle, setNewTodoTitle] = useState('')
-  const [newHabitName, setNewHabitName] = useState('')
-  const [newGoalTitle, setNewGoalTitle] = useState('')
-
-  // Pomodoro Focus Mode State
-  const [focusMode, setFocusMode] = useState(false)
-  const [focusTime, setFocusTime] = useState(25 * 60)
-  const [focusTimerRunning, setFocusTimerRunning] = useState(false)
+  // Pomodoro
+  const [pomodoroTime, setPomodoroTime] = useState(25 * 60)
+  const [pomodoroRunning, setPomodoroRunning] = useState(false)
 
   const todayStr = new Date().toISOString().split('T')[0]
+  const greeting = getGreeting()
 
-  // Load All Live Supabase Table Data
-  const loadDashboardData = useCallback(async () => {
+  const loadData = useCallback(async () => {
     if (!user) return
     setDataLoading(true)
-    const today = new Date().toISOString().split('T')[0]
-
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = supabase as any
-      const [tasksRes, habitsRes, goalsRes, remindersRes, notesRes, journalRes, waterRes] = await Promise.all([
+      const [tasksRes, habitsRes, goalsRes, remindersRes, journalRes, habitLogsRes] = await Promise.all([
         client.from('tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(80),
         client.from('habits').select('*').eq('user_id', user.id).eq('archived', false).limit(20),
-        client.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(15),
-        client.from('reminders').select('*').eq('user_id', user.id).order('remind_at', { ascending: true }).limit(15),
-        client.from('notes').select('*').eq('user_id', user.id).limit(15),
-        client.from('journal_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(15),
-        client.from('water_logs').select('amount_ml').eq('user_id', user.id).eq('date', today),
+        client.from('goals').select('*').eq('user_id', user.id).eq('status', 'active').limit(10),
+        client.from('reminders').select('*').eq('user_id', user.id).order('remind_at', { ascending: true }).limit(5),
+        client.from('journal_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(7),
+        client.from('habit_logs').select('habit_id').eq('user_id', user.id).eq('logged_at', todayStr),
       ])
 
       const rawTasks = (tasksRes.data ?? []) as Task[]
       setTasks(rawTasks)
-
-      // Map todos from tasks with category = 'todo' or from legacy todos
       const todoItems = rawTasks.filter(t => (t.category || 'todo') === 'todo').map(t => ({
-        id: t.id,
-        user_id: t.user_id,
-        title: t.title,
-        is_done: t.status === 'done',
-        due_date: t.due_date,
-        due_time: t.due_time,
-        created_at: t.created_at
+        id: t.id, user_id: t.user_id, title: t.title, is_done: t.status === 'done',
+        due_date: t.due_date, due_time: t.due_time, created_at: t.created_at,
       })) as Todo[]
       setTodos(todoItems)
-
       setHabits(habitsRes.data ?? [])
       setGoals(goalsRes.data ?? [])
       setReminders(remindersRes.data ?? [])
-      setPinnedNotes(notesRes.data ?? [])
       setJournalEntries(journalRes.data ?? [])
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const totalWater = (waterRes.data ?? []).reduce((acc: number, curr: any) => acc + (curr.amount_ml || 0), 0)
-      setWaterMl(totalWater)
+      // Map today's habit logs
+      const logsMap: Record<string, boolean> = {}
+      ;(habitLogsRes.data ?? []).forEach((l: { habit_id: string }) => { logsMap[l.habit_id] = true })
+      setHabitLogs(logsMap)
     } catch {
-      toast.error('Failed to synchronize live dashboard metrics')
+      toast.error('Failed to load dashboard data')
     } finally {
       setDataLoading(false)
     }
-  }, [user, supabase])
+  }, [user, supabase, todayStr])
 
+  useEffect(() => { if (user) loadData() }, [user, loadData])
+
+  // Pomodoro timer
   useEffect(() => {
-    if (user) loadDashboardData()
-  }, [user, loadDashboardData])
+    let t: NodeJS.Timeout
+    if (pomodoroRunning && pomodoroTime > 0) t = setInterval(() => setPomodoroTime(p => p - 1), 1000)
+    else if (pomodoroTime === 0) { setPomodoroRunning(false); toast.success('🎯 Pomodoro complete! Great focus session.') }
+    return () => clearInterval(t)
+  }, [pomodoroRunning, pomodoroTime])
 
-  // Pomodoro Timer Loop
-  useEffect(() => {
-    let timer: NodeJS.Timeout
-    if (focusTimerRunning && focusTime > 0) {
-      timer = setInterval(() => setFocusTime(t => t - 1), 1000)
-    } else if (focusTime === 0) {
-      setFocusTimerRunning(false)
-      toast.success('Pomodoro Focus Session Completed! +50 XP 🎯')
-    }
-    return () => clearInterval(timer)
-  }, [focusTimerRunning, focusTime])
+  // Today's tasks
+  const todayTasks = useMemo(() => tasks.filter(t => {
+    const d = t.due_date ? t.due_date.split('T')[0] : todayStr
+    return d === todayStr || (d < todayStr && t.status !== 'done')
+  }), [tasks, todayStr])
 
-  // Computed Metrics for Circular Gauges
+  const filteredTasks = useMemo(() => {
+    if (activeTaskTab === 'all') return todayTasks.slice(0, 8)
+    if (activeTaskTab === 'high') return todayTasks.filter(t => t.priority <= 2).slice(0, 8)
+    if (activeTaskTab === 'in_progress') return todayTasks.filter(t => t.status === 'in_progress').slice(0, 8)
+    if (activeTaskTab === 'done') return todayTasks.filter(t => t.status === 'done').slice(0, 8)
+    return todayTasks.slice(0, 8)
+  }, [todayTasks, activeTaskTab])
+
+  // Metrics
   const metrics = useMemo(() => {
-    const totalTasks = tasks.length
-    const doneTasks = tasks.filter(t => t.status === 'done').length
-
-    const totalTodos = todos.length
-    const doneTodos = todos.filter(t => t.is_done).length
-
-    const totalItems = totalTasks + totalTodos
-    const completedCount = doneTasks + doneTodos
-
-    const productivityPercent = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0
-
-    // Overdue items calculation
-    const overdueTasks = tasks.filter(t => t.due_date && t.due_date.split('T')[0] < todayStr && t.status !== 'done').length
-    const overdueTodos = todos.filter(t => t.due_date && t.due_date < todayStr && !t.is_done).length
-    const overdueCount = overdueTasks + overdueTodos
-    const negligencePercent = totalItems > 0 ? Math.round((overdueCount / totalItems) * 100) : 0
-
-    // Habit Streak & Consistency calculation
+    const doneTasks = todayTasks.filter(t => t.status === 'done').length
     const totalHabits = habits.length
+    const doneHabits = Object.keys(habitLogs).length
+    const lifeScore = profile?.life_score ?? 0
+    const streak = profile?.current_streak ?? 0
+    return { doneTasks, totalTasks: todayTasks.length, doneHabits, totalHabits, lifeScore, streak }
+  }, [todayTasks, habits, habitLogs, profile])
+
+  async function handleToggleTask(task: Task) {
+    const next = task.status === 'done' ? 'todo' : 'done'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const maxStreak = habits.reduce((max, h) => Math.max(max, (h as any).streak_count || 1), 1)
-    const consistencyPercent = totalHabits > 0 ? Math.min(100, Math.round((maxStreak / 7) * 100)) : 50
-
-    // Life Score calculation
-    const dbLifeScore = profile?.life_score || 0
-    const lifeScorePercent = dbLifeScore > 0 ? Math.min(100, dbLifeScore) : Math.round((productivityPercent + consistencyPercent) / 2)
-
-    // Items Completed TODAY calculation
-    const todayDoneTasks = tasks.filter(t => t.status === 'done' && (t.completed_at?.startsWith(todayStr) || !t.completed_at)).length
-    const todayDoneTodos = todos.filter(t => t.is_done && (t.due_date === todayStr || !t.due_date)).length
-    const todayTotalDone = todayDoneTasks + todayDoneTodos
-
-    return {
-      productivityPercent,
-      consistencyPercent,
-      negligencePercent,
-      lifeScorePercent,
-      overdueCount,
-      completedCount,
-      totalItems,
-      streakCount: maxStreak,
-      todayDoneTasks,
-      todayDoneTodos,
-      todayTotalDone,
-    }
-  }, [tasks, todos, habits, profile, todayStr])
-
-  // Today's Scoped Tasks & Todos (Strict Date Filtering & Daily Resetting Checklist)
-  const todayTasks = useMemo(() => {
-    return tasks.filter(t => {
-      const taskDate = t.due_date ? t.due_date.split('T')[0] : (t.created_at ? t.created_at.split('T')[0] : todayStr)
-      // Show items due/created on today, OR uncompleted overdue items
-      return taskDate === todayStr || (taskDate < todayStr && t.status !== 'done')
-    })
-  }, [tasks, todayStr])
-
-  const todayTodos = useMemo(() => {
-    return todos.map(todo => {
-      const todoDate = todo.due_date || (todo.created_at ? todo.created_at.split('T')[0] : todayStr)
-      // If a todo was completed on a previous day, auto-reset it for today so it can be completed again!
-      if (todoDate < todayStr && todo.is_done) {
-        return { ...todo, is_done: false, due_date: todayStr }
-      }
-      return todo
-    }).filter(t => {
-      const itemDate = t.due_date || todayStr
-      return itemDate === todayStr || !t.is_done
-    })
-  }, [todos, todayStr])
-
-
-
-  // Toggle Task Status (Complete <-> Todo)
-  async function handleToggleTaskStatus(task: Task) {
-    const nextStatus = task.status === 'done' ? 'todo' : 'done'
-    const nextCompletedAt = nextStatus === 'done' ? new Date().toISOString() : null
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('tasks') as any)
-      .update({ status: nextStatus, completed_at: nextCompletedAt })
-      .eq('id', task.id)
-
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: nextStatus, completed_at: nextCompletedAt } : t))
-    toast.success(nextStatus === 'done' ? 'Task Completed! +30 XP ⚡' : 'Task Reopened ↩️')
+    await (supabase.from('tasks') as any).update({ status: next, completed_at: next === 'done' ? new Date().toISOString() : null }).eq('id', task.id)
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: next } : t))
+    if (next === 'done') toast.success('✅ Task completed! Great work.')
   }
 
-  // Delete Task
-  async function handleDeleteTask(taskId: string) {
-    if (!user) return
+  async function handleDeleteTask(id: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('tasks') as any).delete().eq('id', taskId).eq('user_id', user.id)
-    setTasks(prev => prev.filter(t => t.id !== taskId))
-    toast.success('Task deleted')
+    await (supabase.from('tasks') as any).delete().eq('id', id).eq('user_id', user?.id)
+    setTasks(prev => prev.filter(t => t.id !== id))
   }
 
-  // Toggle Todo Status (Done <-> Pending)
-  async function handleToggleTodoStatus(todo: Todo) {
-    const nextDone = !todo.is_done
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('todos') as any)
-      .update({ is_done: nextDone })
-      .eq('id', todo.id)
-
-    setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, is_done: nextDone } : t))
-    toast.success(nextDone ? 'Todo Checked! +15 XP 📝' : 'Todo Unchecked ↩️')
-  }
-
-  // Delete Todo
-  async function handleDeleteTodo(todoId: string) {
-    if (!user) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('todos') as any).delete().eq('id', todoId).eq('user_id', user.id)
-    setTodos(prev => prev.filter(t => t.id !== todoId))
-    toast.success('Todo deleted')
-  }
-
-  // Water Hydration Logger
-  async function handleAddWater(amount: number) {
-    if (!user) return
-    const today = new Date().toISOString().split('T')[0]
-    const newTotal = waterMl + amount
-    setWaterMl(newTotal)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('water_logs') as any).insert({
-      user_id: user.id,
-      amount_ml: amount,
-      date: today,
-    })
-    toast.success(`Logged ${amount}ml water! 💧 Total: ${newTotal}ml`)
-  }
-
-  // Quick Create Task
-  async function handleCreateTask(titleStr: string, dateStr?: string) {
-    if (!titleStr.trim() || !user) return
-    const targetDueDate = dateStr ? new Date(dateStr).toISOString() : newTasksDueDate ? new Date(newTasksDueDate).toISOString() : null
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('tasks') as any).insert({
-        user_id: user.id,
-        title: titleStr.trim(),
-        priority: newTasksPriority,
-        due_date: targetDueDate,
-        status: 'todo',
-      }).select().single()
-
-      if (!error && data) {
-        setTasks(prev => [data, ...prev])
-        createTodoistTask(titleStr.trim(), undefined, dateStr || newTasksDueDate, undefined, newTasksPriority).catch(() => {})
-        toast.success('Task created & synced! 📋')
-        setNewTasksTitle('')
-        setNewTasksDueDate('')
-      }
-    } catch {
-      toast.error('Failed to create task')
-    }
-  }
-
-  // Quick Create Todo
-  async function handleCreateTodo(e: React.FormEvent) {
+  async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault()
-    if (!newTodoTitle.trim() || !user) return
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('todos') as any).insert({
-        user_id: user.id,
-        title: newTodoTitle.trim(),
-        is_done: false,
-        due_date: todayStr,
-      }).select().single()
-
-      if (!error && data) {
-        setTodos(prev => [data, ...prev])
-        createTodoistTask(newTodoTitle.trim()).catch(() => {})
-        toast.success('Todo checklist item added! 📝')
-        setNewTodoTitle('')
-      }
-    } catch {
-      toast.error('Failed to add todo')
+    if (!newTaskTitle.trim() || !user) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('tasks') as any).insert({
+      user_id: user.id, title: newTaskTitle.trim(), priority: 3, status: 'todo',
+      due_date: new Date().toISOString(),
+    }).select().single()
+    if (!error && data) {
+      setTasks(prev => [data, ...prev])
+      createTodoistTask(newTaskTitle.trim()).catch(() => {})
+      toast.success('Task created!')
+      setNewTaskTitle('')
     }
   }
 
-  // Check-in Habit Log
-  async function handleCheckinHabit(habitId: string) {
-    if (!user) return
-    const today = new Date().toISOString().split('T')[0]
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('habit_logs') as any).insert({
-        user_id: user.id,
-        habit_id: habitId,
-        logged_at: today,
-      })
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setHabits(prev => prev.map(h => h.id === habitId ? { ...h, streak_count: ((h as any).streak_count || 1) + 1 } : h))
-      toast.success('Habit Checked-in Today! 🔥 +20 XP')
-    } catch {
-      toast.error('Could not log habit')
-    }
+  async function handleLogHabit(habitId: string) {
+    if (!user || habitLogs[habitId]) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('habit_logs') as any).insert({ user_id: user.id, habit_id: habitId, logged_at: todayStr })
+    setHabitLogs(prev => ({ ...prev, [habitId]: true }))
+    toast.success('🔥 Habit logged! Keep the streak going.')
   }
 
-  // Quick Add Habit
-  async function handleCreateHabit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newHabitName.trim() || !user) return
+  const name = profile?.display_name || user?.email?.split('@')[0] || 'there'
 
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('habits') as any).insert({
-        user_id: user.id,
-        name: newHabitName.trim(),
-        frequency: 'daily',
-        target_count: 1,
-        archived: false,
-      }).select().single()
-
-      if (!error && data) {
-        setHabits(prev => [data, ...prev])
-        toast.success('New Habit Created! 🔥')
-        setNewHabitName('')
-      }
-    } catch {
-      toast.error('Failed to create habit')
-    }
+  const taskTabCounts = {
+    all: todayTasks.length,
+    high: todayTasks.filter(t => t.priority <= 2).length,
+    in_progress: todayTasks.filter(t => t.status === 'in_progress').length,
+    done: todayTasks.filter(t => t.status === 'done').length,
   }
 
-  // Quick Add Goal
-  async function handleCreateGoal(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newGoalTitle.trim() || !user) return
+  const upcomingReminders = reminders.filter(r => !r.is_sent).slice(0, 3)
+  const todayHabits = habits.slice(0, 7)
+  const journalStreak = journalEntries.length > 0 ? Math.min(14, journalEntries.length) : 0
 
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('goals') as any).insert({
-        user_id: user.id,
-        title: newGoalTitle.trim(),
-        status: 'in_progress',
-      }).select().single()
-
-      if (!error && data) {
-        setGoals(prev => [data, ...prev])
-        toast.success('New Life Goal Set! 🎯')
-        setNewGoalTitle('')
-      }
-    } catch {
-      toast.error('Failed to set goal')
-    }
-  }
-
-  const name = profile?.display_name || user?.email?.split('@')[0] || 'Member'
-
-  const mainTabs: { key: DashboardTab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: 'overview', label: 'Main Overview', icon: <LayoutDashboard size={16} /> },
-    { key: 'timeline', label: 'Date Timeline & Items', icon: <CalendarDays size={16} />, badge: tasks.length + todos.length },
-    { key: 'habits', label: 'Habits & Goals', icon: <Flame size={16} />, badge: habits.length },
-    { key: 'secondary', label: 'Secondary & Archived Data', icon: <Layers size={16} />, badge: pinnedNotes.length + journalEntries.length },
-  ]
+  const pomodoroMins = Math.floor(pomodoroTime / 60)
+  const pomodoroSecs = pomodoroTime % 60
 
   return (
     <AppShell>
-      <div style={{ paddingTop: 6, display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div className="animate-fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-        {/* Minimal Modern Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <Zap size={13} color="#FFD700" /> NIRMAAN Personal OS v5.2
-              </span>
-              <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <ShieldCheck size={13} color="#10B981" /> Live Sync Active
-              </span>
+        {/* ─── HEADER ─── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {greeting.icon}
+              <h1 style={{ fontSize: 26, fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
+                {greeting.text},{' '}
+                <span className="text-gradient-primary">{name}!</span>
+                {' '}👋
+              </h1>
             </div>
-            <h1 style={{ fontSize: 26, fontWeight: 900, color: '#FFFFFF', margin: '4px 0 2px', letterSpacing: '-0.02em' }}>
-              Welcome back, {name}! ⚡
-            </h1>
-            <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>
-              Minimalist workspace organized chronologically by date with real-time level line analytics.
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+              {formatDate()} · {dataLoading ? 'Syncing...' : 'All systems live'}
             </p>
           </div>
-
-          {/* Quick Header Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => router.push('/tasks')}
-              className="btn btn-secondary"
-              style={{ padding: '8px 14px', fontSize: 12.5 }}
-            >
-              <CheckCircle2 size={15} color="#3B82F6" /> Tasks Board
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={loadData} className="btn btn-ghost btn-icon" title="Refresh">
+              <RefreshCw size={16} color="var(--text-muted)" className={dataLoading ? 'animate-spin' : ''} />
             </button>
-            <button
-              onClick={() => router.push('/journal')}
-              className="btn btn-secondary"
-              style={{ padding: '8px 14px', fontSize: 12.5 }}
-            >
-              <BookOpen size={15} color="#10B981" /> Journal Reader
-            </button>
-            <button
-              onClick={() => setFocusMode(!focusMode)}
-              className="btn btn-secondary"
-              style={{ padding: '8px 14px', fontSize: 12.5 }}
-            >
-              <Clock size={15} color="#F59E0B" /> Pomodoro {focusMode ? 'Active' : ''}
-            </button>
-            <button
-              onClick={loadDashboardData}
-              className="btn btn-ghost btn-icon"
-              title="Refresh Live Data"
-              style={{ border: '1px solid rgba(255, 255, 255, 0.1)', width: 38, height: 38 }}
-            >
-              <RefreshCw size={16} color="#FFD700" className={dataLoading ? 'animate-spin' : ''} />
-            </button>
+            <Link href="/reminders" className="btn btn-ghost btn-icon" style={{ position: 'relative' }}>
+              <Bell size={18} color="var(--text-muted)" />
+              {upcomingReminders.length > 0 && (
+                <span style={{
+                  position: 'absolute', top: 6, right: 6, width: 8, height: 8,
+                  borderRadius: '50%', background: '#FF4F81',
+                }} />
+              )}
+            </Link>
+            <Link href="/settings" style={{
+              width: 36, height: 36, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #7C3AED, #FF4F81)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#FFFFFF', fontWeight: 800, fontSize: 14, textDecoration: 'none',
+            }}>
+              {name[0]?.toUpperCase() ?? 'U'}
+            </Link>
           </div>
         </div>
 
-        {/* 4 MODERN SVG CIRCULAR METRIC GAUGE LEVEL LINES */}
-        <CircularMetricsGauge
-          productivityPercent={metrics.productivityPercent}
-          consistencyPercent={metrics.consistencyPercent}
-          negligencePercent={metrics.negligencePercent}
-          lifeScorePercent={metrics.lifeScorePercent}
-          overdueCount={metrics.overdueCount}
-          completedCount={metrics.completedCount}
-          totalItems={metrics.totalItems}
-          streakCount={metrics.streakCount}
-        />
+        {/* ─── TOP METRIC CARDS ─── */}
+        <div className="dashboard-metrics-grid">
+          {/* Life Score */}
+          <div className="card animate-fade-in-up" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <ProgressRing size={44} strokeWidth={4} progress={metrics.lifeScore} color="#7C3AED">
+              <span style={{ fontSize: 10, fontWeight: 900, color: '#7C3AED' }}>{metrics.lifeScore}</span>
+            </ProgressRing>
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Life Score</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: '#FFFFFF' }}>{metrics.lifeScore}<span style={{ fontSize: 11, color: 'var(--text-muted)' }}>/100</span></div>
+              <div style={{ fontSize: 9.5, color: '#10B981', fontWeight: 700 }}>▲ Active</div>
+            </div>
+          </div>
 
-        {/* COMPLETED TODAY STATS SUMMARY CARD BAR */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(10, 11, 13, 0.95) 100%)',
-            border: '1px solid rgba(16, 185, 129, 0.35)',
-            borderRadius: 18,
-            padding: '14px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000000' }}>
-              <CheckCircle2 size={18} />
+          {/* Current Streak */}
+          <div className="card animate-fade-in-up delay-75" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,79,129,0.12)', border: '1px solid rgba(255,79,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Flame size={22} color="#FF4F81" className="animate-flame" />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 900, color: '#FFFFFF' }}>
-                Completed Today: <span style={{ color: '#34D399' }}>{metrics.todayTotalDone} Items</span>
-              </div>
-              <span style={{ fontSize: 11, color: '#9CA3AF' }}>
-                {metrics.todayDoneTasks} Tasks Completed Today • {metrics.todayDoneTodos} Checklist Todos Checked Today
-              </span>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Current Streak</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: '#FFFFFF' }}>{metrics.streak}<span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 2 }}>days</span></div>
+              <div style={{ fontSize: 9.5, color: '#FF4F81', fontWeight: 700 }}>🏆 Best: {profile?.longest_streak ?? 0}d</div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99, background: 'rgba(16, 185, 129, 0.2)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-              ⚡ {metrics.todayTotalDone > 0 ? `+${metrics.todayTotalDone * 30} XP Earned Today` : 'Start your first task today!'}
-            </span>
+          {/* Tasks Completed */}
+          <div className="card animate-fade-in-up delay-150" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <CheckCircle2 size={22} color="#3B82F6" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Tasks Done</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: '#FFFFFF' }}>{metrics.doneTasks}<span style={{ fontSize: 11, color: 'var(--text-muted)' }}>/{metrics.totalTasks}</span></div>
+              <div className="progress-bar" style={{ marginTop: 4, height: 4 }}>
+                <div className="progress-bar-fill" style={{ width: metrics.totalTasks > 0 ? `${(metrics.doneTasks / metrics.totalTasks) * 100}%` : '0%', background: 'var(--gradient-blue)' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Habits Done */}
+          <div className="card animate-fade-in-up delay-225" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Award size={22} color="#10B981" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Habits Done</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: '#FFFFFF' }}>{metrics.doneHabits}<span style={{ fontSize: 11, color: 'var(--text-muted)' }}>/{metrics.totalHabits}</span></div>
+              <div style={{ fontSize: 9.5, color: '#10B981', fontWeight: 700 }}>
+                {metrics.doneHabits === metrics.totalHabits && metrics.totalHabits > 0 ? '🚀 Done!' : 'Great start! 🌱'}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* NAVIGATION TAB BAR */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            paddingBottom: 4,
-            overflowX: 'auto',
-          }}
-        >
-          {mainTabs.map(t => {
-            const isActive = activeTab === t.key
-            return (
+        {/* ─── MAIN 3-COLUMN GRID ─── */}
+        <div className="dashboard-main-grid">
+
+          {/* ── LEFT: Today's Plan ── */}
+          <div className="card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Zap size={16} color="#7C3AED" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Today&apos;s Plan</h3>
+                  <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>AI scheduled for your best day</p>
+                </div>
+              </div>
+              <Link href="/dashboard?tab=plan" style={{ fontSize: 11, fontWeight: 700, color: '#7C3AED', textDecoration: 'none' }}>
+                View Full →
+              </Link>
+            </div>
+
+            {/* Plan timeline */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { time: '06:30 AM', label: 'Morning Routine', sub: 'Workout, Meditation, Journal', color: '#10B981', done: true },
+                { time: '09:00 AM', label: 'Deep Work', sub: 'Focus on top priority task', color: '#3B82F6', done: false },
+                { time: '11:00 AM', label: 'Review Goals', sub: 'Check weekly progress', color: '#7C3AED', done: false },
+                { time: '01:30 PM', label: 'Learning', sub: '30 min learning session', color: '#FBBF24', done: false },
+                { time: '04:30 PM', label: 'Tasks Wrap-up', sub: 'Complete remaining tasks', color: '#FF8A3D', done: false },
+                { time: '08:00 PM', label: 'Reflect & Plan', sub: 'Daily review, plan tomorrow', color: '#FF4F81', done: false },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 3, height: 36, borderRadius: 99, background: item.done ? item.color : 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: item.color }}>{item.time}</span>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: item.done ? 'var(--text-muted)' : '#FFFFFF', textDecoration: item.done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.label}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.sub}</div>
+                  </div>
+                  {item.done && <Check size={14} color="#10B981" style={{ flexShrink: 0 }} />}
+                </div>
+              ))}
+            </div>
+
+            {/* Regenerate button */}
+            <button className="btn btn-ai" style={{ width: '100%', fontSize: 12, marginTop: 4 }}>
+              <Sparkles size={14} /> Regenerate Plan
+            </button>
+          </div>
+
+          {/* ── CENTER: Today's Tasks ── */}
+          <div className="card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CheckCircle2 size={16} color="#3B82F6" />
+                </div>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Today&apos;s Tasks</h3>
+              </div>
               <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: 12,
-                  border: 'none',
-                  background: isActive ? 'linear-gradient(135deg, #1A1C24, #121318)' : 'transparent',
-                  color: isActive ? '#FFFFFF' : '#9CA3AF',
-                  fontSize: 13,
-                  fontWeight: isActive ? 800 : 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  borderBottom: isActive ? '2px solid #3B82F6' : '2px solid transparent',
-                  transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap',
-                }}
+                className="btn btn-primary"
+                style={{ fontSize: 12, padding: '6px 12px', gap: 5 }}
+                onClick={() => router.push('/tasks')}
               >
-                {t.icon}
-                <span>{t.label}</span>
-                {t.badge !== undefined && t.badge > 0 && (
-                  <span
+                <Plus size={13} /> Add Task
+              </button>
+            </div>
+
+            {/* Tab filter */}
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+              {(['all', 'high', 'in_progress', 'done'] as const).map(tab => {
+                const labels = { all: `All (${taskTabCounts.all})`, high: `High (${taskTabCounts.high})`, in_progress: `In Progress (${taskTabCounts.in_progress})`, done: `Done (${taskTabCounts.done})` }
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTaskTab(tab)}
                     style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      padding: '1px 6px',
+                      padding: '5px 12px',
                       borderRadius: 99,
-                      background: isActive ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.06)',
-                      color: isActive ? '#60A5FA' : '#9CA3AF',
+                      border: `1px solid ${activeTaskTab === tab ? 'rgba(124,58,237,0.5)' : 'var(--border)'}`,
+                      background: activeTaskTab === tab ? 'rgba(124,58,237,0.15)' : 'transparent',
+                      color: activeTaskTab === tab ? '#8B5CF6' : 'var(--text-muted)',
+                      fontSize: 12,
+                      fontWeight: activeTaskTab === tab ? 700 : 500,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 150ms ease',
                     }}
                   >
-                    {t.badge}
-                  </span>
-                )}
+                    {labels[tab]}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Quick add */}
+            <form onSubmit={handleCreateTask} style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Quick add task..."
+                value={newTaskTitle}
+                onChange={e => setNewTaskTitle(e.target.value)}
+                style={{ flex: 1, height: 36, fontSize: 13, padding: '0 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10 }}
+              />
+              <button type="submit" className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 12 }}>
+                <Plus size={14} />
               </button>
-            )
-          })}
+            </form>
+
+            {/* Task list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, overflowY: 'auto', maxHeight: 280 }}>
+              {dataLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="skeleton" style={{ height: 48, borderRadius: 10 }} />
+                ))
+              ) : filteredTasks.length === 0 ? (
+                <EmptyState
+                  icon={<CheckCircle2 size={28} color="#3B82F6" />}
+                  title="All clear!"
+                  description="No tasks in this view. Add one above."
+                />
+              ) : filteredTasks.map(t => (
+                <div
+                  key={t.id}
+                  className="card-hover"
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10 }}
+                >
+                  <button
+                    onClick={() => handleToggleTask(t)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+                  >
+                    {t.status === 'done' ? (
+                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Check size={12} color="#FFFFFF" />
+                      </div>
+                    ) : (
+                      <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid var(--border)' }} />
+                    )}
+                  </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: t.status === 'done' ? 'var(--text-muted)' : '#FFFFFF', textDecoration: t.status === 'done' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t.title}
+                    </div>
+                    {t.due_date && (
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                        <CalendarDays size={10} style={{ display: 'inline', marginRight: 3 }} />
+                        {new Date(t.due_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <span className={getPriorityBadgeClass(t.priority)} style={{ fontSize: 10 }}>
+                      {getPriorityLabel(t.priority)}
+                    </span>
+                    <button onClick={() => handleDeleteTask(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 0, opacity: 0.6 }}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Link href="/tasks" style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              View all tasks <ChevronRight size={13} />
+            </Link>
+          </div>
+
+          {/* ── RIGHT: Today's Habits ── */}
+          <div className="card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(255,79,129,0.12)', border: '1px solid rgba(255,79,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Flame size={16} color="#FF4F81" />
+                </div>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Today&apos;s Habits</h3>
+              </div>
+              <Link href="/habits" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textDecoration: 'none' }}>View All</Link>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, overflowY: 'auto' }}>
+              {dataLoading ? Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="skeleton" style={{ height: 44, borderRadius: 10 }} />
+              )) : todayHabits.length === 0 ? (
+                <EmptyState
+                  icon={<Flame size={24} color="#FF4F81" />}
+                  title="No habits yet"
+                  description="Create your first habit to track it here."
+                  action={{ label: 'Add Habit', onClick: () => router.push('/habits') }}
+                />
+              ) : todayHabits.map(h => {
+                const done = habitLogs[h.id] ?? false
+                return (
+                  <div
+                    key={h.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 12px', borderRadius: 10,
+                      background: done ? 'rgba(16,185,129,0.08)' : 'var(--surface-2)',
+                      border: `1px solid ${done ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`,
+                      transition: 'all 200ms ease',
+                    }}
+                  >
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{h.icon ?? '⭐'}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: done ? 'var(--text-muted)' : '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {h.name}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#FF4F81', fontWeight: 700 }}>
+                        {(h as { streak_count?: number }).streak_count ?? 0} day streak 🔥
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleLogHabit(h.id)}
+                      disabled={done}
+                      style={{
+                        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                        background: done ? '#10B981' : 'rgba(255,255,255,0.06)',
+                        border: `1.5px solid ${done ? '#10B981' : 'var(--border)'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: done ? 'default' : 'pointer', transition: 'all 200ms ease',
+                      }}
+                    >
+                      {done ? <Check size={14} color="#FFFFFF" /> : <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--text-dim)' }} />}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* TAB 1: MAIN OVERVIEW & DAILY AGENDA */}
-        {activeTab === 'overview' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Real-Time AI Voice Talk Bar & Mistral Audio TTS */}
-            <AIVoiceTalkBar userId={user?.id} onActionComplete={loadDashboardData} />
+        {/* ─── SECOND ROW ─── */}
+        <div className="dashboard-main-grid">
 
-            {/* Grid layout for Today's Tasks & Checklist Todos */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 18 }}>
-              
-              {/* Primary Tasks Board */}
-              <div
-                style={{
-                  background: '#0A0B0D',
-                  border: '1px solid rgba(59, 130, 246, 0.35)',
-                  borderRadius: 22,
-                  padding: 20,
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <CheckCircle2 size={18} color="#3B82F6" />
-                    </div>
-                    <div>
-                      <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Primary Tasks Agenda</h3>
-                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>{todayTasks.filter(t => t.status === 'done').length} of {todayTasks.length} Done</span>
-                    </div>
+          {/* Upcoming Reminders */}
+          <div className="card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Bell size={16} color="#FBBF24" />
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Upcoming Reminders</h3>
+              </div>
+              <Link href="/reminders" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textDecoration: 'none' }}>View All</Link>
+            </div>
+            {upcomingReminders.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center', padding: '12px 0' }}>No upcoming reminders</p>
+            ) : upcomingReminders.map(r => (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#FBBF24', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                    {new Date(r.remind_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, {new Date(r.remind_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
+              </div>
+            ))}
+          </div>
 
-                {/* Create Quick Task Form */}
-                <form
-                  onSubmit={e => {
-                    e.preventDefault()
-                    if (newTasksTitle) handleCreateTask(newTasksTitle)
+          {/* AI Assistant */}
+          <div className="card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: 9,
+                  background: 'linear-gradient(135deg, #6366F1, #FF4F81)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Bot size={16} color="#FFFFFF" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>AI Assistant</h3>
+                </div>
+              </div>
+              <span className="badge badge-purple" style={{ fontSize: 10 }}>Pro</span>
+            </div>
+
+            <AIInsightCard
+              content={`Good ${greeting.text.split(' ')[1]}, ${name.split(' ')[0]}! ☀️ Shall I help you focus on your top priority task for today?`}
+            />
+
+            <button
+              className="btn btn-ai"
+              style={{ width: '100%', fontSize: 13 }}
+              onClick={() => router.push('/ai')}
+            >
+              <Sparkles size={15} />
+              Ask Helpo AI anything...
+            </button>
+
+            {/* Quick AI prompts */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {['Plan my day', 'What to focus on?', 'Review goals'].map(prompt => (
+                <button
+                  key={prompt}
+                  onClick={() => router.push(`/ai?q=${encodeURIComponent(prompt)}`)}
+                  style={{
+                    fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 99,
+                    background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)',
+                    color: '#8B5CF6', cursor: 'pointer',
                   }}
-                  style={{ display: 'flex', gap: 8 }}
                 >
-                  <input
-                    type="text"
-                    placeholder="Quick add task..."
-                    value={newTasksTitle}
-                    onChange={e => setNewTasksTitle(e.target.value)}
-                    style={{ flex: 1, height: 36, background: '#121318', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: 8, color: '#FFFFFF', fontSize: 12, padding: '0 10px', outline: 'none' }}
-                  />
-                  <button type="submit" className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 12, background: '#3B82F6' }}>
-                    <Plus size={14} /> Add
-                  </button>
-                </form>
-
-                {/* Tasks List */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
-                  {todayTasks.length === 0 ? (
-                    <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>No tasks for today.</div>
-                  ) : (
-                    todayTasks.slice(0, 10).map(t => (
-                      <div
-                        key={t.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          background: '#121318',
-                          padding: '10px 14px',
-                          borderRadius: 12,
-                          border: '1px solid rgba(255, 255, 255, 0.06)',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <button onClick={() => handleToggleTaskStatus(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                            {t.status === 'done' ? <CheckCircle2 size={18} color="#10B981" /> : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid #9CA3AF' }} />}
-                          </button>
-                          <div>
-                            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>
-                              {t.title}
-                            </div>
-                            {t.due_date && <div style={{ fontSize: 10, color: '#9CA3AF' }}>{new Date(t.due_date).toLocaleDateString()}</div>}
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: t.status === 'done' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)', color: t.status === 'done' ? '#34D399' : '#60A5FA' }}>
-                            {t.status === 'done' ? 'Done' : `P${t.priority || 3}`}
-                          </span>
-                          <button onClick={() => handleDeleteTask(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 2 }}>
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Daily Checklist Todos Board */}
-              <div
-                style={{
-                  background: '#0A0B0D',
-                  border: '1px solid rgba(16, 185, 129, 0.35)',
-                  borderRadius: 22,
-                  padding: 20,
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <CircleCheck size={18} color="#10B981" />
-                    </div>
-                    <div>
-                      <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Daily Checklist Todos</h3>
-                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>{todayTodos.filter(t => t.is_done).length} of {todayTodos.length} Checked</span>
-                    </div>
-                  </div>
-                </div>
-
-                <form onSubmit={handleCreateTodo} style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    type="text"
-                    placeholder="Add checklist todo..."
-                    value={newTodoTitle}
-                    onChange={e => setNewTodoTitle(e.target.value)}
-                    style={{ flex: 1, height: 36, background: '#121318', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 8, color: '#FFFFFF', fontSize: 12, padding: '0 10px', outline: 'none' }}
-                  />
-                  <button type="submit" className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 12, background: '#10B981' }}>
-                    <Plus size={14} /> Add
-                  </button>
-                </form>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
-                  {todayTodos.length === 0 ? (
-                    <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>No checklist todos.</div>
-                  ) : (
-                    todayTodos.slice(0, 10).map(t => (
-                      <div
-                        key={t.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          background: '#121318',
-                          padding: '10px 14px',
-                          borderRadius: 12,
-                          border: '1px solid rgba(255, 255, 255, 0.06)',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <button onClick={() => handleToggleTodoStatus(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                            {t.is_done ? <CircleCheck size={18} color="#10B981" /> : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid #9CA3AF' }} />}
-                          </button>
-                          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', textDecoration: t.is_done ? 'line-through' : 'none' }}>
-                            {t.title}
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <button onClick={() => handleDeleteTodo(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 2 }}>
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-            </div>
-
-            {/* Daily Activeness & Consistency Heatmap Grid */}
-            <ActivityHeatmapGrid tasks={tasks} todos={todos} />
-          </div>
-        )}
-
-        {/* TAB 2: DATE TIMELINE EXPLORER & CHRONOLOGICAL FEED */}
-        {activeTab === 'timeline' && (
-          <DateTimelineFilter
-            tasks={tasks}
-            todos={todos}
-            journalEntries={journalEntries}
-            reminders={reminders}
-            onToggleTask={handleToggleTaskStatus}
-            onDeleteTask={handleDeleteTask}
-            onToggleTodo={handleToggleTodoStatus}
-            onDeleteTodo={handleDeleteTodo}
-            onQuickAddTask={(title, dateStr) => handleCreateTask(title, dateStr)}
-          />
-        )}
-
-        {/* TAB 3: HABITS & LIFE GOALS */}
-        {activeTab === 'habits' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Daily Habits & Streaks */}
-            <div style={{ background: '#0A0B0D', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: 22, padding: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Flame size={18} color="#EF4444" />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Daily Habits & Streaks</h3>
-                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>{habits.length} Active Habits</span>
-                  </div>
-                </div>
-              </div>
-
-              <form onSubmit={handleCreateHabit} style={{ display: 'flex', gap: 8 }}>
-                <input
-                  type="text"
-                  placeholder="Create new habit (e.g. Read 30 mins)..."
-                  value={newHabitName}
-                  onChange={e => setNewHabitName(e.target.value)}
-                  style={{ flex: 1, height: 36, background: '#121318', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 8, color: '#FFFFFF', fontSize: 12, padding: '0 10px', outline: 'none' }}
-                />
-                <button type="submit" className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 12, background: '#EF4444' }}>
-                  <Plus size={14} /> Add Habit
+                  {prompt}
                 </button>
-              </form>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                {habits.map(h => (
-                  <div key={h.id} style={{ background: '#121318', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 12, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: '#FFFFFF' }}>{h.name}</div>
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      <div style={{ fontSize: 10.5, color: '#EF4444', fontWeight: 700, marginTop: 2 }}>Streak: {(h as any).streak_count || 1} Days 🔥</div>
-                    </div>
-                    <button
-                      onClick={() => handleCheckinHabit(h.id)}
-                      className="btn btn-secondary"
-                      style={{ padding: '4px 8px', fontSize: 10.5, color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.4)' }}
-                    >
-                      <Check size={12} /> Check-in
-                    </button>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
+          </div>
 
-            {/* Life Goals Progress */}
-            <div style={{ background: '#0A0B0D', border: '1px solid rgba(139, 92, 246, 0.35)', borderRadius: 22, padding: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(139, 92, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Target size={18} color="#8B5CF6" />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Life Goals & Vision</h3>
-                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>{goals.length} Goals Active</span>
-                  </div>
+          {/* Quick Actions */}
+          <div className="card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Zap size={16} color="#FBBF24" />
+              <h3 style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Quick Actions</h3>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {[
+                { label: 'Add Task', color: '#3B82F6', gradient: 'var(--gradient-blue)', icon: '✅', href: '/tasks' },
+                { label: 'Log Habit', color: '#10B981', gradient: 'var(--gradient-emerald)', icon: '🔥', href: '/habits' },
+                { label: 'Write Journal', color: '#FF4F81', gradient: 'var(--gradient-orange)', icon: '📖', href: '/journal' },
+                { label: 'New Note', color: '#8B5CF6', gradient: 'var(--gradient-primary)', icon: '📝', href: '/notes' },
+                { label: 'Pomodoro', color: '#FF8A3D', gradient: 'var(--gradient-orange)', icon: '⏱️', href: '#' },
+                { label: 'Ask AI', color: '#7C3AED', gradient: 'var(--gradient-ai)', icon: '✨', href: '/ai' },
+              ].map(a => (
+                <Link
+                  key={a.label}
+                  href={a.href}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexDirection: 'column', gap: 4,
+                    padding: '10px 8px', borderRadius: 12,
+                    background: `${a.gradient.replace('var(', '').replace(')', '')}`.includes('gradient')
+                      ? a.gradient
+                      : `rgba(124,58,237,0.1)`,
+                    backgroundImage: a.gradient,
+                    border: 'none', cursor: 'pointer', textDecoration: 'none',
+                    transition: 'all 150ms ease',
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>{a.icon}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#FFFFFF', textAlign: 'center' }}>{a.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ─── PROGRESS OVERVIEW BAR ─── */}
+        <div className="card" style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <TrendingUp size={16} color="#7C3AED" />
+              <h3 style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Your Progress Overview</h3>
+            </div>
+            <Link href="/analytics" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textDecoration: 'none' }}>
+              View Insights →
+            </Link>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
+            {[
+              { label: 'Task Completion', value: metrics.totalTasks > 0 ? Math.round((metrics.doneTasks / metrics.totalTasks) * 100) : 0, suffix: '%', color: '#3B82F6', icon: '✅' },
+              { label: 'Habit Consistency', value: metrics.totalHabits > 0 ? Math.round((metrics.doneHabits / metrics.totalHabits) * 100) : 0, suffix: '%', color: '#FF4F81', icon: '🔥' },
+              { label: 'Learning Progress', value: 64, suffix: '%', color: '#22D3EE', icon: '📚' },
+              { label: 'Journal Streak', value: journalStreak, suffix: ' days', color: '#FBBF24', icon: '📖' },
+            ].map(stat => (
+              <div key={stat.label} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 14 }}>{stat.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{stat.label}</span>
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: stat.color }}>
+                  {stat.value}{stat.suffix}
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-bar-fill" style={{ width: `${stat.suffix === '%' ? stat.value : Math.min(100, (stat.value / 30) * 100)}%`, background: `linear-gradient(90deg, ${stat.color}80, ${stat.color})` }} />
                 </div>
               </div>
+            ))}
+          </div>
 
-              <form onSubmit={handleCreateGoal} style={{ display: 'flex', gap: 8 }}>
-                <input
-                  type="text"
-                  placeholder="Set long-term goal..."
-                  value={newGoalTitle}
-                  onChange={e => setNewGoalTitle(e.target.value)}
-                  style={{ flex: 1, height: 36, background: '#121318', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: 8, color: '#FFFFFF', fontSize: 12, padding: '0 10px', outline: 'none' }}
-                />
-                <button type="submit" className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 12, background: '#8B5CF6' }}>
-                  <Plus size={14} /> Add Goal
-                </button>
-              </form>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {goals.map(g => (
-                  <div key={g.id} style={{ background: '#121318', padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(139, 92, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF' }}>{g.title}</span>
-                    <span style={{ fontSize: 10, color: '#C084FC', fontWeight: 800, padding: '2px 8px', borderRadius: 6, background: 'rgba(139, 92, 246, 0.15)' }}>{g.status || 'Active'}</span>
-                  </div>
-                ))}
+          {/* Celebration banner */}
+          {metrics.doneTasks > 3 && (
+            <div style={{
+              marginTop: 16, padding: '12px 16px',
+              background: 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(255,138,61,0.12))',
+              border: '1px solid rgba(251,191,36,0.3)',
+              borderRadius: 12,
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ fontSize: 24 }}>🏆</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#FBBF24' }}>You&apos;re on fire! 🔥</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Keep the momentum going and achieve greatness!</div>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* ─── GOALS SNAPSHOT ─── */}
+        {goals.length > 0 && (
+          <div className="card" style={{ padding: '16px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Target size={16} color="#FF8A3D" />
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Active Goals</h3>
+              </div>
+              <Link href="/goals" style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textDecoration: 'none' }}>View All →</Link>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+              {goals.slice(0, 4).map(g => (
+                <div key={g.id} className="card-hover" style={{ padding: '12px 14px', borderRadius: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>
+                    {g.title}
+                  </div>
+                  <div className="progress-bar">
+                    <div className="progress-bar-fill" style={{ width: `${g.progress ?? 0}%` }} />
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 5 }}>{g.progress ?? 0}% complete</div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* TAB 4: SECONDARY & LESS IMPORTANT DATA */}
-        {activeTab === 'secondary' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Header description for Secondary Data */}
-            <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 16, padding: 16 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Layers size={18} color="#9CA3AF" /> Secondary & Archives Folder
-              </h3>
-              <p style={{ fontSize: 12, color: '#9CA3AF', margin: '4px 0 0' }}>
-                Contains background notes, raw water logs, reminders, and historical metadata.
-              </p>
-            </div>
+        {/* ─── AI DAILY BRIEF ─── */}
+        <AIInsightCard
+          title="Helpo AI — Daily Brief"
+          content={`Today you have ${metrics.totalTasks} tasks planned, ${metrics.doneHabits}/${metrics.totalHabits} habits completed, and your streak is at ${metrics.streak} days. ${metrics.streak > 7 ? "Incredible consistency! 🔥" : "Keep building momentum!"}`}
+          onAction={() => router.push('/ai?q=What+should+I+focus+on+today')}
+          actionLabel="Ask AI for personalized advice"
+        />
 
-            {/* Hydration Log Data */}
-            <div style={{ background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 18, padding: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Droplets size={16} color="#FFD700" />
-                  <span style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF' }}>Water Hydration Logs</span>
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {[250, 500].map(amt => (
-                    <button
-                      key={amt}
-                      onClick={() => handleAddWater(amt)}
-                      className="btn btn-secondary"
-                      style={{ padding: '4px 10px', fontSize: 11, color: '#FFD700', border: '1px solid rgba(245, 158, 11, 0.4)' }}
-                    >
-                      +{amt}ml
-                    </button>
-                  ))}
-                </div>
+        {/* ─── JOURNAL SNIPPET ─── */}
+        {journalEntries.length > 0 && (
+          <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <BookOpen size={20} color="#FBBF24" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>
+                {journalEntries[0].title ?? 'Latest Journal Entry'}
               </div>
-              <div style={{ fontSize: 12, color: '#FFD700', fontWeight: 700 }}>Today Total: {waterMl} ml / 2500 ml Target</div>
-              <div style={{ width: '100%', height: 6, background: '#121318', borderRadius: 99, marginTop: 8, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, Math.round((waterMl / 2500) * 100))}%`, background: '#FFD700' }} />
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {journalEntries[0].content.slice(0, 80)}...
               </div>
             </div>
-
-            {/* Pinned Notes & Drafts */}
-            <div style={{ background: '#0A0B0D', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 18, padding: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <StickyNote size={16} color="#9CA3AF" />
-                <span style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF' }}>Pinned Notes & Drafts ({pinnedNotes.length})</span>
-              </div>
-              {pinnedNotes.length === 0 ? (
-                <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>No pinned notes found.</div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
-                  {pinnedNotes.map(n => (
-                    <div key={n.id} style={{ background: '#121318', padding: 12, borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF' }}>{n.title || 'Untitled Note'}</div>
-                      <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.content}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* System Reminders */}
-            <div style={{ background: '#0A0B0D', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 18, padding: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <Bell size={16} color="#9CA3AF" />
-                <span style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF' }}>Background System Reminders ({reminders.length})</span>
-              </div>
-              {reminders.length === 0 ? (
-                <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>No scheduled reminders.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {reminders.map(r => (
-                    <div key={r.id} style={{ background: '#121318', padding: '8px 12px', borderRadius: 8, display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 12, color: '#FFFFFF' }}>{r.title}</span>
-                      <span style={{ fontSize: 10, color: '#9CA3AF' }}>{r.remind_at ? new Date(r.remind_at).toLocaleDateString() : ''}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <Link href="/journal" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}>
+                Read More
+              </Link>
+              <Link href="/journal" className="btn btn-ai" style={{ padding: '6px 12px', fontSize: 12 }}>
+                <Sparkles size={13} /> Reflect
+              </Link>
             </div>
           </div>
         )}
+
+        {/* ─── POMODORO MINI CARD ─── */}
+        <div className="card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,138,61,0.12)', border: '1px solid rgba(255,138,61,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Clock size={20} color="#FF8A3D" />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Pomodoro Timer</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: pomodoroRunning ? '#FF8A3D' : '#FFFFFF', fontVariantNumeric: 'tabular-nums' }}>
+                {String(pomodoroMins).padStart(2, '0')}:{String(pomodoroSecs).padStart(2, '0')}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className={pomodoroRunning ? 'btn btn-secondary' : 'btn btn-orange'}
+              style={{ fontSize: 13, padding: '8px 16px' }}
+              onClick={() => setPomodoroRunning(p => !p)}
+            >
+              {pomodoroRunning ? '⏸ Pause' : '▶ Start Focus'}
+            </button>
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 13, padding: '8px 12px' }}
+              onClick={() => { setPomodoroRunning(false); setPomodoroTime(25 * 60) }}
+            >
+              ↺ Reset
+            </button>
+          </div>
+        </div>
+
+        {/* ─── NOTES SNIPPET ─── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <StickyNote size={16} color="#8B5CF6" />
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', margin: 0 }}>Quick Links</h3>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[
+              { label: '📚 Learning Hub', href: '/learn' },
+              { label: '📊 Insights', href: '/analytics' },
+              { label: '🎯 Goals', href: '/goals' },
+              { label: '⚡ Life Score', href: '/life' },
+            ].map(link => (
+              <Link key={link.href} href={link.href} className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 12px' }}>
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
 
       </div>
     </AppShell>

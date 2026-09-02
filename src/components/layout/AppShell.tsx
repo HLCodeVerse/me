@@ -13,8 +13,9 @@ import { initDoubleBackToExit } from '@/lib/back-button-handler'
 import { requestAllPermissions } from '@/lib/permissions-handler'
 import { initNativeHardware, triggerHapticFeedback } from '@/lib/native-hardware'
 import {
-  LayoutDashboard, CheckSquare, ListTodo, BookOpen, Bot, Flame,
-  StickyNote, Bell, Target, GraduationCap, BarChart2, Settings, X, ShieldCheck, Activity, Zap, Disc
+  LayoutDashboard, CheckSquare, Calendar, Target, Layers,
+  Flame, BookOpen, GraduationCap, StickyNote, Bot, Bell,
+  BarChart2, Settings, Code2, Zap, Clock, ListChecks, X,
 } from 'lucide-react'
 import BrowserPermissionBanner from '../common/BrowserPermissionBanner'
 
@@ -25,20 +26,23 @@ interface AppShellProps {
 }
 
 const ALL_MODULES = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',    color: '#06B6D4' },
-  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',        color: '#06B6D4' },
-  { href: '/todos',     icon: ListTodo,        label: 'Todos',        color: '#06B6D4' },
-  { href: '/habits',    icon: Flame,           label: 'Habits',       color: '#EF4444' },
-  { href: '/health',    icon: Activity,        label: 'Health',       color: '#10B981' },
-  { href: '/notes',     icon: StickyNote,      label: 'Notes',        color: '#06B6D4' },
-  { href: '/reminders', icon: Bell,            label: 'Reminders',    color: '#EF4444' },
-  { href: '/journal',   icon: BookOpen,        label: 'Journal',      color: '#10B981' },
-  { href: '/goals',     icon: Target,          label: 'Goals',        color: '#10B981' },
-  { href: '/analytics', icon: BarChart2,       label: 'Analytics',    color: '#06B6D4' },
-  { href: '/learn',     icon: GraduationCap,   label: 'Learning hub', color: '#10B981' },
-  { href: '/ai',        icon: Bot,             label: 'AI chat OS',   color: '#06B6D4' },
-  { href: '/mcp',       icon: ShieldCheck,     label: 'MCP connect',  color: '#10B981' },
-  { href: '/settings',  icon: Settings,        label: 'Settings',     color: '#FFFFFF' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Home',          color: '#7C3AED' },
+  { href: '/tasks',     icon: CheckSquare,     label: 'Tasks',         color: '#3B82F6' },
+  { href: '/calendar',  icon: Calendar,        label: 'Calendar',      color: '#22D3EE' },
+  { href: '/goals',     icon: Target,          label: 'Goals',         color: '#FF8A3D' },
+  { href: '/life',      icon: Layers,          label: 'Life',          color: '#10B981' },
+  { href: '/habits',    icon: Flame,           label: 'Habits',        color: '#FF4F81' },
+  { href: '/journal',   icon: BookOpen,        label: 'Journal',       color: '#FBBF24' },
+  { href: '/learn',     icon: GraduationCap,   label: 'Learning',      color: '#22D3EE' },
+  { href: '/notes',     icon: StickyNote,      label: 'Notes',         color: '#8B5CF6' },
+  { href: '/ai',        icon: Bot,             label: 'AI Assistant',  color: '#FF4F81' },
+  { href: '/reminders', icon: Bell,            label: 'Reminders',     color: '#FBBF24' },
+  { href: '/analytics', icon: BarChart2,       label: 'Insights',      color: '#3B82F6' },
+  { href: '/dashboard?tab=plan', icon: ListChecks, label: 'Today Plan', color: '#7C3AED' },
+  { href: '/dashboard?focus=1',  icon: Clock,      label: 'Focus Mode', color: '#22D3EE' },
+  { href: '/dashboard?pomo=1',   icon: Zap,        label: 'Pomodoro',   color: '#FF8A3D' },
+  { href: '/settings',  icon: Settings,        label: 'Settings',      color: '#8892B0' },
+  { href: '/mcp',       icon: Code2,           label: 'Developer',     color: '#10B981' },
 ]
 
 export default function AppShell({ children, header, noPadding }: AppShellProps) {
@@ -57,7 +61,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
     }
 
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('nirmaan_sidebar_collapsed')
+      const stored = localStorage.getItem('helpo_sidebar_collapsed')
       if (stored === 'true') {
         setIsSidebarCollapsed(true)
         document.body.classList.add('sidebar-collapsed')
@@ -92,7 +96,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
     setIsSidebarCollapsed(prev => {
       const next = !prev
       if (typeof window !== 'undefined') {
-        localStorage.setItem('nirmaan_sidebar_collapsed', next ? 'true' : 'false')
+        localStorage.setItem('helpo_sidebar_collapsed', next ? 'true' : 'false')
         if (next) {
           document.body.classList.add('sidebar-collapsed')
         } else {
@@ -107,10 +111,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
 
   return (
     <div className="app-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
-      {/* Interactive Browser Permission Prompt Banner */}
       <BrowserPermissionBanner />
-
-      {/* Animated SplashScreen on First Mount */}
       <SplashScreen />
 
       {/* Desktop Sidebar (≥1024px) */}
@@ -119,7 +120,7 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
         onToggleCollapse={toggleSidebar}
       />
 
-      {/* Main Content Container with Smooth Single Offset */}
+      {/* Main Content with sidebar offset */}
       <div style={{
         flex: 1,
         display: 'flex',
@@ -133,26 +134,25 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
 
         <main style={{
           flex: 1,
-          padding: noPadding ? 0 : '24px',
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
+          padding: noPadding ? 0 : isMobile ? '12px' : '24px',
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
           maxWidth: noPadding ? '100%' : 1440,
           width: '100%',
           margin: '0 auto',
-          paddingBottom: isMobile ? 'calc(90px + env(safe-area-inset-bottom, 0px))' : '32px',
+          paddingBottom: isMobile ? 'calc(84px + env(safe-area-inset-bottom, 0px))' : '40px',
         }}>
           {children}
         </main>
       </div>
 
-      {/* Off-Canvas Navigation Drawer for Mobile ONLY (<1024px) */}
+      {/* Mobile Off-Canvas Drawer */}
       {isMobile && showDrawer && (
         <>
           <div
             style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0, 0, 0, 0.8)',
-              backdropFilter: 'blur(6px)',
+              position: 'fixed', inset: 0,
+              background: 'rgba(5, 8, 22, 0.85)',
+              backdropFilter: 'blur(8px)',
               zIndex: 100,
             }}
             onClick={() => setShowDrawer(false)}
@@ -163,34 +163,43 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
             left: 0,
             right: 0,
             zIndex: 110,
-            background: '#0A0B0D',
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            borderTop: '1px solid rgba(245, 158, 11, 0.35)',
+            background: 'linear-gradient(180deg, #0B1430 0%, #081126 100%)',
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            borderTop: '1px solid rgba(124, 58, 237, 0.3)',
             padding: '20px 20px 36px',
             maxHeight: '85vh',
             overflowY: 'auto',
-            boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.9)',
+            boxShadow: '0 -20px 60px rgba(0, 0, 0, 0.8)',
           }} className="animate-fade-in">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg, #FFD700, #F59E0B)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000' }}>
-                  <Zap size={18} fill="#000" color="#000" />
-                </div>
-                <span style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>NIRMAAN OS Navigation</span>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 10,
+                  background: 'linear-gradient(135deg, #7C3AED, #FF4F81)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#FFFFFF', fontWeight: 900, fontSize: 16,
+                }}>H</div>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>Helpo Navigation</span>
               </div>
               <button
                 onClick={() => setShowDrawer(false)}
-                className="btn-ghost btn-icon"
-                style={{ border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-btn)' }}
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  width: 36, height: 36,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
               >
-                <X size={18} color="#FFFFFF" />
+                <X size={16} color="var(--text-muted)" />
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {ALL_MODULES.map(({ href, icon: Icon, label, color }) => {
-                const isActive = pathname === href
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {ALL_MODULES.slice(0, 12).map(({ href, icon: Icon, label, color }) => {
+                const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href.split('?')[0]))
                 return (
                   <Link
                     key={href}
@@ -201,14 +210,15 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
                       alignItems: 'center',
                       gap: 10,
                       padding: '12px 14px',
-                      background: isActive ? 'rgba(245, 158, 11, 0.15)' : '#121318',
-                      border: `1px solid ${isActive ? '#F59E0B' : 'rgba(245, 158, 11, 0.2)'}`,
-                      borderRadius: 'var(--radius-btn)',
+                      background: isActive ? `rgba(124,58,237,0.15)` : 'var(--surface)',
+                      border: `1px solid ${isActive ? 'rgba(124,58,237,0.4)' : 'var(--border)'}`,
+                      borderRadius: 12,
                       textDecoration: 'none',
+                      transition: 'all 150ms ease',
                     }}
                   >
                     <Icon size={18} color={color} />
-                    <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? '#FFD700' : '#FFFFFF' }}>
+                    <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? '#FFFFFF' : 'var(--text-secondary)' }}>
                       {label}
                     </span>
                   </Link>
@@ -219,8 +229,8 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
         </>
       )}
 
-      {/* Bottom Nav for Mobile ONLY */}
-      <BottomNav />
+      {/* Bottom Nav for Mobile */}
+      <BottomNav onOpenDrawer={() => setShowDrawer(true)} />
     </div>
   )
 }

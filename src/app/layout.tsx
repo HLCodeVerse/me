@@ -5,20 +5,20 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
-  title: 'NIRMAAN — Personal Growth & Reconstruction OS',
-  description: 'Simplify your day. Skill by skill. Day by day. NIRMAAN is your personal AI operating system for tasks, habits, health, and growth.',
-  keywords: ['productivity', 'personal assistant', 'tasks', 'habits', 'health', 'journal', 'AI'],
+  title: 'Helpo — Your Personal AI Operating System',
+  description: 'Helpo is your premium personal OS for tasks, habits, goals, learning, journaling, and AI-powered insights. Live intentionally.',
+  keywords: ['productivity', 'personal assistant', 'tasks', 'habits', 'goals', 'journal', 'AI', 'life score'],
   manifest: '/manifest.json',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'NIRMAAN OS' },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Helpo' },
   openGraph: {
-    title: 'NIRMAAN — Personal Growth & Reconstruction OS',
-    description: 'Your personal AI operating system for tasks, habits, health, and growth.',
+    title: 'Helpo — Your Personal AI Operating System',
+    description: 'Premium personal OS for tasks, habits, goals, learning, journaling, and AI insights.',
     type: 'website',
   },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0A0B0D',
+  themeColor: '#050816',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -53,11 +53,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               position="top-right"
               toastOptions={{
                 style: {
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
-                  borderRadius: 'var(--radius-btn)',
+                  background: '#101A3A',
+                  border: '1px solid rgba(124, 58, 237, 0.3)',
+                  color: '#FFFFFF',
+                  borderRadius: '12px',
                   fontFamily: 'inherit',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
                 },
               }}
             />

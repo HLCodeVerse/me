@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell'
 import {
   User, Key, Bell, LogOut, ChevronRight, Eye, EyeOff,
   Loader2, Check, ShieldCheck, BarChart2, Cpu, Settings,
-  Sun, Moon, Zap, Database, Download, RefreshCw
+  Sun, Moon, Zap, Database, Download, RefreshCw, Link2, CheckCircle2, XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -28,6 +28,13 @@ export default function SettingsPage() {
   const [showKey, setShowKey] = useState(false)
   const [savingKey, setSavingKey] = useState(false)
   const [keyStored, setKeyStored] = useState(false)
+
+  // Todoist
+  const [todoistToken, setTodoistToken] = useState('')
+  const [showTodoistToken, setShowTodoistToken] = useState(false)
+  const [savingTodoist, setSavingTodoist] = useState(false)
+  const [todoistStatus, setTodoistStatus] = useState<'unknown' | 'connected' | 'failed'>('unknown')
+  const [testingTodoist, setTestingTodoist] = useState(false)
 
   const [notifications, setNotifications] = useState(true)
   const [dailyBrief, setDailyBrief] = useState(true)
@@ -78,9 +85,7 @@ export default function SettingsPage() {
         key_hash: openRouterKey.trim(),
       })
 
-      if (error) {
-        console.warn('DB key save fallback:', error.message)
-      }
+      if (error) console.warn('DB key save fallback:', error.message)
 
       toast.success('Grok & AI API Key saved & activated!')
       setKeyStored(true)
@@ -89,6 +94,53 @@ export default function SettingsPage() {
       toast.error('Failed to save key')
     } finally {
       setSavingKey(false)
+    }
+  }
+
+  async function saveTodoistToken(e: React.FormEvent) {
+    e.preventDefault()
+    if (!todoistToken.trim() || !user) return
+    setSavingTodoist(true)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('api_keys') as any).upsert(
+        { user_id: user.id, name: 'todoist_token', key_prefix: 'todoist', key_hash: todoistToken.trim() },
+        { onConflict: 'user_id,name' }
+      )
+      if (error) throw error
+      toast.success('Todoist token saved! Testing connection...')
+      setTodoistToken('')
+      // Auto-test
+      setTimeout(() => testTodoistConnection(), 400)
+    } catch {
+      toast.error('Failed to save Todoist token')
+    } finally {
+      setSavingTodoist(false)
+    }
+  }
+
+  async function testTodoistConnection() {
+    if (!user) return
+    setTestingTodoist(true)
+    try {
+      const res = await fetch('/api/todoist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
+        body: JSON.stringify({ test: true }),
+      })
+      const data = await res.json()
+      if (data.connected) {
+        setTodoistStatus('connected')
+        toast.success('Todoist connected successfully! ✅')
+      } else {
+        setTodoistStatus('failed')
+        toast.error('Todoist connection failed. Check your token.')
+      }
+    } catch {
+      setTodoistStatus('failed')
+      toast.error('Connection test failed')
+    } finally {
+      setTestingTodoist(false)
     }
   }
 
@@ -120,10 +172,10 @@ export default function SettingsPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `nirmaan-data-backup-${new Date().toISOString().split('T')[0]}.json`
+      a.download = `helpo-backup-${new Date().toISOString().split('T')[0]}.json`
       a.click()
       URL.revokeObjectURL(url)
-      toast.success('Data exported successfully!')
+      toast.success('Data exported!')
     } catch {
       toast.error('Failed to export user data')
     }
@@ -257,11 +309,55 @@ export default function SettingsPage() {
           </form>
         </Section>
 
-        {/* AI Engine Configuration (xAI Grok & OpenRouter BYOK) */}
+        {/* Todoist Integration */}
+        <Section icon={Link2} label="Todoist Integration" color="#FF4F81">
+          <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(255,79,129,0.08)', border: '1px solid rgba(255,79,129,0.2)', borderRadius: 'var(--radius-btn)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+              Connect your <strong style={{ color: '#FF4F81' }}>Todoist account</strong> to sync tasks bi-directionally. Get your API token from <strong>todoist.com → Settings → Integrations → API token</strong>.
+            </p>
+            {todoistStatus !== 'unknown' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                {todoistStatus === 'connected'
+                  ? <><CheckCircle2 size={16} color="#10B981" /><span style={{ fontSize: 11, color: '#10B981', fontWeight: 700 }}>Connected</span></>
+                  : <><XCircle size={16} color="#EF4444" /><span style={{ fontSize: 11, color: '#EF4444', fontWeight: 700 }}>Failed</span></>
+                }
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={saveTodoistToken} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 6, display: 'block' }}>TODOIST API TOKEN</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showTodoistToken ? 'text' : 'password'}
+                  value={todoistToken}
+                  onChange={e => setTodoistToken(e.target.value)}
+                  placeholder="Paste your Todoist API token here..."
+                  style={{ paddingRight: 40 }}
+                />
+                <button type="button" onClick={() => setShowTodoistToken(p => !p)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                  {showTodoistToken ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="submit" disabled={savingTodoist || !todoistToken} className="btn btn-pink" style={{ flex: 1, height: 38, fontSize: 13 }}>
+                {savingTodoist ? <Loader2 size={14} className="animate-spin" /> : <><Key size={14} /> Save Todoist Token</>}
+              </button>
+              <button type="button" onClick={testTodoistConnection} disabled={testingTodoist} className="btn btn-secondary" style={{ height: 38, fontSize: 13 }}>
+                {testingTodoist ? <Loader2 size={14} className="animate-spin" /> : 'Test Connection'}
+              </button>
+            </div>
+          </form>
+        </Section>
+
+        {/* AI Engine Configuration */}
+
         <Section icon={Cpu} label="AI Engine & Grok (BYOK)" color="#7C3AED">
           <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.2)', borderRadius: 'var(--radius-btn)' }}>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
-              NIRMAAN AI natively supports <strong style={{ color: '#7C3AED' }}>xAI Grok-2</strong>, <strong style={{ color: '#7C3AED' }}>Grok Beta</strong>, and OpenRouter models. Provide your API keys below to unlock dedicated endpoints.
+              Helpo AI natively supports <strong style={{ color: '#7C3AED' }}>xAI Grok-2</strong>, <strong style={{ color: '#7C3AED' }}>Grok Beta</strong>, and OpenRouter models. Provide your API keys below.
             </p>
           </div>
 
@@ -310,8 +406,8 @@ export default function SettingsPage() {
         <Section icon={Bell} label="Device Push Notifications" color="#F59E0B">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ padding: '12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 'var(--radius-btn)' }}>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
-                Receive automatic device notifications for scheduled reminders, due tasks, and water intake alerts — <strong>even when NIRMAAN is closed</strong>.
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+                Receive automatic device notifications for scheduled reminders, due tasks, and water intake alerts — <strong>even when Helpo is closed</strong>.
               </p>
             </div>
 
