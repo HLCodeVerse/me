@@ -25,7 +25,6 @@ interface SingleGaugeProps {
   icon: React.ReactNode
   badgeText?: string
   badgeVariant?: 'success' | 'warning' | 'danger' | 'info'
-  invertWarning?: boolean
 }
 
 function SingleGaugeRing({
@@ -40,8 +39,9 @@ function SingleGaugeRing({
   badgeText,
   badgeVariant = 'info',
 }: SingleGaugeProps) {
-  const size = 110
-  const strokeWidth = 10
+  // Compact SVG diameter for mobile alignment
+  const size = 76
+  const strokeWidth = 7
   const center = size / 2
   const radius = center - strokeWidth / 2
   const circumference = 2 * Math.PI * radius
@@ -66,66 +66,65 @@ function SingleGaugeRing({
       style={{
         background: 'linear-gradient(145deg, rgba(18, 19, 24, 0.9) 0%, rgba(10, 11, 13, 0.95) 100%)',
         border: '1px solid rgba(255, 255, 255, 0.08)',
-        borderRadius: 20,
-        padding: '18px 16px',
+        borderRadius: 16,
+        padding: '12px 10px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5)',
+        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
         backdropFilter: 'blur(12px)',
-        transition: 'transform 0.2s ease, border-color 0.2s ease',
-        cursor: 'default',
         position: 'relative',
         overflow: 'hidden',
+        minWidth: 0,
       }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = colorStart)}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)')}
     >
-      {/* Background Glow Effect */}
+      {/* Glow Effect */}
       <div
         style={{
           position: 'absolute',
-          top: -30,
-          right: -30,
-          width: 80,
-          height: 80,
+          top: -20,
+          right: -20,
+          width: 60,
+          height: 60,
           borderRadius: '50%',
           background: colorStart,
           opacity: 0.08,
-          filter: 'blur(30px)',
+          filter: 'blur(24px)',
           pointerEvents: 'none',
         }}
       />
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      {/* Title Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
           <div
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
+              width: 22,
+              height: 22,
+              borderRadius: 6,
               background: `${colorStart}22`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: colorStart,
+              flexShrink: 0,
             }}
           >
             {icon}
           </div>
-          <span style={{ fontSize: 13, fontWeight: 800, color: '#F3F4F6', letterSpacing: '-0.01em' }}>
+          <span style={{ fontSize: 11.5, fontWeight: 800, color: '#F3F4F6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {title}
           </span>
         </div>
         {badgeText && (
           <span
             style={{
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: 800,
-              padding: '2px 8px',
+              padding: '1px 6px',
               borderRadius: 99,
+              whiteSpace: 'nowrap',
               ...getBadgeStyle(),
             }}
           >
@@ -134,8 +133,8 @@ function SingleGaugeRing({
         )}
       </div>
 
-      {/* Circular SVG Ring */}
-      <div style={{ position: 'relative', width: size, height: size, margin: '8px 0' }}>
+      {/* SVG Level Line Ring */}
+      <div style={{ position: 'relative', width: size, height: size, margin: '6px 0' }}>
         <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
           <defs>
             <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -143,7 +142,6 @@ function SingleGaugeRing({
               <stop offset="100%" stopColor={colorEnd} />
             </linearGradient>
           </defs>
-          {/* Track Circle */}
           <circle
             cx={center}
             cy={center}
@@ -152,7 +150,6 @@ function SingleGaugeRing({
             strokeWidth={strokeWidth}
             fill="transparent"
           />
-          {/* Level Line Progress Circle */}
           <circle
             cx={center}
             cy={center}
@@ -167,7 +164,7 @@ function SingleGaugeRing({
           />
         </svg>
 
-        {/* Center Label */}
+        {/* Center Percentage Label */}
         <div
           style={{
             position: 'absolute',
@@ -178,17 +175,17 @@ function SingleGaugeRing({
             justifyContent: 'center',
           }}
         >
-          <span style={{ fontSize: 21, fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.03em' }}>
+          <span style={{ fontSize: 16, fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.02em' }}>
             {clampedPercent}%
           </span>
-          <span style={{ fontSize: 9.5, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 8, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase' }}>
             {label}
           </span>
         </div>
       </div>
 
-      {/* Subtitle Footer */}
-      <div style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center', fontWeight: 500, marginTop: 4 }}>
+      {/* Subtitle */}
+      <div style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
         {subtitle}
       </div>
     </div>
@@ -205,25 +202,23 @@ export default function CircularMetricsGauge({
   totalItems,
   streakCount,
 }: CircularMetricProps) {
-  // Determine Negligence Badge State
   let negligenceBadge = 'Low'
   let negligenceVariant: 'success' | 'warning' | 'danger' = 'success'
   if (negligencePercent > 40) {
-    negligenceBadge = 'High Critical'
+    negligenceBadge = 'Critical'
     negligenceVariant = 'danger'
   } else if (negligencePercent > 15) {
-    negligenceBadge = 'Attention Needed'
+    negligenceBadge = 'Attention'
     negligenceVariant = 'warning'
   }
 
-  // Consistency Badge State
   let consistencyBadge = 'Building'
   let consistencyVariant: 'success' | 'warning' | 'info' = 'info'
   if (consistencyPercent >= 75) {
-    consistencyBadge = 'Unstoppable 🔥'
+    consistencyBadge = 'Streak 🔥'
     consistencyVariant = 'success'
   } else if (consistencyPercent >= 40) {
-    consistencyBadge = 'On Track 👍'
+    consistencyBadge = 'On Track'
     consistencyVariant = 'warning'
   }
 
@@ -231,63 +226,64 @@ export default function CircularMetricsGauge({
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-        gap: 14,
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: 10,
         width: '100%',
       }}
+      className="md:grid-cols-4"
     >
       {/* 1. Consistency Level Line Ring */}
       <SingleGaugeRing
-        title="Consistency Index"
+        title="Consistency"
         percentage={consistencyPercent}
-        label="Habit Streak"
-        subtitle={`${streakCount} Days Streak • Habit Check-ins`}
+        label="Streak"
+        subtitle={`${streakCount}d Streak`}
         gradientId="consistencyGrad"
         colorStart="#10B981"
         colorEnd="#059669"
-        icon={<Flame size={16} />}
+        icon={<Flame size={14} />}
         badgeText={consistencyBadge}
         badgeVariant={consistencyVariant}
       />
 
       {/* 2. Productivity Level Line Ring */}
       <SingleGaugeRing
-        title="Productivity Level"
+        title="Productivity"
         percentage={productivityPercent}
-        label="Done Ratio"
-        subtitle={`${completedCount} of ${totalItems} tasks completed`}
+        label="Ratio"
+        subtitle={`${completedCount}/${totalItems} Done`}
         gradientId="productivityGrad"
         colorStart="#3B82F6"
         colorEnd="#06B6D4"
-        icon={<TrendingUp size={16} />}
-        badgeText={productivityPercent >= 70 ? 'High Focus ⚡' : 'In Motion'}
+        icon={<TrendingUp size={14} />}
+        badgeText={productivityPercent >= 70 ? 'Focus ⚡' : 'Active'}
         badgeVariant={productivityPercent >= 70 ? 'success' : 'info'}
       />
 
       {/* 3. Negligence Rate Gauge Ring */}
       <SingleGaugeRing
-        title="Negligence Rate"
+        title="Negligence"
         percentage={negligencePercent}
-        label="Overdue Rate"
-        subtitle={overdueCount > 0 ? `${overdueCount} items past due date!` : 'Zero overdue items today!'}
+        label="Overdue"
+        subtitle={overdueCount > 0 ? `${overdueCount} Overdue` : 'Zero Overdue'}
         gradientId="negligenceGrad"
         colorStart={negligencePercent > 20 ? '#F43F5E' : '#F59E0B'}
         colorEnd={negligencePercent > 20 ? '#E11D48' : '#D97706'}
-        icon={overdueCount > 0 ? <AlertTriangle size={16} /> : <ShieldAlert size={16} />}
+        icon={overdueCount > 0 ? <AlertTriangle size={14} /> : <ShieldAlert size={14} />}
         badgeText={negligenceBadge}
         badgeVariant={negligenceVariant}
       />
 
       {/* 4. Life Balance & Score Ring */}
       <SingleGaugeRing
-        title="Life Balance Score"
+        title="Life Score"
         percentage={lifeScorePercent}
-        label="Harmony"
-        subtitle="Across Goals, Health & Reflection"
+        label="Balance"
+        subtitle="Harmony"
         gradientId="lifeScoreGrad"
         colorStart="#8B5CF6"
         colorEnd="#EC4899"
-        icon={<Target size={16} />}
+        icon={<Target size={14} />}
         badgeText={lifeScorePercent >= 80 ? 'Mastery 🌟' : 'Balanced'}
         badgeVariant={lifeScorePercent >= 80 ? 'success' : 'info'}
       />
