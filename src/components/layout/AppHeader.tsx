@@ -16,10 +16,13 @@ export default function AppHeader({ onOpenMobileDrawer, isSidebarCollapsed, onTo
 
   return (
     <header style={{
-      height: 72,
-      background: '#0A0B0D',
+      minHeight: 72,
+      paddingTop: 'env(safe-area-inset-top, 0px)',
+      background: '#000000',
       borderBottom: '1px solid rgba(245, 158, 11, 0.3)',
-      padding: '0 24px',
+      paddingLeft: 24,
+      paddingRight: 24,
+      paddingBottom: 10,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',

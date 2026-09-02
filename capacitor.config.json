@@ -9,6 +9,25 @@
   "android": {
     "allowMixedContent": true,
     "captureInput": true,
-    "webContentsDebuggingEnabled": true
+    "webContentsDebuggingEnabled": true,
+    "backgroundColor": "#0A0B0D"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#000000",
+      "overlaysWebView": false
+    },
+    "SplashScreen": {
+      "launchShowDuration": 2500,
+      "launchAutoHide": true,
+      "backgroundColor": "#0A0B0D",
+      "androidSplashResourceName": "splash",
+      "showSpinner": true,
+      "androidSpinnerStyle": "large",
+      "spinnerColor": "#FFD700",
+      "splashFullScreen": false,
+      "splashImmersive": false
+    }
   }
 }
