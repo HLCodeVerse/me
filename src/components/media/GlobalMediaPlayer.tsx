@@ -5,7 +5,16 @@ import { useMediaStore } from '@/lib/media-store'
 import { Play, Pause, SkipBack, SkipForward, Maximize2, Music, X, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Capacitor } from '@capacitor/core'
 import Globe3D from './Globe3D'
+
+function formatPlayableUrl(url: string) {
+  if (!url) return ''
+  if (url.startsWith('file://')) {
+    return Capacitor.convertFileSrc(url)
+  }
+  return url
+}
 
 export default function GlobalMediaPlayer() {
   const router = useRouter()
@@ -32,16 +41,19 @@ export default function GlobalMediaPlayer() {
 
   const currentTrack = tracks[currentTrackIndex]
 
-  // Audio Playback Synchronization
+  // Audio Playback Synchronization with Capacitor Native File Support
   useEffect(() => {
     if (!audioRef.current) return
     if (currentTrack) {
-      if (audioRef.current.src !== currentTrack.url) {
-        audioRef.current.src = currentTrack.url
+      const playableUrl = formatPlayableUrl(currentTrack.url)
+      if (audioRef.current.src !== playableUrl) {
+        audioRef.current.src = playableUrl
       }
       audioRef.current.playbackRate = playbackRate || 1.0
       if (isPlaying) {
-        audioRef.current.play().catch(() => {})
+        audioRef.current.play().catch(err => {
+          console.warn('Playback error:', err)
+        })
       } else {
         audioRef.current.pause()
       }
@@ -153,14 +165,14 @@ export default function GlobalMediaPlayer() {
         left: 0,
         right: 0,
         zIndex: 90,
-        background: 'linear-gradient(180deg, #0A0B0D 0%, #121318 100%)',
+        background: '#0A0B0D',
         borderTop: '1px solid rgba(245, 158, 11, 0.35)',
-        boxShadow: '0 -10px 35px rgba(0,0,0,0.85)',
-        backdropFilter: 'blur(20px)',
+        boxShadow: '0 -10px 35px rgba(0,0,0,0.95)',
         padding: '8px 16px',
         maxWidth: 768,
         margin: '0 auto',
         borderRadius: '16px 16px 0 0',
+        transform: 'translateZ(0)',
       }}
     >
       <audio
