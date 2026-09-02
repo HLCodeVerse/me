@@ -6,6 +6,21 @@
    "High contrast, luxury personal reconstruction operating system"
  ══════════════════════════════════════════════════════════ */
 
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  text-rendering: optimizeSpeed;
+  -webkit-font-smoothing: antialiased;
+}
+
+.animate-pulse, .animate-spin, .animate-cassette, .animate-fog, .card, .btn {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 :root {
   --sidebar-width: 260px;
 }
