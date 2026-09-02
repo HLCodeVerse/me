@@ -6,7 +6,7 @@ import { useMediaStore, MediaTrack, SortOption, CategoryFilter } from '@/lib/med
 import {
   Music, Play, Pause, SkipBack, SkipForward, Shuffle, Repeat,
   Volume2, VolumeX, FolderPlus, Trash2, Search,
-  Disc, Heart, Sparkles, SlidersHorizontal, Flame, Gauge, Clock, UploadCloud, Folder, Plus, X
+  Disc, Heart, Sparkles, SlidersHorizontal, Flame, Gauge, Clock, Folder, Plus, X
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Globe3D from '@/components/media/Globe3D'
@@ -54,7 +54,6 @@ export default function PlayerPage() {
     removeTrackFromFolder,
   } = useMediaStore()
 
-  const [isDragOver, setIsDragOver] = useState(false)
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [openFolderMenuTrackId, setOpenFolderMenuTrackId] = useState<string | null>(null)
@@ -134,15 +133,7 @@ export default function PlayerPage() {
     }
   }
 
-  function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files) processAudioFiles(e.target.files)
-  }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    setIsDragOver(false)
-    if (e.dataTransfer.files) processAudioFiles(e.dataTransfer.files)
-  }
 
   function handleFolderCreateSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -225,15 +216,9 @@ export default function PlayerPage() {
             >
               <FolderPlus size={15} color="#FFD700" /> New Playlist Folder
             </button>
-            <label className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: 12.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Folder size={15} color="#FFD700" /> Import Device Folder
-              {/* @ts-expect-error - webkitdirectory is non-standard HTML5 directory attribute */}
-              <input type="file" multiple webkitdirectory="" directory="" onChange={handleFileInputChange} style={{ display: 'none' }} />
-            </label>
-            <label className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 12.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <UploadCloud size={16} /> Import Files
-              <input type="file" multiple accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg" onChange={handleFileInputChange} style={{ display: 'none' }} />
-            </label>
+            <span style={{ fontSize: 11.5, fontWeight: 800, color: '#10B981', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 10, padding: '8px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Music size={15} color="#10B981" /> Auto Device Music Direct Access Active ⚡
+            </span>
           </div>
         </div>
       }
@@ -579,31 +564,40 @@ export default function PlayerPage() {
           </div>
         </div>
 
-        {/* Drag & Drop Device Upload Zone */}
+        {/* Automatic Device Local Music Direct Access Banner */}
         <div
-          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
-          onDragLeave={() => setIsDragOver(false)}
-          onDrop={handleDrop}
           style={{
-            border: `2px dashed ${isDragOver ? '#F59E0B' : 'rgba(245, 158, 11, 0.3)'}`,
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, #0A0B0D 100%)',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
             borderRadius: 18,
-            padding: '20px',
-            textAlign: 'center',
-            background: isDragOver ? 'rgba(245, 158, 11, 0.1)' : '#0A0B0D',
-            transition: 'all 200ms ease',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
           }}
         >
-          <UploadCloud size={28} color="#F59E0B" style={{ margin: '0 auto 8px' }} />
-          <h3 style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF', margin: '0 0 4px' }}>
-            Drag & Drop Audio Files Here or Browse Device
-          </h3>
-          <p style={{ fontSize: 12, color: '#9CA3AF', margin: '0 0 12px' }}>
-            Auto-discovers and categorizes MP3, M4A, WAV, AAC, FLAC, OGG files automatically
-          </p>
-          <label className="btn btn-secondary" style={{ padding: '6px 16px', fontSize: 12, cursor: 'pointer' }}>
-            Browse Device Files
-            <input type="file" multiple accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg" onChange={handleFileInputChange} style={{ display: 'none' }} />
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000000' }}>
+              <Music size={20} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 14, fontWeight: 900, color: '#FFFFFF', margin: '0 0 2px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                Device Music Direct Access Active <Sparkles size={14} color="#FFD700" />
+              </h3>
+              <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>
+                Directly accessing all MP3, M4A, WAV & FLAC tracks from your device without manual importing.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 800, color: '#10B981', background: 'rgba(16, 185, 129, 0.2)', padding: '4px 12px', borderRadius: 99, border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              ⚡ {tracks.length} Device Tracks Loaded
+            </span>
+          </div>
         </div>
 
         {/* Category Filters Pill Bar */}

@@ -159,6 +159,29 @@ export default function DashboardPage() {
     }
   }, [tasks, todos, habits, profile, todayStr])
 
+  // Today's Scoped Tasks & Todos (Strict Date Filtering & Daily Resetting Checklist)
+  const todayTasks = useMemo(() => {
+    return tasks.filter(t => {
+      const taskDate = t.due_date ? t.due_date.split('T')[0] : (t.created_at ? t.created_at.split('T')[0] : todayStr)
+      // Show items due/created on today, OR uncompleted overdue items
+      return taskDate === todayStr || (taskDate < todayStr && t.status !== 'done')
+    })
+  }, [tasks, todayStr])
+
+  const todayTodos = useMemo(() => {
+    return todos.map(todo => {
+      const todoDate = todo.due_date || (todo.created_at ? todo.created_at.split('T')[0] : todayStr)
+      // If a todo was completed on a previous day, auto-reset it for today so it can be completed again!
+      if (todoDate < todayStr && todo.is_done) {
+        return { ...todo, is_done: false, due_date: todayStr }
+      }
+      return todo
+    }).filter(t => {
+      const itemDate = t.due_date || todayStr
+      return itemDate === todayStr || !t.is_done
+    })
+  }, [todos, todayStr])
+
 
 
   // Toggle Task Status (Complete <-> Todo)
@@ -541,7 +564,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Primary Tasks Agenda</h3>
-                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>{tasks.filter(t => t.status === 'done').length} of {tasks.length} Done</span>
+                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>{todayTasks.filter(t => t.status === 'done').length} of {todayTasks.length} Done</span>
                     </div>
                   </div>
                 </div>
@@ -568,10 +591,10 @@ export default function DashboardPage() {
 
                 {/* Tasks List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
-                  {tasks.length === 0 ? (
-                    <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>No tasks found.</div>
+                  {todayTasks.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>No tasks for today.</div>
                   ) : (
-                    tasks.slice(0, 10).map(t => (
+                    todayTasks.slice(0, 10).map(t => (
                       <div
                         key={t.id}
                         style={{
@@ -630,7 +653,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Daily Checklist Todos</h3>
-                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>{todos.filter(t => t.is_done).length} of {todos.length} Checked</span>
+                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>{todayTodos.filter(t => t.is_done).length} of {todayTodos.length} Checked</span>
                     </div>
                   </div>
                 </div>
@@ -649,10 +672,10 @@ export default function DashboardPage() {
                 </form>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
-                  {todos.length === 0 ? (
+                  {todayTodos.length === 0 ? (
                     <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>No checklist todos.</div>
                   ) : (
-                    todos.slice(0, 10).map(t => (
+                    todayTodos.slice(0, 10).map(t => (
                       <div
                         key={t.id}
                         style={{
