@@ -23,13 +23,7 @@ const MOOD_OPTIONS = [
   { id: 'awful', icon: Heart, color: '#EF4444', label: '😫 Overwhelmed' },
 ]
 
-const PROMPTS = [
-  'What are 3 meaningful things I accomplished or learned today?',
-  'What is a challenge I faced today, and how did I adapt?',
-  'What am I deeply grateful for in this exact moment?',
-  'What is one limiting belief I want to let go of today?',
-  'What would make tomorrow a high-performance win?',
-]
+
 
 interface AIReframeSuggestions {
   growth: string
@@ -593,7 +587,7 @@ Respond strictly in valid JSON format with keys:
               <div style={{ textAlign: 'center', padding: '60px 20px', background: '#0A0B0D', borderRadius: 20, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
                 <BookOpen size={40} color="#10B981" style={{ margin: '0 auto 12px' }} />
                 <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: '0 0 4px' }}>No journal pages found</h3>
-                <p style={{ fontSize: 13, color: '#9CA3AF', margin: '0 0 16px' }}>Click "New Journal Page" above to open your blank editor.</p>
+                <p style={{ fontSize: 13, color: '#9CA3AF', margin: '0 0 16px' }}>Click &quot;New Journal Page&quot; above to open your blank editor.</p>
                 <button onClick={handleCreateNewBlankEntry} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 13 }}>
                   <Plus size={16} /> Open Blank Journal Page
                 </button>

@@ -1,27 +1,32 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
 import FormattedAIResponse from '@/components/common/FormattedAIResponse'
+import CircularMetricsGauge from '@/components/dashboard/CircularMetricsGauge'
+import DateTimelineFilter from '@/components/dashboard/DateTimelineFilter'
 import {
   Zap, Flame, Target, CheckCircle2, Droplets, Bell,
-  Sparkles, X, RotateCcw, RefreshCw, Award, StickyNote, Plus,
-  BookOpen, Bot, Clock, ChevronRight, ChevronLeft, Send, ShieldCheck, Calendar as CalendarIcon,
-  Play, Pause, CircleCheck, CircleX, Check, Trash2, ListTodo, FileText, Wand2, Heart
+  Sparkles, RefreshCw, StickyNote, Plus,
+  BookOpen, Bot, Clock, Send, ShieldCheck,
+  CircleCheck, Check, Trash2, Layers, LayoutDashboard, CalendarDays
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Task, Todo, Habit, Reminder, Note, Goal, JournalEntry } from '@/lib/supabase/database.types'
 import { createTodoistTask } from '@/lib/todoist'
 
-type TaskFilter = 'all' | 'pending' | 'completed'
+type DashboardTab = 'overview' | 'timeline' | 'habits' | 'secondary'
 
 export default function DashboardPage() {
-  const { user, profile, loading: authLoading } = useAuth()
+  const { user, profile } = useAuth()
   const router = useRouter()
   const supabase = createClient()
+
+  // Active Main Tab State
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview')
 
   // Live Database States
   const [tasks, setTasks] = useState<Task[]>([])
@@ -34,26 +39,15 @@ export default function DashboardPage() {
   const [waterMl, setWaterMl] = useState<number>(0)
   const [dataLoading, setDataLoading] = useState(true)
 
-  // Filters
-  const [taskFilter, setTaskFilter] = useState<TaskFilter>('all')
-  const [todoFilter, setTodoFilter] = useState<TaskFilter>('all')
-
   // AI Assistant Command Box State
   const [aiCommandPrompt, setAiCommandPrompt] = useState('')
   const [aiCommandResponse, setAiCommandResponse] = useState<string | null>(null)
   const [executingAICommand, setExecutingAICommand] = useState(false)
 
-  // Calendar State
-  const todayStr = new Date().toISOString().split('T')[0]
-  const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear())
-  const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth()) // 0-indexed
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(todayStr)
-  const [calendarQuickTaskTitle, setCalendarQuickTaskTitle] = useState('')
-
   // Quick Action Form States
   const [newTasksTitle, setNewTasksTitle] = useState('')
   const [newTasksDueDate, setNewTasksDueDate] = useState('')
-  const [newTasksPriority, setNewTasksPriority] = useState(3)
+  const [newTasksPriority] = useState(3)
 
   const [newTodoTitle, setNewTodoTitle] = useState('')
   const [newHabitName, setNewHabitName] = useState('')
@@ -63,6 +57,8 @@ export default function DashboardPage() {
   const [focusMode, setFocusMode] = useState(false)
   const [focusTime, setFocusTime] = useState(25 * 60)
   const [focusTimerRunning, setFocusTimerRunning] = useState(false)
+
+  const todayStr = new Date().toISOString().split('T')[0]
 
   // Load All Live Supabase Table Data
   const loadDashboardData = useCallback(async () => {
@@ -74,13 +70,13 @@ export default function DashboardPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = supabase as any
       const [tasksRes, todosRes, habitsRes, goalsRes, remindersRes, notesRes, journalRes, waterRes] = await Promise.all([
-        client.from('tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(40),
-        client.from('todos').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(40),
-        client.from('habits').select('*').eq('user_id', user.id).eq('archived', false).limit(10),
-        client.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
-        client.from('reminders').select('*').eq('user_id', user.id).order('remind_at', { ascending: true }).limit(8),
-        client.from('notes').select('*').eq('user_id', user.id).limit(10),
-        client.from('journal_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(8),
+        client.from('tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(60),
+        client.from('todos').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(60),
+        client.from('habits').select('*').eq('user_id', user.id).eq('archived', false).limit(20),
+        client.from('goals').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(15),
+        client.from('reminders').select('*').eq('user_id', user.id).order('remind_at', { ascending: true }).limit(15),
+        client.from('notes').select('*').eq('user_id', user.id).limit(15),
+        client.from('journal_entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(15),
         client.from('water_logs').select('amount_ml').eq('user_id', user.id).eq('date', today),
       ])
 
@@ -117,6 +113,47 @@ export default function DashboardPage() {
     }
     return () => clearInterval(timer)
   }, [focusTimerRunning, focusTime])
+
+  // Computed Metrics for Circular Gauges
+  const metrics = useMemo(() => {
+    const totalTasks = tasks.length
+    const doneTasks = tasks.filter(t => t.status === 'done').length
+
+    const totalTodos = todos.length
+    const doneTodos = todos.filter(t => t.is_done).length
+
+    const totalItems = totalTasks + totalTodos
+    const completedCount = doneTasks + doneTodos
+
+    const productivityPercent = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0
+
+    // Overdue items calculation
+    const overdueTasks = tasks.filter(t => t.due_date && t.due_date.split('T')[0] < todayStr && t.status !== 'done').length
+    const overdueTodos = todos.filter(t => t.due_date && t.due_date < todayStr && !t.is_done).length
+    const overdueCount = overdueTasks + overdueTodos
+    const negligencePercent = totalItems > 0 ? Math.round((overdueCount / totalItems) * 100) : 0
+
+    // Habit Streak & Consistency calculation
+    const totalHabits = habits.length
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const maxStreak = habits.reduce((max, h) => Math.max(max, (h as any).streak_count || 1), 1)
+    const consistencyPercent = totalHabits > 0 ? Math.min(100, Math.round((maxStreak / 7) * 100)) : 50
+
+    // Life Score calculation
+    const dbLifeScore = profile?.life_score || 0
+    const lifeScorePercent = dbLifeScore > 0 ? Math.min(100, dbLifeScore) : Math.round((productivityPercent + consistencyPercent) / 2)
+
+    return {
+      productivityPercent,
+      consistencyPercent,
+      negligencePercent,
+      lifeScorePercent,
+      overdueCount,
+      completedCount,
+      totalItems,
+      streakCount: maxStreak,
+    }
+  }, [tasks, todos, habits, profile, todayStr])
 
   // Execute Direct AI Natural Language Command
   async function handleAICommandSubmit(e: React.FormEvent) {
@@ -214,7 +251,7 @@ export default function DashboardPage() {
     toast.success('Todo deleted')
   }
 
-  // Water Hydration Quick Logger
+  // Water Hydration Logger
   async function handleAddWater(amount: number) {
     if (!user) return
     const today = new Date().toISOString().split('T')[0]
@@ -230,25 +267,25 @@ export default function DashboardPage() {
     toast.success(`Logged ${amount}ml water! 💧 Total: ${newTotal}ml`)
   }
 
-  // Quick Add Task (Auto-syncs to Todoist)
-  async function handleCreateTask(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newTasksTitle.trim() || !user) return
+  // Quick Create Task
+  async function handleCreateTask(titleStr: string, dateStr?: string) {
+    if (!titleStr.trim() || !user) return
+    const targetDueDate = dateStr ? new Date(dateStr).toISOString() : newTasksDueDate ? new Date(newTasksDueDate).toISOString() : null
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from('tasks') as any).insert({
         user_id: user.id,
-        title: newTasksTitle.trim(),
+        title: titleStr.trim(),
         priority: newTasksPriority,
-        due_date: newTasksDueDate ? new Date(newTasksDueDate).toISOString() : null,
+        due_date: targetDueDate,
         status: 'todo',
       }).select().single()
 
       if (!error && data) {
         setTasks(prev => [data, ...prev])
-        createTodoistTask(newTasksTitle.trim(), undefined, newTasksDueDate, undefined, newTasksPriority).catch(() => {})
-        toast.success('Task created & synced to Todoist! 📋')
+        createTodoistTask(titleStr.trim(), undefined, dateStr || newTasksDueDate, undefined, newTasksPriority).catch(() => {})
+        toast.success('Task created & synced! 📋')
         setNewTasksTitle('')
         setNewTasksDueDate('')
       }
@@ -257,7 +294,7 @@ export default function DashboardPage() {
     }
   }
 
-  // Quick Add Todo
+  // Quick Create Todo
   async function handleCreateTodo(e: React.FormEvent) {
     e.preventDefault()
     if (!newTodoTitle.trim() || !user) return
@@ -268,6 +305,7 @@ export default function DashboardPage() {
         user_id: user.id,
         title: newTodoTitle.trim(),
         is_done: false,
+        due_date: todayStr,
       }).select().single()
 
       if (!error && data) {
@@ -295,7 +333,7 @@ export default function DashboardPage() {
       })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setHabits(prev => prev.map(h => h.id === habitId ? { ...h, streak_count: ((h as any).streak_count || 0) + 1 } : h))
+      setHabits(prev => prev.map(h => h.id === habitId ? { ...h, streak_count: ((h as any).streak_count || 1) + 1 } : h))
       toast.success('Habit Checked-in Today! 🔥 +20 XP')
     } catch {
       toast.error('Could not log habit')
@@ -350,70 +388,39 @@ export default function DashboardPage() {
     }
   }
 
-  // Calendar Days Calculation
-  const firstDayOfMonth = new Date(calendarYear, calendarMonth, 1).getDay()
-  const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate()
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-
-  function prevMonth() {
-    if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(y => y - 1) }
-    else { setCalendarMonth(m => m - 1) }
-  }
-
-  function nextMonth() {
-    if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(y => y + 1) }
-    else { setCalendarMonth(m => m + 1) }
-  }
-
-  const calendarTasks = tasks.filter(t => t.due_date && new Date(t.due_date).toISOString().split('T')[0] === selectedCalendarDate)
-  const calendarTodos = todos.filter(t => t.due_date === selectedCalendarDate)
-
-  // KPI Calculations
   const name = profile?.display_name || user?.email?.split('@')[0] || 'Member'
-  const doneTasksCount = tasks.filter(t => t.status === 'done').length
-  const totalTasksCount = tasks.length
-  const tasksPercent = totalTasksCount > 0 ? Math.round((doneTasksCount / totalTasksCount) * 100) : 0
 
-  const doneTodosCount = todos.filter(t => t.is_done).length
-  const totalTodosCount = todos.length
-  const todosPercent = totalTodosCount > 0 ? Math.round((doneTodosCount / totalTodosCount) * 100) : 0
-
-  const filteredTasks = tasks.filter(t => {
-    if (taskFilter === 'pending') return t.status !== 'done'
-    if (taskFilter === 'completed') return t.status === 'done'
-    return true
-  })
-
-  const filteredTodos = todos.filter(t => {
-    if (todoFilter === 'pending') return !t.is_done
-    if (todoFilter === 'completed') return t.is_done
-    return true
-  })
+  const mainTabs: { key: DashboardTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { key: 'overview', label: 'Main Overview', icon: <LayoutDashboard size={16} /> },
+    { key: 'timeline', label: 'Date Timeline & Items', icon: <CalendarDays size={16} />, badge: tasks.length + todos.length },
+    { key: 'habits', label: 'Habits & Goals', icon: <Flame size={16} />, badge: habits.length },
+    { key: 'secondary', label: 'Secondary & Archived Data', icon: <Layers size={16} />, badge: pinnedNotes.length + journalEntries.length },
+  ]
 
   return (
     <AppShell>
-      <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ paddingTop: 6, display: 'flex', flexDirection: 'column', gap: 22 }}>
 
-        {/* Welcome Header Toolbar */}
+        {/* Minimal Modern Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span className="badge badge-warning">
-                <Zap size={13} color="#FFD700" /> NIRMAAN Personal OS v5.0
+              <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Zap size={13} color="#FFD700" /> NIRMAAN Personal OS v5.2
               </span>
-              <span className="badge badge-success">
+              <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <ShieldCheck size={13} color="#10B981" /> Live Sync Active
               </span>
             </div>
-            <h1 style={{ fontSize: 26, fontWeight: 900, color: '#FFFFFF', margin: '6px 0 2px', letterSpacing: '-0.02em' }}>
+            <h1 style={{ fontSize: 26, fontWeight: 900, color: '#FFFFFF', margin: '4px 0 2px', letterSpacing: '-0.02em' }}>
               Welcome back, {name}! ⚡
             </h1>
             <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>
-              Your real-time multi-element workspace across all life areas & system tools.
+              Minimalist workspace organized chronologically by date with real-time level line analytics.
             </p>
           </div>
 
-          {/* Quick Actions Header Pill Toolbar */}
+          {/* Quick Header Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <button
               onClick={() => router.push('/tasks')}
@@ -430,468 +437,520 @@ export default function DashboardPage() {
               <BookOpen size={15} color="#10B981" /> Journal Reader
             </button>
             <button
-              onClick={() => setFocusMode(true)}
+              onClick={() => setFocusMode(!focusMode)}
               className="btn btn-secondary"
               style={{ padding: '8px 14px', fontSize: 12.5 }}
             >
-              <Clock size={15} color="#F59E0B" /> Pomodoro
+              <Clock size={15} color="#F59E0B" /> Pomodoro {focusMode ? 'Active' : ''}
             </button>
             <button
               onClick={loadDashboardData}
               className="btn btn-ghost btn-icon"
               title="Refresh Live Data"
-              style={{ border: '1px solid rgba(245, 158, 11, 0.3)', width: 38, height: 38 }}
+              style={{ border: '1px solid rgba(255, 255, 255, 0.1)', width: 38, height: 38 }}
             >
               <RefreshCw size={16} color="#FFD700" className={dataLoading ? 'animate-spin' : ''} />
             </button>
           </div>
         </div>
 
-        {/* DETAILED KPI COUNTER CARDS */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 14,
-        }}>
-          {/* Tasks KPI */}
-          <div style={{ background: '#0A0B0D', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: 18, padding: 18, boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 800 }}>TASKS COMPLETED</div>
-              <CheckCircle2 size={18} color="#3B82F6" />
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 24, fontWeight: 900, color: '#FFFFFF' }}>
-                {doneTasksCount} <span style={{ fontSize: 13, color: '#9CA3AF' }}>/ {totalTasksCount}</span>
-                <span className="badge badge-info" style={{ marginLeft: 8, fontSize: 11 }}>{tasksPercent}%</span>
-              </div>
-              <div style={{ width: '100%', height: 4, background: '#1A1C24', borderRadius: 99, marginTop: 8, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${tasksPercent}%`, background: '#3B82F6' }} />
-              </div>
-            </div>
-          </div>
+        {/* 4 MODERN SVG CIRCULAR METRIC GAUGE LEVEL LINES */}
+        <CircularMetricsGauge
+          productivityPercent={metrics.productivityPercent}
+          consistencyPercent={metrics.consistencyPercent}
+          negligencePercent={metrics.negligencePercent}
+          lifeScorePercent={metrics.lifeScorePercent}
+          overdueCount={metrics.overdueCount}
+          completedCount={metrics.completedCount}
+          totalItems={metrics.totalItems}
+          streakCount={metrics.streakCount}
+        />
 
-          {/* Todos KPI */}
-          <div style={{ background: '#0A0B0D', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: 18, padding: 18, boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 800 }}>TODOS CHECKED</div>
-              <CircleCheck size={18} color="#10B981" />
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 24, fontWeight: 900, color: '#FFFFFF' }}>
-                {doneTodosCount} <span style={{ fontSize: 13, color: '#9CA3AF' }}>/ {totalTodosCount}</span>
-                <span className="badge badge-success" style={{ marginLeft: 8, fontSize: 11 }}>{todosPercent}%</span>
-              </div>
-              <div style={{ width: '100%', height: 4, background: '#1A1C24', borderRadius: 99, marginTop: 8, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${todosPercent}%`, background: '#10B981' }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Water Hydration KPI */}
-          <div style={{ background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: 18, padding: 18, boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 800 }}>WATER HYDRATION</div>
-              <Droplets size={18} color="#FFD700" />
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 24, fontWeight: 900, color: '#FFD700' }}>
-                {waterMl} <span style={{ fontSize: 12, color: '#9CA3AF' }}>/ 2500 ml</span>
-              </div>
-              <div style={{ width: '100%', height: 4, background: '#1A1C24', borderRadius: 99, marginTop: 8, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, Math.round((waterMl / 2500) * 100))}%`, background: 'linear-gradient(90deg, #FFD700, #F59E0B)' }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Life Goals & Habits KPI */}
-          <div style={{ background: '#0A0B0D', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: 18, padding: 18, boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 800 }}>LIFE GOALS & HABITS</div>
-              <Target size={18} color="#EF4444" />
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <div style={{ fontSize: 24, fontWeight: 900, color: '#FFFFFF' }}>
-                {goals.length} <span style={{ fontSize: 12, color: '#9CA3AF' }}>Goals</span> • <span style={{ color: '#EF4444' }}>{habits.length} Habits</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* INLINE AI DIRECT COMMAND BAR */}
-        <div style={{
-          background: 'linear-gradient(135deg, #121318 0%, #1A1C24 100%)',
-          border: '1px solid #F59E0B',
-          borderRadius: 20,
-          padding: '18px 20px',
-          boxShadow: '0 12px 36px rgba(245, 158, 11, 0.25)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #FFD700, #F59E0B)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000000' }}>
-              <Bot size={18} color="#000000" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                NIRMAAN AI Direct Command Bar <Sparkles size={14} color="#FFD700" />
-              </h3>
-              <span style={{ fontSize: 11, color: '#9CA3AF' }}>Perform real-time CRUD actions via natural language</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleAICommandSubmit} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <input
-              type="text"
-              placeholder="e.g. 'Create task Finish Auth at 5pm', 'Log 500ml water', 'Complete task Build API'..."
-              value={aiCommandPrompt}
-              onChange={e => setAiCommandPrompt(e.target.value)}
-              style={{ flex: 1, height: 44, background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: 12, color: '#FFFFFF', fontSize: 13, padding: '0 14px', outline: 'none' }}
-            />
-            <button type="submit" disabled={executingAICommand} className="btn btn-primary" style={{ height: 44, padding: '0 18px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-              {executingAICommand ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
-              <span>{executingAICommand ? 'Executing...' : 'Send AI'}</span>
-            </button>
-          </form>
-
-          {aiCommandResponse && (
-            <div style={{ background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.3)', padding: 14, borderRadius: 12 }}>
-              <FormattedAIResponse content={aiCommandResponse} />
-            </div>
-          )}
-        </div>
-
-        {/* STANDALONE SECTION 1: TASKS & TODOIST BOARD */}
-        <div style={{ background: '#0A0B0D', border: '1px solid rgba(59, 130, 246, 0.35)', borderRadius: 22, padding: 22, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CheckCircle2 size={20} color="#3B82F6" />
-              </div>
-              <div>
-                <h2 style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Tasks & Todoist Sync Board</h2>
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>{doneTasksCount} of {totalTasksCount} Completed</span>
-              </div>
-            </div>
-
-            {/* Filter Pills */}
-            <div style={{ display: 'flex', gap: 6 }}>
-              {(['all', 'pending', 'completed'] as TaskFilter[]).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setTaskFilter(f)}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: taskFilter === f ? '#3B82F6' : '#121318',
-                    color: taskFilter === f ? '#FFFFFF' : '#9CA3AF',
-                    fontSize: 11.5,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Create Task Form */}
-          <form onSubmit={handleCreateTask} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: '#121318', padding: 12, borderRadius: 14, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-            <input
-              type="text"
-              placeholder="Add new task (auto-syncs to Todoist)..."
-              value={newTasksTitle}
-              onChange={e => setNewTasksTitle(e.target.value)}
-              style={{ flex: 1, height: 38, background: '#0A0B0D', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: 10, color: '#FFFFFF', fontSize: 12.5, padding: '0 12px', outline: 'none' }}
-            />
-            <input
-              type="date"
-              value={newTasksDueDate}
-              onChange={e => setNewTasksDueDate(e.target.value)}
-              style={{ height: 38, background: '#0A0B0D', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: 10, color: '#FFFFFF', fontSize: 12, padding: '0 8px', outline: 'none' }}
-            />
-            <button type="submit" className="btn btn-primary" style={{ height: 38, padding: '0 16px', fontSize: 12.5, background: '#3B82F6' }}>
-              <Plus size={15} /> Add Task
-            </button>
-          </form>
-
-          {/* Tasks List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 300, overflowY: 'auto' }}>
-            {filteredTasks.length === 0 ? (
-              <div style={{ fontSize: 13, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>No tasks in this view.</div>
-            ) : (
-              filteredTasks.map(t => (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121318', padding: '12px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <button onClick={() => handleToggleTaskStatus(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.status === 'done' ? '#10B981' : '#9CA3AF' }}>
-                      {t.status === 'done' ? <CheckCircle2 size={18} color="#10B981" /> : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid #9CA3AF' }} />}
-                    </button>
-                    <div>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF', textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>
-                        {t.title}
-                      </div>
-                      {t.due_date && <div style={{ fontSize: 11, color: '#9CA3AF' }}>Due: {new Date(t.due_date).toLocaleDateString()}</div>}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className={`badge ${t.status === 'done' ? 'badge-success' : 'badge-info'}`}>
-                      {t.status === 'done' ? 'Done' : `P${t.priority || 3}`}
-                    </span>
-                    <button onClick={() => handleDeleteTask(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2 }}>
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* STANDALONE SECTION 2: DAILY CHECKLIST TODOS BOARD */}
-        <div style={{ background: '#0A0B0D', border: '1px solid rgba(16, 185, 129, 0.35)', borderRadius: 22, padding: 22, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CircleCheck size={20} color="#10B981" />
-              </div>
-              <div>
-                <h2 style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Daily Checklist Todos</h2>
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>{doneTodosCount} of {totalTodosCount} Checked</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 6 }}>
-              {(['all', 'pending', 'completed'] as TaskFilter[]).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setTodoFilter(f)}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: todoFilter === f ? '#10B981' : '#121318',
-                    color: todoFilter === f ? '#000000' : '#9CA3AF',
-                    fontSize: 11.5,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <form onSubmit={handleCreateTodo} style={{ display: 'flex', gap: 10, background: '#121318', padding: 12, borderRadius: 14, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-            <input
-              type="text"
-              placeholder="Add quick checklist todo item..."
-              value={newTodoTitle}
-              onChange={e => setNewTodoTitle(e.target.value)}
-              style={{ flex: 1, height: 38, background: '#0A0B0D', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 10, color: '#FFFFFF', fontSize: 12.5, padding: '0 12px', outline: 'none' }}
-            />
-            <button type="submit" className="btn btn-primary" style={{ height: 38, padding: '0 16px', fontSize: 12.5, background: '#10B981' }}>
-              <Plus size={15} /> Add Todo
-            </button>
-          </form>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 260, overflowY: 'auto' }}>
-            {filteredTodos.length === 0 ? (
-              <div style={{ fontSize: 13, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>No checklist todos in this view.</div>
-            ) : (
-              filteredTodos.map(t => (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#121318', padding: '12px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <button onClick={() => handleToggleTodoStatus(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.is_done ? '#10B981' : '#9CA3AF' }}>
-                      {t.is_done ? <CircleCheck size={18} color="#10B981" /> : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid #9CA3AF' }} />}
-                    </button>
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF', textDecoration: t.is_done ? 'line-through' : 'none' }}>
-                      {t.title}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className={`badge ${t.is_done ? 'badge-success' : 'badge-warning'}`}>{t.is_done ? 'Done' : 'Pending'}</span>
-                    <button onClick={() => handleDeleteTodo(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2 }}>
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* STANDALONE SECTION 3: HEALTH & HYDRATION TRACKER */}
-        <div style={{ background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: 22, padding: 22, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(245, 158, 11, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Droplets size={20} color="#FFD700" />
-              </div>
-              <div>
-                <h2 style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Health & Hydration Command Center</h2>
-                <span style={{ fontSize: 11, color: '#FFD700', fontWeight: 700 }}>Today Total: {waterMl} ml / 2500 ml Target</span>
-              </div>
-            </div>
-
-            {/* Quick 3 Water Log Buttons */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              {[250, 500, 750].map(amt => (
-                <button
-                  key={amt}
-                  onClick={() => handleAddWater(amt)}
-                  className="btn btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: 12, color: '#FFD700', border: '1px solid rgba(245, 158, 11, 0.4)' }}
-                >
-                  <Droplets size={14} color="#FFD700" /> +{amt}ml
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ width: '100%', height: 10, background: '#121318', borderRadius: 99, overflow: 'hidden', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-            <div style={{ height: '100%', width: `${Math.min(100, Math.round((waterMl / 2500) * 100))}%`, background: 'linear-gradient(90deg, #FFD700, #F59E0B)' }} />
-          </div>
-        </div>
-
-        {/* STANDALONE SECTION 4: DAILY HABITS & STREAKS BOARD */}
-        <div style={{ background: '#0A0B0D', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: 22, padding: 22, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Flame size={20} color="#EF4444" />
-              </div>
-              <div>
-                <h2 style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Daily Habits & Streak Tracker</h2>
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>{habits.length} Active Habits Tracked</span>
-              </div>
-            </div>
-          </div>
-
-          <form onSubmit={handleCreateHabit} style={{ display: 'flex', gap: 10, background: '#121318', padding: 12, borderRadius: 14, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-            <input
-              type="text"
-              placeholder="Create new daily habit (e.g. Read 20 mins)..."
-              value={newHabitName}
-              onChange={e => setNewHabitName(e.target.value)}
-              style={{ flex: 1, height: 38, background: '#0A0B0D', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 10, color: '#FFFFFF', fontSize: 12.5, padding: '0 12px', outline: 'none' }}
-            />
-            <button type="submit" className="btn btn-primary" style={{ height: 38, padding: '0 16px', fontSize: 12.5, background: '#EF4444' }}>
-              <Plus size={15} /> Add Habit
-            </button>
-          </form>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-            {habits.map(h => (
-              <div key={h.id} style={{ background: '#121318', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 14, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: '#FFFFFF' }}>{h.name}</div>
-                  <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 700, marginTop: 2 }}>Streak: {(h as any).streak_count || 1} Days 🔥</div>
-                </div>
-                <button
-                  onClick={() => handleCheckinHabit(h.id)}
-                  className="btn btn-secondary"
-                  style={{ padding: '6px 10px', fontSize: 11, color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.4)' }}
-                >
-                  <Check size={14} color="#EF4444" /> Check-in
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* INTERACTIVE TASK CALENDAR WIDGET */}
-        <div style={{ background: 'linear-gradient(135deg, #0A0B0D 0%, #121318 100%)', border: '1px solid rgba(16, 185, 129, 0.35)', borderRadius: 22, padding: 22, boxShadow: '0 15px 45px rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #10B981, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF' }}>
-                <CalendarIcon size={20} color="#FFFFFF" />
-              </div>
-              <div>
-                <h2 style={{ fontSize: 17, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Interactive Task & Schedule Calendar</h2>
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>Select any date to view and schedule tasks</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF' }}>{monthNames[calendarMonth]} {calendarYear}</span>
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button onClick={prevMonth} className="btn-ghost btn-icon" style={{ width: 32, height: 32, border: '1px solid rgba(255,255,255,0.1)' }}><ChevronLeft size={16} /></button>
-                <button onClick={nextMonth} className="btn-ghost btn-icon" style={{ width: 32, height: 32, border: '1px solid rgba(255,255,255,0.1)' }}><ChevronRight size={16} /></button>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-            <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 8, textAlign: 'center', fontSize: 11, fontWeight: 800, color: '#10B981' }}>
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
-                {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} style={{ height: 38 }} />)}
-                {Array.from({ length: daysInMonth }).map((_, i) => {
-                  const dayNum = i + 1
-                  const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
-                  const isToday = dateStr === todayStr
-                  const isSelected = dateStr === selectedCalendarDate
-                  const dayTaskCount = tasks.filter(t => t.due_date && new Date(t.due_date).toISOString().split('T')[0] === dateStr).length
-
-                  return (
-                    <button
-                      key={dayNum}
-                      onClick={() => setSelectedCalendarDate(dateStr)}
-                      style={{
-                        height: 38,
-                        borderRadius: 10,
-                        border: isSelected ? '2px solid #10B981' : isToday ? '1px solid #FFD700' : '1px solid rgba(255,255,255,0.08)',
-                        background: isSelected ? 'rgba(16, 185, 129, 0.25)' : isToday ? 'rgba(255, 215, 0, 0.1)' : '#121318',
-                        color: isSelected ? '#10B981' : isToday ? '#FFD700' : '#FFFFFF',
-                        fontSize: 12.5,
-                        fontWeight: isSelected || isToday ? 800 : 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        position: 'relative',
-                      }}
-                    >
-                      <span>{dayNum}</span>
-                      {dayTaskCount > 0 && <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#10B981', position: 'absolute', bottom: 3 }} />}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div style={{ background: '#121318', borderRadius: 16, border: '1px solid rgba(16, 185, 129, 0.3)', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(16, 185, 129, 0.2)', paddingBottom: 10 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#10B981' }}>Tasks for {selectedCalendarDate}</span>
-                <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700 }}>{calendarTasks.length} Tasks</span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
-                {calendarTasks.length === 0 ? (
-                  <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>No tasks for {selectedCalendarDate}.</div>
-                ) : (
-                  calendarTasks.map(t => (
-                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0A0B0D', padding: '8px 12px', borderRadius: 10 }}>
-                      <span style={{ fontSize: 12.5, color: '#FFFFFF' }}>{t.title}</span>
-                      <span className="badge badge-info" style={{ fontSize: 10 }}>Task</span>
-                    </div>
-                  ))
+        {/* NAVIGATION TAB BAR */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            paddingBottom: 4,
+            overflowX: 'auto',
+          }}
+        >
+          {mainTabs.map(t => {
+            const isActive = activeTab === t.key
+            return (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: 12,
+                  border: 'none',
+                  background: isActive ? 'linear-gradient(135deg, #1A1C24, #121318)' : 'transparent',
+                  color: isActive ? '#FFFFFF' : '#9CA3AF',
+                  fontSize: 13,
+                  fontWeight: isActive ? 800 : 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  borderBottom: isActive ? '2px solid #3B82F6' : '2px solid transparent',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t.icon}
+                <span>{t.label}</span>
+                {t.badge !== undefined && t.badge > 0 && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      padding: '1px 6px',
+                      borderRadius: 99,
+                      background: isActive ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+                      color: isActive ? '#60A5FA' : '#9CA3AF',
+                    }}
+                  >
+                    {t.badge}
+                  </span>
                 )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* TAB 1: MAIN OVERVIEW & DAILY AGENDA */}
+        {activeTab === 'overview' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Inline AI Direct Command Bar */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #121318 0%, #1A1C24 100%)',
+                border: '1px solid #F59E0B',
+                borderRadius: 20,
+                padding: '18px 20px',
+                boxShadow: '0 12px 36px rgba(245, 158, 11, 0.2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#000000',
+                  }}
+                >
+                  <Bot size={18} color="#000000" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    NIRMAAN AI Command Center <Sparkles size={14} color="#FFD700" />
+                  </h3>
+                  <span style={{ fontSize: 11, color: '#9CA3AF' }}>Execute real-time CRUD operations via natural language</span>
+                </div>
+              </div>
+
+              <form onSubmit={handleAICommandSubmit} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="e.g. 'Create task Finish Auth tomorrow', 'Log 500ml water', 'Complete task Build API'..."
+                  value={aiCommandPrompt}
+                  onChange={e => setAiCommandPrompt(e.target.value)}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    background: '#0A0B0D',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    borderRadius: 12,
+                    color: '#FFFFFF',
+                    fontSize: 13,
+                    padding: '0 14px',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={executingAICommand}
+                  className="btn btn-primary"
+                  style={{ height: 44, padding: '0 18px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  {executingAICommand ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+                  <span>{executingAICommand ? 'Executing...' : 'Send AI'}</span>
+                </button>
+              </form>
+
+              {aiCommandResponse && (
+                <div style={{ background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.3)', padding: 14, borderRadius: 12 }}>
+                  <FormattedAIResponse content={aiCommandResponse} />
+                </div>
+              )}
+            </div>
+
+            {/* Grid layout for Today's Tasks & Checklist Todos */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 18 }}>
+              
+              {/* Primary Tasks Board */}
+              <div
+                style={{
+                  background: '#0A0B0D',
+                  border: '1px solid rgba(59, 130, 246, 0.35)',
+                  borderRadius: 22,
+                  padding: 20,
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <CheckCircle2 size={18} color="#3B82F6" />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Primary Tasks Agenda</h3>
+                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>{tasks.filter(t => t.status === 'done').length} of {tasks.length} Done</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Create Quick Task Form */}
+                <form
+                  onSubmit={e => {
+                    e.preventDefault()
+                    if (newTasksTitle) handleCreateTask(newTasksTitle)
+                  }}
+                  style={{ display: 'flex', gap: 8 }}
+                >
+                  <input
+                    type="text"
+                    placeholder="Quick add task..."
+                    value={newTasksTitle}
+                    onChange={e => setNewTasksTitle(e.target.value)}
+                    style={{ flex: 1, height: 36, background: '#121318', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: 8, color: '#FFFFFF', fontSize: 12, padding: '0 10px', outline: 'none' }}
+                  />
+                  <button type="submit" className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 12, background: '#3B82F6' }}>
+                    <Plus size={14} /> Add
+                  </button>
+                </form>
+
+                {/* Tasks List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
+                  {tasks.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>No tasks found.</div>
+                  ) : (
+                    tasks.slice(0, 10).map(t => (
+                      <div
+                        key={t.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: '#121318',
+                          padding: '10px 14px',
+                          borderRadius: 12,
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <button onClick={() => handleToggleTaskStatus(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                            {t.status === 'done' ? <CheckCircle2 size={18} color="#10B981" /> : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid #9CA3AF' }} />}
+                          </button>
+                          <div>
+                            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>
+                              {t.title}
+                            </div>
+                            {t.due_date && <div style={{ fontSize: 10, color: '#9CA3AF' }}>{new Date(t.due_date).toLocaleDateString()}</div>}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: t.status === 'done' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)', color: t.status === 'done' ? '#34D399' : '#60A5FA' }}>
+                            {t.status === 'done' ? 'Done' : `P${t.priority || 3}`}
+                          </span>
+                          <button onClick={() => handleDeleteTask(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 2 }}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Daily Checklist Todos Board */}
+              <div
+                style={{
+                  background: '#0A0B0D',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  borderRadius: 22,
+                  padding: 20,
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <CircleCheck size={18} color="#10B981" />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Daily Checklist Todos</h3>
+                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>{todos.filter(t => t.is_done).length} of {todos.length} Checked</span>
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleCreateTodo} style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Add checklist todo..."
+                    value={newTodoTitle}
+                    onChange={e => setNewTodoTitle(e.target.value)}
+                    style={{ flex: 1, height: 36, background: '#121318', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 8, color: '#FFFFFF', fontSize: 12, padding: '0 10px', outline: 'none' }}
+                  />
+                  <button type="submit" className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 12, background: '#10B981' }}>
+                    <Plus size={14} /> Add
+                  </button>
+                </form>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
+                  {todos.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>No checklist todos.</div>
+                  ) : (
+                    todos.slice(0, 10).map(t => (
+                      <div
+                        key={t.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: '#121318',
+                          padding: '10px 14px',
+                          borderRadius: 12,
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <button onClick={() => handleToggleTodoStatus(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                            {t.is_done ? <CircleCheck size={18} color="#10B981" /> : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px solid #9CA3AF' }} />}
+                          </button>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF', textDecoration: t.is_done ? 'line-through' : 'none' }}>
+                            {t.title}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <button onClick={() => handleDeleteTodo(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 2 }}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: DATE TIMELINE EXPLORER & CHRONOLOGICAL FEED */}
+        {activeTab === 'timeline' && (
+          <DateTimelineFilter
+            tasks={tasks}
+            todos={todos}
+            journalEntries={journalEntries}
+            reminders={reminders}
+            onToggleTask={handleToggleTaskStatus}
+            onDeleteTask={handleDeleteTask}
+            onToggleTodo={handleToggleTodoStatus}
+            onDeleteTodo={handleDeleteTodo}
+            onQuickAddTask={(title, dateStr) => handleCreateTask(title, dateStr)}
+          />
+        )}
+
+        {/* TAB 3: HABITS & LIFE GOALS */}
+        {activeTab === 'habits' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Daily Habits & Streaks */}
+            <div style={{ background: '#0A0B0D', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: 22, padding: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Flame size={18} color="#EF4444" />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Daily Habits & Streaks</h3>
+                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>{habits.length} Active Habits</span>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleCreateHabit} style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="Create new habit (e.g. Read 30 mins)..."
+                  value={newHabitName}
+                  onChange={e => setNewHabitName(e.target.value)}
+                  style={{ flex: 1, height: 36, background: '#121318', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 8, color: '#FFFFFF', fontSize: 12, padding: '0 10px', outline: 'none' }}
+                />
+                <button type="submit" className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 12, background: '#EF4444' }}>
+                  <Plus size={14} /> Add Habit
+                </button>
+              </form>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                {habits.map(h => (
+                  <div key={h.id} style={{ background: '#121318', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 12, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#FFFFFF' }}>{h.name}</div>
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      <div style={{ fontSize: 10.5, color: '#EF4444', fontWeight: 700, marginTop: 2 }}>Streak: {(h as any).streak_count || 1} Days 🔥</div>
+                    </div>
+                    <button
+                      onClick={() => handleCheckinHabit(h.id)}
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 8px', fontSize: 10.5, color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.4)' }}
+                    >
+                      <Check size={12} /> Check-in
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Life Goals Progress */}
+            <div style={{ background: '#0A0B0D', border: '1px solid rgba(139, 92, 246, 0.35)', borderRadius: 22, padding: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(139, 92, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Target size={18} color="#8B5CF6" />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: 0 }}>Life Goals & Vision</h3>
+                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>{goals.length} Goals Active</span>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleCreateGoal} style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="Set long-term goal..."
+                  value={newGoalTitle}
+                  onChange={e => setNewGoalTitle(e.target.value)}
+                  style={{ flex: 1, height: 36, background: '#121318', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: 8, color: '#FFFFFF', fontSize: 12, padding: '0 10px', outline: 'none' }}
+                />
+                <button type="submit" className="btn btn-primary" style={{ height: 36, padding: '0 14px', fontSize: 12, background: '#8B5CF6' }}>
+                  <Plus size={14} /> Add Goal
+                </button>
+              </form>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {goals.map(g => (
+                  <div key={g.id} style={{ background: '#121318', padding: '10px 14px', borderRadius: 12, border: '1px solid rgba(139, 92, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF' }}>{g.title}</span>
+                    <span style={{ fontSize: 10, color: '#C084FC', fontWeight: 800, padding: '2px 8px', borderRadius: 6, background: 'rgba(139, 92, 246, 0.15)' }}>{g.status || 'Active'}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* TAB 4: SECONDARY & LESS IMPORTANT DATA */}
+        {activeTab === 'secondary' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Header description for Secondary Data */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 16, padding: 16 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Layers size={18} color="#9CA3AF" /> Secondary & Archives Folder
+              </h3>
+              <p style={{ fontSize: 12, color: '#9CA3AF', margin: '4px 0 0' }}>
+                Contains background notes, raw water logs, reminders, and historical metadata.
+              </p>
+            </div>
+
+            {/* Hydration Log Data */}
+            <div style={{ background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 18, padding: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Droplets size={16} color="#FFD700" />
+                  <span style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF' }}>Water Hydration Logs</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[250, 500].map(amt => (
+                    <button
+                      key={amt}
+                      onClick={() => handleAddWater(amt)}
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: 11, color: '#FFD700', border: '1px solid rgba(245, 158, 11, 0.4)' }}
+                    >
+                      +{amt}ml
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: '#FFD700', fontWeight: 700 }}>Today Total: {waterMl} ml / 2500 ml Target</div>
+              <div style={{ width: '100%', height: 6, background: '#121318', borderRadius: 99, marginTop: 8, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min(100, Math.round((waterMl / 2500) * 100))}%`, background: '#FFD700' }} />
+              </div>
+            </div>
+
+            {/* Pinned Notes & Drafts */}
+            <div style={{ background: '#0A0B0D', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 18, padding: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <StickyNote size={16} color="#9CA3AF" />
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF' }}>Pinned Notes & Drafts ({pinnedNotes.length})</span>
+              </div>
+              {pinnedNotes.length === 0 ? (
+                <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>No pinned notes found.</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                  {pinnedNotes.map(n => (
+                    <div key={n.id} style={{ background: '#121318', padding: 12, borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#FFFFFF' }}>{n.title || 'Untitled Note'}</div>
+                      <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.content}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* System Reminders */}
+            <div style={{ background: '#0A0B0D', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 18, padding: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Bell size={16} color="#9CA3AF" />
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#FFFFFF' }}>Background System Reminders ({reminders.length})</span>
+              </div>
+              {reminders.length === 0 ? (
+                <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>No scheduled reminders.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {reminders.map(r => (
+                    <div key={r.id} style={{ background: '#121318', padding: '8px 12px', borderRadius: 8, display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, color: '#FFFFFF' }}>{r.title}</span>
+                      <span style={{ fontSize: 10, color: '#9CA3AF' }}>{r.remind_at ? new Date(r.remind_at).toLocaleDateString() : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
       </div>
     </AppShell>

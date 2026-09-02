@@ -28,9 +28,9 @@ export default function Globe3D({ size = 160, glowColor = '#10B981' }: Globe3DPr
       const radLon = (lon * Math.PI) / 180
 
       // Spherical 3D coordinates
-      let x = radius * Math.cos(radLat) * Math.sin(radLon)
-      let y = radius * Math.sin(radLat)
-      let z = radius * Math.cos(radLat) * Math.cos(radLon)
+      const x = radius * Math.cos(radLat) * Math.sin(radLon)
+      const y = radius * Math.sin(radLat)
+      const z = radius * Math.cos(radLat) * Math.cos(radLon)
 
       // Rotate around X axis (tilt)
       const cosX = Math.cos(rotX)
