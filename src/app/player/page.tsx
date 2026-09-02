@@ -6,10 +6,10 @@ import { useMediaStore, MediaTrack, SortOption, CategoryFilter } from '@/lib/med
 import {
   Play, Pause, SkipBack, SkipForward, Shuffle, Repeat,
   Volume2, VolumeX, Search, Disc, Sparkles, SlidersHorizontal,
-  Maximize2, Minimize2, ChevronDown, Radio, ShieldCheck, Bell
+  Maximize2, Minimize2, ChevronDown, Radio, ShieldCheck, Filter, ArrowUpDown
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { updateMediaSessionPanel, setSelectedRingtone } from '@/lib/alarm-scheduler'
+import { updateMediaSessionPanel } from '@/lib/alarm-scheduler'
 
 export default function PlayerPage() {
   const {
@@ -163,13 +163,20 @@ export default function PlayerPage() {
     }
   }
 
-  const categoryTabs: { key: CategoryFilter; label: string }[] = [
-    { key: 'all', label: 'All Tracks' },
-    { key: 'Local Device Audio', label: 'Device Storage' },
+  const categoryTabs: { key: CategoryFilter; label: string; count?: number }[] = [
+    { key: 'all', label: 'All Tracks', count: tracks.length },
+    { key: 'Local Device Audio', label: 'Device Storage', count: tracks.filter(t => t.category === 'Local Device Audio' || t.url.startsWith('file://') || t.id.startsWith('native-audio-')).length },
     { key: 'Focus & Flow', label: 'Focus & Flow' },
     { key: 'Binaural Beats', label: 'Binaural Beats' },
     { key: 'Lo-Fi Beats', label: 'Lo-Fi' },
     { key: 'Ambient & Nature', label: 'Ambient' },
+  ]
+
+  const sortOptions: { key: SortOption; label: string }[] = [
+    { key: 'date', label: 'Newest (New to Old)' },
+    { key: 'most_played', label: 'Most Played' },
+    { key: 'title', label: 'Title (A-Z)' },
+    { key: 'duration', label: 'Duration' },
   ]
 
   return (
@@ -185,28 +192,11 @@ export default function PlayerPage() {
           50% { transform: scale(1.15) translate(20px, -20px); opacity: 0.55; }
           100% { transform: scale(1) translate(0px, 0px); opacity: 0.35; }
         }
-        @keyframes marqueeText {
-          0% { transform: translateX(0%); }
-          100% { transform: translateX(-50%); }
-        }
         .animate-cassette {
           animation: cassetteSpin 6s linear infinite;
         }
         .animate-fog {
           animation: fogPulse 10s ease-in-out infinite;
-        }
-        .marquee-container {
-          overflow: hidden;
-          white-space: nowrap;
-          width: 100%;
-          position: relative;
-        }
-        .marquee-content {
-          display: inline-block;
-          white-space: nowrap;
-        }
-        .marquee-active {
-          animation: marqueeText 14s linear infinite;
         }
       `}</style>
 
@@ -235,39 +225,80 @@ export default function PlayerPage() {
           </div>
         </div>
 
-        {/* SEARCH & SORTING FILTER BAR */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        {/* REDESIGNED GLASS FILTER PANEL & CONTROLS */}
+        <div
+          style={{
+            background: 'linear-gradient(145deg, rgba(18, 19, 24, 0.95) 0%, rgba(10, 11, 13, 0.98) 100%)',
+            border: '1px solid rgba(255, 215, 0, 0.25)',
+            borderRadius: 20,
+            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.7)',
+          }}
+        >
+          {/* Top Control Strip: Search & Sort Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             {/* Search Input */}
-            <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
-              <Search size={16} color="#9CA3AF" style={{ position: 'absolute', left: 12, top: 12 }} />
+            <div style={{ flex: 1, minWidth: 220, position: 'relative' }}>
+              <Search size={16} color="#9CA3AF" style={{ position: 'absolute', left: 14, top: 12 }} />
               <input
                 type="text"
-                placeholder="Search tracks by name, artist, or format..."
+                placeholder="Search songs, artists, or formats..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                style={{ width: '100%', height: 40, background: '#0F1117', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 12, color: '#FFFFFF', fontSize: 12.5, paddingLeft: 36, paddingRight: 12, outline: 'none' }}
+                style={{
+                  width: '100%',
+                  height: 40,
+                  background: '#07080A',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  borderRadius: 12,
+                  color: '#FFFFFF',
+                  fontSize: 12.5,
+                  paddingLeft: 38,
+                  paddingRight: 12,
+                  outline: 'none',
+                }}
               />
             </div>
 
-            {/* Sort Dropdown (Default: Newest to Oldest) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0F1117', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 12, padding: '0 12px', height: 40 }}>
-              <SlidersHorizontal size={14} color="#FFD700" />
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value as SortOption)}
-                style={{ background: 'transparent', border: 'none', color: '#FFFFFF', fontSize: 12, fontWeight: 700, outline: 'none', cursor: 'pointer' }}
-              >
-                <option value="date" style={{ background: '#0F1117', color: '#FFF' }}>Sort: Newest Added (New to Old)</option>
-                <option value="most_played" style={{ background: '#0F1117', color: '#FFF' }}>Sort: Most Played</option>
-                <option value="title" style={{ background: '#0F1117', color: '#FFF' }}>Sort: Title (A-Z)</option>
-                <option value="duration" style={{ background: '#0F1117', color: '#FFF' }}>Sort: Duration</option>
-              </select>
+            {/* Quick Sort Selector Pills */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 4, marginRight: 2 }}>
+                <ArrowUpDown size={13} color="#FFD700" /> Sort:
+              </span>
+              {sortOptions.map(opt => {
+                const isSelected = sortBy === opt.key
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => setSortBy(opt.key)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 10,
+                      border: isSelected ? '1px solid #FFD700' : '1px solid rgba(255, 255, 255, 0.08)',
+                      background: isSelected ? 'rgba(255, 215, 0, 0.18)' : '#07080A',
+                      color: isSelected ? '#FFD700' : '#9CA3AF',
+                      fontSize: 11,
+                      fontWeight: isSelected ? 800 : 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          {/* CATEGORY FILTER PILLS */}
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+          {/* Category Filter Pills Bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 4, marginRight: 2 }}>
+              <Filter size={13} color="#10B981" /> Filter:
+            </span>
             {categoryTabs.map(tab => {
               const active = categoryFilter === tab.key
               return (
@@ -275,32 +306,40 @@ export default function PlayerPage() {
                   key={tab.key}
                   onClick={() => setCategoryFilter(tab.key)}
                   style={{
-                    padding: '6px 14px',
+                    padding: '7px 14px',
                     borderRadius: 99,
-                    border: active ? '1px solid #FFD700' : '1px solid rgba(255, 255, 255, 0.08)',
-                    background: active ? 'rgba(255, 215, 0, 0.15)' : '#0F1117',
-                    color: active ? '#FFD700' : '#9CA3AF',
+                    border: active ? '1px solid #10B981' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: active ? 'rgba(16, 185, 129, 0.18)' : '#07080A',
+                    color: active ? '#34D399' : '#9CA3AF',
                     fontSize: 11.5,
                     fontWeight: active ? 800 : 600,
                     cursor: 'pointer',
                     whiteSpace: 'nowrap',
                     transition: 'all 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
                   }}
                 >
-                  {tab.label}
+                  <span>{tab.label}</span>
+                  {tab.count !== undefined && (
+                    <span style={{ fontSize: 9.5, padding: '1px 6px', borderRadius: 99, background: active ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.08)', color: active ? '#FFFFFF' : '#9CA3AF' }}>
+                      {tab.count}
+                    </span>
+                  )}
                 </button>
               )
             })}
           </div>
         </div>
 
-        {/* CLEAN TRACK LIST (NO DELETE, NO HEART, NO FOLDER ADD) */}
+        {/* CLEAN TRACK LIST (NO DELETE, NO HEART, NO FOLDER ADD, STATIONARY TITLE) */}
         <div style={{ background: '#0A0B0D', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 20, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: '0 8px' }}>
             <span style={{ fontSize: 13, fontWeight: 800, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Tracks ({filteredTracks.length})
             </span>
-            <span style={{ fontSize: 11, color: '#6B7280' }}>Tap to play in full screen</span>
+            <span style={{ fontSize: 11, color: '#6B7280' }}>Tap track to expand full screen player</span>
           </div>
 
           {filteredTracks.length === 0 ? (
@@ -309,7 +348,7 @@ export default function PlayerPage() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {filteredTracks.map((track, idx) => {
+              {filteredTracks.map(track => {
                 const originalIndex = tracks.findIndex(t => t.id === track.id)
                 const isSelected = currentTrackIndex === originalIndex
                 const isPlayingThis = isSelected && isPlaying
@@ -354,20 +393,20 @@ export default function PlayerPage() {
                         {isPlayingThis ? <Radio size={18} className="animate-pulse" /> : <Play size={16} style={{ marginLeft: 2 }} />}
                       </div>
 
-                      {/* Middle: Full Track Title & Artist */}
+                      {/* Middle: STATIONARY FULL TRACK TITLE & ARTIST */}
                       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                        {/* Auto Marquee Container for Full Track Name */}
-                        <div className="marquee-container">
-                          <span
-                            className={`marquee-content ${track.title.length > 28 ? 'marquee-active' : ''}`}
-                            style={{
-                              fontSize: 13.5,
-                              fontWeight: 800,
-                              color: isSelected ? '#FFD700' : '#FFFFFF',
-                            }}
-                          >
-                            {track.title}
-                          </span>
+                        <div
+                          style={{
+                            fontSize: 13.5,
+                            fontWeight: 800,
+                            color: isSelected ? '#FFD700' : '#FFFFFF',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                          title={track.title}
+                        >
+                          {track.title}
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
@@ -580,16 +619,22 @@ export default function PlayerPage() {
             <canvas ref={canvasRef} width={240} height={40} style={{ marginTop: 24, borderRadius: 8 }} />
           </div>
 
-          {/* TRACK INFO & MARQUEE TITLE */}
-          <div style={{ position: 'relative', zIndex: 10, marginBottom: 12, textAlign: 'center' }}>
-            <div className="marquee-container" style={{ maxWidth: 320, margin: '0 auto' }}>
-              <h2
-                className={`marquee-content ${currentTrack.title.length > 24 ? 'marquee-active' : ''}`}
-                style={{ fontSize: 20, fontWeight: 900, color: '#FFFFFF', margin: 0 }}
-              >
-                {currentTrack.title}
-              </h2>
-            </div>
+          {/* TRACK INFO & STATIONARY TITLE */}
+          <div style={{ position: 'relative', zIndex: 10, marginBottom: 12, textAlign: 'center', maxWidth: 320, margin: '0 auto' }}>
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: 900,
+                color: '#FFFFFF',
+                margin: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+              title={currentTrack.title}
+            >
+              {currentTrack.title}
+            </h2>
             <p style={{ fontSize: 13, color: '#9CA3AF', margin: '6px 0 0', fontWeight: 600 }}>
               {currentTrack.artist}
             </p>
