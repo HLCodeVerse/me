@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import AppShell from '@/components/layout/AppShell'
-import FormattedAIResponse from '@/components/common/FormattedAIResponse'
 import CircularMetricsGauge from '@/components/dashboard/CircularMetricsGauge'
 import DateTimelineFilter from '@/components/dashboard/DateTimelineFilter'
+import AIVoiceTalkBar from '@/components/common/AIVoiceTalkBar'
 import {
   Zap, Flame, Target, CheckCircle2, Droplets, Bell,
-  Sparkles, RefreshCw, StickyNote, Plus,
-  BookOpen, Bot, Clock, Send, ShieldCheck,
+  RefreshCw, StickyNote, Plus,
+  BookOpen, Clock, ShieldCheck,
   CircleCheck, Check, Trash2, Layers, LayoutDashboard, CalendarDays
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -38,11 +38,6 @@ export default function DashboardPage() {
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
   const [waterMl, setWaterMl] = useState<number>(0)
   const [dataLoading, setDataLoading] = useState(true)
-
-  // AI Assistant Command Box State
-  const [aiCommandPrompt, setAiCommandPrompt] = useState('')
-  const [aiCommandResponse, setAiCommandResponse] = useState<string | null>(null)
-  const [executingAICommand, setExecutingAICommand] = useState(false)
 
   // Quick Action Form States
   const [newTasksTitle, setNewTasksTitle] = useState('')
@@ -155,56 +150,7 @@ export default function DashboardPage() {
     }
   }, [tasks, todos, habits, profile, todayStr])
 
-  // Execute Direct AI Natural Language Command
-  async function handleAICommandSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!aiCommandPrompt.trim() || !user) return
 
-    setExecutingAICommand(true)
-    setAiCommandResponse(null)
-    toast.info('AI is processing & performing action...')
-
-    try {
-      const customGrokKey = typeof window !== 'undefined' ? localStorage.getItem('nirmaan_grok_key') : null
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': user.id,
-        },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: aiCommandPrompt }],
-          model: 'x-ai/grok-2-1212',
-          enableTools: true,
-          grokApiKey: customGrokKey,
-        }),
-      })
-
-      if (res.ok) {
-        const text = await res.text()
-        const lines = text.split('\n').filter(l => l.startsWith('data: ')).map(l => l.replace('data: ', ''))
-        let fullOutput = ''
-        for (const line of lines) {
-          if (line === '[DONE]') continue
-          try {
-            const parsed = JSON.parse(line)
-            fullOutput += parsed.choices?.[0]?.delta?.content || ''
-          } catch {}
-        }
-
-        setAiCommandResponse(fullOutput.trim() || 'Command executed successfully.')
-        toast.success('Action performed! Updating dashboard...')
-        setAiCommandPrompt('')
-        loadDashboardData()
-      } else {
-        toast.error('AI command execution failed')
-      }
-    } catch {
-      toast.error('Error executing AI command')
-    } finally {
-      setExecutingAICommand(false)
-    }
-  }
 
   // Toggle Task Status (Complete <-> Todo)
   async function handleToggleTaskStatus(task: Task) {
@@ -524,77 +470,8 @@ export default function DashboardPage() {
         {/* TAB 1: MAIN OVERVIEW & DAILY AGENDA */}
         {activeTab === 'overview' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Inline AI Direct Command Bar */}
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #121318 0%, #1A1C24 100%)',
-                border: '1px solid #F59E0B',
-                borderRadius: 20,
-                padding: '18px 20px',
-                boxShadow: '0 12px 36px rgba(245, 158, 11, 0.2)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#000000',
-                  }}
-                >
-                  <Bot size={18} color="#000000" />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    NIRMAAN AI Command Center <Sparkles size={14} color="#FFD700" />
-                  </h3>
-                  <span style={{ fontSize: 11, color: '#9CA3AF' }}>Execute real-time CRUD operations via natural language</span>
-                </div>
-              </div>
-
-              <form onSubmit={handleAICommandSubmit} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <input
-                  type="text"
-                  placeholder="e.g. 'Create task Finish Auth tomorrow', 'Log 500ml water', 'Complete task Build API'..."
-                  value={aiCommandPrompt}
-                  onChange={e => setAiCommandPrompt(e.target.value)}
-                  style={{
-                    flex: 1,
-                    height: 44,
-                    background: '#0A0B0D',
-                    border: '1px solid rgba(245, 158, 11, 0.4)',
-                    borderRadius: 12,
-                    color: '#FFFFFF',
-                    fontSize: 13,
-                    padding: '0 14px',
-                    outline: 'none',
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={executingAICommand}
-                  className="btn btn-primary"
-                  style={{ height: 44, padding: '0 18px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-                >
-                  {executingAICommand ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
-                  <span>{executingAICommand ? 'Executing...' : 'Send AI'}</span>
-                </button>
-              </form>
-
-              {aiCommandResponse && (
-                <div style={{ background: '#0A0B0D', border: '1px solid rgba(245, 158, 11, 0.3)', padding: 14, borderRadius: 12 }}>
-                  <FormattedAIResponse content={aiCommandResponse} />
-                </div>
-              )}
-            </div>
+            {/* Real-Time AI Voice Talk Bar & Mistral Audio TTS */}
+            <AIVoiceTalkBar userId={user?.id} onActionComplete={loadDashboardData} />
 
             {/* Grid layout for Today's Tasks & Checklist Todos */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 18 }}>
