@@ -72,12 +72,11 @@ export default function DateTimelineFilter({
     }
   }, [tasks, todos, journalEntries, todayStr, tomorrowStr])
 
-  // Filtered items based on filterMode
+  // Filtered items based on filterMode (Strict Date Scoping)
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
-      if (!t.due_date) return filterMode === 'all' || filterMode === 'today'
-      const itemDate = t.due_date.split('T')[0]
-      if (filterMode === 'today') return itemDate === todayStr
+      const itemDate = t.due_date ? t.due_date.split('T')[0] : (t.created_at ? t.created_at.split('T')[0] : todayStr)
+      if (filterMode === 'today') return itemDate === todayStr || (itemDate < todayStr && t.status !== 'done')
       if (filterMode === 'tomorrow') return itemDate === tomorrowStr
       if (filterMode === 'overdue') return itemDate < todayStr && t.status !== 'done'
       if (filterMode === 'upcoming') return itemDate > todayStr
@@ -88,9 +87,8 @@ export default function DateTimelineFilter({
 
   const filteredTodos = useMemo(() => {
     return todos.filter(t => {
-      if (!t.due_date) return filterMode === 'all' || filterMode === 'today'
-      const itemDate = t.due_date
-      if (filterMode === 'today') return itemDate === todayStr
+      const itemDate = t.due_date || (t.created_at ? t.created_at.split('T')[0] : todayStr)
+      if (filterMode === 'today') return itemDate === todayStr || (itemDate < todayStr && !t.is_done)
       if (filterMode === 'tomorrow') return itemDate === tomorrowStr
       if (filterMode === 'overdue') return itemDate < todayStr && !t.is_done
       if (filterMode === 'upcoming') return itemDate > todayStr

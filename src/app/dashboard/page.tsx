@@ -8,6 +8,7 @@ import AppShell from '@/components/layout/AppShell'
 import CircularMetricsGauge from '@/components/dashboard/CircularMetricsGauge'
 import DateTimelineFilter from '@/components/dashboard/DateTimelineFilter'
 import AIVoiceTalkBar from '@/components/common/AIVoiceTalkBar'
+import ActivityHeatmapGrid from '@/components/dashboard/ActivityHeatmapGrid'
 import {
   Zap, Flame, Target, CheckCircle2, Droplets, Bell,
   RefreshCw, StickyNote, Plus,
@@ -138,6 +139,11 @@ export default function DashboardPage() {
     const dbLifeScore = profile?.life_score || 0
     const lifeScorePercent = dbLifeScore > 0 ? Math.min(100, dbLifeScore) : Math.round((productivityPercent + consistencyPercent) / 2)
 
+    // Items Completed TODAY calculation
+    const todayDoneTasks = tasks.filter(t => t.status === 'done' && (t.completed_at?.startsWith(todayStr) || !t.completed_at)).length
+    const todayDoneTodos = todos.filter(t => t.is_done && (t.due_date === todayStr || !t.due_date)).length
+    const todayTotalDone = todayDoneTasks + todayDoneTodos
+
     return {
       productivityPercent,
       consistencyPercent,
@@ -147,6 +153,9 @@ export default function DashboardPage() {
       completedCount,
       totalItems,
       streakCount: maxStreak,
+      todayDoneTasks,
+      todayDoneTodos,
+      todayTotalDone,
     }
   }, [tasks, todos, habits, profile, todayStr])
 
@@ -412,6 +421,42 @@ export default function DashboardPage() {
           streakCount={metrics.streakCount}
         />
 
+        {/* COMPLETED TODAY STATS SUMMARY CARD BAR */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(10, 11, 13, 0.95) 100%)',
+            border: '1px solid rgba(16, 185, 129, 0.35)',
+            borderRadius: 18,
+            padding: '14px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000000' }}>
+              <CheckCircle2 size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: '#FFFFFF' }}>
+                Completed Today: <span style={{ color: '#34D399' }}>{metrics.todayTotalDone} Items</span>
+              </div>
+              <span style={{ fontSize: 11, color: '#9CA3AF' }}>
+                {metrics.todayDoneTasks} Tasks Completed Today • {metrics.todayDoneTodos} Checklist Todos Checked Today
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99, background: 'rgba(16, 185, 129, 0.2)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              ⚡ {metrics.todayTotalDone > 0 ? `+${metrics.todayTotalDone * 30} XP Earned Today` : 'Start your first task today!'}
+            </span>
+          </div>
+        </div>
+
         {/* NAVIGATION TAB BAR */}
         <div
           style={{
@@ -641,6 +686,9 @@ export default function DashboardPage() {
               </div>
 
             </div>
+
+            {/* Daily Activeness & Consistency Heatmap Grid */}
+            <ActivityHeatmapGrid tasks={tasks} todos={todos} />
           </div>
         )}
 

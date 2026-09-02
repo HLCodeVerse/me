@@ -4,14 +4,19 @@
 let currentAudio: HTMLAudioElement | null = null
 
 /**
- * Clean markdown symbols for natural TTS speech
+ * Clean markdown symbols, emojis, dashes & spaces for 100% natural human TTS speech
  */
 export function cleanTextForSpeech(input: string): string {
+  if (!input) return ''
   return input
-    .replace(/```[\s\S]*?```/g, 'Code block omitted.')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/[*_#~>]/g, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/```[\s\S]*?```/g, '') // remove code blocks
+    .replace(/`([^`]+)`/g, '$1')     // remove inline code
+    // Remove all Emojis (Unicode ranges)
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F600}-\u{1F64F}]/gu, '')
+    // Remove bullet points, dashes, hashes, asterisks, underscores, tildes, brackets
+    .replace(/[*_#~>•\-[\]()]/g, ' ')
+    // Collapse multiple spaces/newlines
+    .replace(/\s+/g, ' ')
     .trim()
 }
 
