@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Golden emblem background circle -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M54,18 A36,36 0 1,0 54,90 A36,36 0 1,0 54,18 Z" />
+    
+    <!-- Dark inner core -->
+    <path
+        android:fillColor="#0A0B0D"
+        android:pathData="M54,24 A30,30 0 1,0 54,84 A30,30 0 1,0 54,24 Z" />
+
+    <!-- Lightning Bolt emblem symbol -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M57,33 L42,54 L52,54 L47,75 L66,51 L55,51 Z" />
+</vector>
