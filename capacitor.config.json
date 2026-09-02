@@ -2,6 +2,10 @@
   "appId": "com.nirmaan.app",
   "appName": "NIRMAAN",
   "webDir": "out",
+  "server": {
+    "url": "https://me-eight-dun.vercel.app",
+    "cleartext": true
+  },
   "android": {
     "allowMixedContent": true,
     "captureInput": true,
