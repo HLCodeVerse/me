@@ -230,7 +230,13 @@ export const useMediaStore = create<MediaState>((set, get) => ({
   },
 
   addTracks: (newTracks) => set((state) => {
-    const combined = [...state.tracks, ...newTracks]
+    const updatedNewTracks = newTracks.map((t, idx) => ({
+      ...t,
+      dateAdded: t.dateAdded || (Date.now() - idx * 10),
+    }))
+    const existingIds = new Set(state.tracks.map(t => t.id))
+    const freshTracks = updatedNewTracks.filter(t => !existingIds.has(t.id))
+    const combined = [...freshTracks, ...state.tracks]
     saveTracksToStorage(combined)
     return {
       tracks: combined,

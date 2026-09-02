@@ -131,17 +131,12 @@ export default function AppShell({ children, header, noPadding }: AppShellProps)
         paddingLeft: desktopPadding,
         transition: 'padding-left 250ms cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
-        {header ? header : (
-          <AppHeader
-            onOpenMobileDrawer={() => setShowDrawer(true)}
-            isSidebarCollapsed={isSidebarCollapsed}
-            onToggleSidebar={toggleSidebar}
-          />
-        )}
+        {header ? header : null}
 
         <main style={{
           flex: 1,
           padding: noPadding ? 0 : '24px',
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
           maxWidth: noPadding ? '100%' : 1440,
           width: '100%',
           margin: '0 auto',

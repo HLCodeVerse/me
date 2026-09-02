@@ -127,7 +127,7 @@ export default function PlayerPage() {
       if (!matchTitle && !matchArtist) return false
     }
     if (categoryFilter !== 'all') {
-      if (categoryFilter === 'Local Device Audio') return t.category === 'Local Device Audio' || t.url.startsWith('file://')
+      if (categoryFilter === 'Local Device Audio') return t.category === 'Local Device Audio' || t.url.startsWith('file://') || t.id.startsWith('native-audio-')
       return t.category === categoryFilter
     }
     return true
