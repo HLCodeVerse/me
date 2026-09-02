@@ -4,18 +4,16 @@ import { useState, useRef, useEffect } from 'react'
 import AppShell from '@/components/layout/AppShell'
 import { useMediaStore, MediaTrack, SortOption, CategoryFilter } from '@/lib/media-store'
 import {
-  Music, Play, Pause, SkipBack, SkipForward, Shuffle, Repeat,
-  Volume2, VolumeX, FolderPlus, Trash2, Search,
-  Disc, Heart, Sparkles, SlidersHorizontal, Flame, Gauge, Clock, Folder, Plus, X
+  Play, Pause, SkipBack, SkipForward, Shuffle, Repeat,
+  Volume2, VolumeX, Search, Disc, Sparkles, SlidersHorizontal,
+  Maximize2, Minimize2, ChevronDown, Radio, ShieldCheck, Bell
 } from 'lucide-react'
 import { toast } from 'sonner'
-import Globe3D from '@/components/media/Globe3D'
+import { updateMediaSessionPanel, setSelectedRingtone } from '@/lib/alarm-scheduler'
 
 export default function PlayerPage() {
   const {
     tracks,
-    folders,
-    activeFolderId,
     currentTrackIndex,
     isPlaying,
     currentTime,
@@ -28,10 +26,7 @@ export default function PlayerPage() {
     categoryFilter,
     searchQuery,
     playbackRate,
-    sleepTimerEnd,
     addTracks,
-    removeTrack,
-    clearPlaylist,
     playTrack,
     togglePlay,
     nextTrack,
@@ -45,18 +40,11 @@ export default function PlayerPage() {
     setCategoryFilter,
     setSearchQuery,
     setPlaybackRate,
-    setSleepTimer,
-    toggleFavorite,
-    createFolder,
-    deleteFolder,
-    setActiveFolder,
-    addTrackToFolder,
-    removeTrackFromFolder,
   } = useMediaStore()
 
-  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false)
-  const [newFolderName, setNewFolderName] = useState('')
-  const [openFolderMenuTrackId, setOpenFolderMenuTrackId] = useState<string | null>(null)
+  const [isFullScreenPlayer, setIsFullScreenPlayer] = useState(false)
+  const [aiInsight, setAiInsight] = useState<string | null>(null)
+  const [loadingAi, setLoadingAi] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const currentTrack = tracks[currentTrackIndex]
@@ -89,14 +77,14 @@ export default function PlayerPage() {
     if (!ctx) return
 
     let animId: number
-    const barCount = 36
+    const barCount = 32
 
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       for (let i = 0; i < barCount; i++) {
-        const height = Math.floor(Math.random() * (canvas.height - 8)) + 8
+        const height = Math.floor(Math.random() * (canvas.height - 6)) + 6
         const x = i * (canvas.width / barCount)
-        const width = (canvas.width / barCount) - 3
+        const width = (canvas.width / barCount) - 2
 
         const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0)
         gradient.addColorStop(0, '#FFD700')
@@ -113,390 +101,578 @@ export default function PlayerPage() {
     return () => cancelAnimationFrame(animId)
   }, [isPlaying])
 
-  // Handle Local Device Audio File Import (MP3, M4A, WAV, AAC, FLAC, OGG)
-  function processAudioFiles(fileList: FileList | File[]) {
-    const files = Array.from(fileList)
-    if (files.length === 0) return
+  // Sync Native Android Notification Panel Media Controls
+  useEffect(() => {
+    if (!currentTrack) return
+    updateMediaSessionPanel(
+      { title: currentTrack.title, artist: currentTrack.artist, album: currentTrack.album, coverUrl: currentTrack.coverUrl },
+      { onPlay: togglePlay, onPause: togglePlay, onNext: nextTrack, onPrev: prevTrack, onSeek: seekTo }
+    )
+  }, [currentTrack, isPlaying, togglePlay, nextTrack, prevTrack, seekTo])
 
-    const newTracks: MediaTrack[] = []
-
-    files.forEach((file, idx) => {
-      if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|wav|ogg|m4a|flac|aac|webm|opus)$/i)) return
-
-      const url = URL.createObjectURL(file)
-      const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').replace(/-/g, ' ')
-      const ext = file.name.split('.').pop()?.toUpperCase() || 'AUDIO'
-
-      newTracks.push({
-        id: `local-track-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
-        title: cleanTitle,
-        artist: 'Device Local Library',
-        album: 'Local Storage',
-        duration: 0,
-        url,
-        file,
-        dateAdded: Date.now(),
-        category: 'Local Device Audio',
-        playCount: 1,
-        lastPlayed: Date.now(),
-        affinityScore: 20,
-        isFavorite: false,
-        fileFormat: ext,
-      })
-    })
-
-    if (newTracks.length > 0) {
-      addTracks(newTracks)
-      toast.success(`Imported ${newTracks.length} local audio track(s)! 🎵`)
-    } else {
-      toast.error('No supported audio files found. (Supported: MP3, M4A, WAV, AAC, FLAC, OGG)')
-    }
+  // Format Time Helper (seconds to MM:SS)
+  function formatTime(seconds: number) {
+    if (!seconds || isNaN(seconds)) return '0:00'
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`
   }
 
-
-
-  function handleFolderCreateSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newFolderName.trim()) return
-    createFolder(newFolderName.trim())
-    toast.success(`Folder "${newFolderName.trim()}" created! 📁`)
-    setNewFolderName('')
-    setShowCreateFolderModal(false)
-  }
-
-  // Active Folder Filter
-  const activeFolder = folders.find(f => f.id === activeFolderId)
-
-  // Filter & Sort Engine
+  // Filter & Sort Tracks (Default: Newest to Oldest)
   const filteredTracks = tracks.filter(t => {
-    // If active folder selected, restrict to tracks in folder
-    if (activeFolderId && activeFolder) {
-      if (!activeFolder.trackIds.includes(t.id)) return false
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      const matchTitle = t.title.toLowerCase().includes(q)
+      const matchArtist = t.artist.toLowerCase().includes(q)
+      if (!matchTitle && !matchArtist) return false
     }
-
-    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          t.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          t.category.toLowerCase().includes(searchQuery.toLowerCase())
-    if (!matchesSearch) return false
-
-    if (categoryFilter === 'all') return true
-    if (categoryFilter === 'most_played') return t.playCount > 3
-    if (categoryFilter === 'favorites') return Boolean(t.isFavorite)
-    return t.category === categoryFilter
-  })
-
-  const sortedTracks = [...filteredTracks].sort((a, b) => {
-    if (sortBy === 'most_played') return b.playCount - a.playCount
-    if (sortBy === 'affinity') return b.affinityScore - a.affinityScore
-    if (sortBy === 'recently_played') return b.lastPlayed - a.lastPlayed
+    if (categoryFilter !== 'all') {
+      if (categoryFilter === 'Local Device Audio') return t.category === 'Local Device Audio' || t.url.startsWith('file://')
+      return t.category === categoryFilter
+    }
+    return true
+  }).sort((a, b) => {
+    if (sortBy === 'date') return (b.dateAdded || 0) - (a.dateAdded || 0)
+    if (sortBy === 'most_played') return (b.playCount || 0) - (a.playCount || 0)
     if (sortBy === 'title') return a.title.localeCompare(b.title)
-    if (sortBy === 'duration') return b.duration - a.duration
-    if (sortBy === 'date') return b.dateAdded - a.dateAdded
-    return 0
+    if (sortBy === 'duration') return (b.duration || 0) - (a.duration || 0)
+    return (b.dateAdded || 0) - (a.dateAdded || 0)
   })
 
-  function formatSecs(sec: number) {
-    if (isNaN(sec) || sec <= 0) return '0:00'
-    const m = Math.floor(sec / 60)
-    const s = Math.floor(sec % 60)
-    return `${m}:${s < 10 ? '0' : ''}${s}`
+  // Generate AI Focus & Soundscape Insight
+  async function generateAiInsight() {
+    if (!currentTrack) return
+    setLoadingAi(true)
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Analyze audio track "${currentTrack.title}" by ${currentTrack.artist} (${currentTrack.category}). Provide a 2-sentence acoustic focus & mindfulness insight for mental clarity.`
+          }]
+        })
+      })
+      const data = await res.json()
+      setAiInsight(data.response || data.reply || 'This soundscape enhances deep cognitive focus and neural synchronization.')
+    } catch {
+      setAiInsight('This soundscape promotes relaxed alertness and high cognitive flow.')
+    } finally {
+      setLoadingAi(false)
+    }
   }
+
+  const categoryTabs: { key: CategoryFilter; label: string }[] = [
+    { key: 'all', label: 'All Tracks' },
+    { key: 'Local Device Audio', label: 'Device Storage' },
+    { key: 'Focus & Flow', label: 'Focus & Flow' },
+    { key: 'Binaural Beats', label: 'Binaural Beats' },
+    { key: 'Lo-Fi Beats', label: 'Lo-Fi' },
+    { key: 'Ambient & Nature', label: 'Ambient' },
+  ]
 
   return (
-    <AppShell
-      header={
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#000000',
-              boxShadow: '0 4px 14px rgba(245, 158, 11, 0.4)',
-            }}>
-              <Disc size={20} className={isPlaying ? 'animate-spin' : ''} style={{ animationDuration: '4s' }} color="#000000" />
+    <AppShell>
+      {/* CSS KEYFRAMES FOR CASSETTE SPIN & ANIMATED GRADIENT FOG */}
+      <style jsx global>{`
+        @keyframes cassetteSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes fogPulse {
+          0% { transform: scale(1) translate(0px, 0px); opacity: 0.35; }
+          50% { transform: scale(1.15) translate(20px, -20px); opacity: 0.55; }
+          100% { transform: scale(1) translate(0px, 0px); opacity: 0.35; }
+        }
+        @keyframes marqueeText {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-cassette {
+          animation: cassetteSpin 6s linear infinite;
+        }
+        .animate-fog {
+          animation: fogPulse 10s ease-in-out infinite;
+        }
+        .marquee-container {
+          overflow: hidden;
+          white-space: nowrap;
+          width: 100%;
+          position: relative;
+        }
+        .marquee-content {
+          display: inline-block;
+          white-space: nowrap;
+        }
+        .marquee-active {
+          animation: marqueeText 14s linear infinite;
+        }
+      `}</style>
+
+      <div style={{ background: '#000000', color: '#FFFFFF', minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: 18, paddingBottom: 110 }}>
+
+        {/* TOP HEADER */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: 14 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Disc size={13} color="#FFD700" /> AMOLED Sound Engine
+              </span>
+              <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <ShieldCheck size={13} color="#10B981" /> Direct Device Sync
+              </span>
             </div>
-            <div>
-              <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 6 }}>
-                NIRMAAN Audio Engine <Sparkles size={16} color="#FFD700" />
-              </h1>
-              <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>ML Track Intelligence, Custom Folders & Local Audio</p>
-            </div>
+            <h1 style={{ fontSize: 24, fontWeight: 900, color: '#FFFFFF', margin: 0, letterSpacing: '-0.02em' }}>
+              Media Studio & Soundscape 🎧
+            </h1>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setShowCreateFolderModal(true)}
-              className="btn btn-secondary"
-              style={{ padding: '8px 14px', fontSize: 12.5 }}
-            >
-              <FolderPlus size={15} color="#FFD700" /> New Playlist Folder
-            </button>
-            <span style={{ fontSize: 11.5, fontWeight: 800, color: '#10B981', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 10, padding: '8px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Music size={15} color="#10B981" /> Auto Device Music Direct Access Active ⚡
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, color: '#FFD700', fontWeight: 800, padding: '6px 12px', borderRadius: 99, background: 'rgba(255, 215, 0, 0.1)', border: '1px solid rgba(255, 215, 0, 0.25)' }}>
+              {tracks.length} Audio Files Available
             </span>
           </div>
         </div>
-      }
-    >
-      <div style={{ paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 24, position: 'relative' }}>
 
-        {/* Dynamic Fog / Gas Glow Animation Keyframes */}
-        <style dangerouslySetInnerHTML={{ __html: `
-          @keyframes fogGlowPulse {
-            0%, 100% { transform: scale(1) translate(0px, 0px); opacity: 0.35; }
-            50% { transform: scale(1.2) translate(30px, -20px); opacity: 0.65; }
-          }
-        `}} />
+        {/* SEARCH & SORTING FILTER BAR */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {/* Search Input */}
+            <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
+              <Search size={16} color="#9CA3AF" style={{ position: 'absolute', left: 12, top: 12 }} />
+              <input
+                type="text"
+                placeholder="Search tracks by name, artist, or format..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ width: '100%', height: 40, background: '#0F1117', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 12, color: '#FFFFFF', fontSize: 12.5, paddingLeft: 36, paddingRight: 12, outline: 'none' }}
+              />
+            </div>
 
-        {/* Hero Dynamic Player Card with Fog Gas Glow Backdrop */}
-        <div style={{
-          position: 'relative',
-          borderRadius: 24,
-          background: 'linear-gradient(135deg, #0A0B0D 0%, #121318 50%, #1A1C24 100%)',
-          border: '1px solid rgba(245, 158, 11, 0.4)',
-          padding: '28px 24px',
-          overflow: 'hidden',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.1)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          textAlign: 'center',
-        }}>
-
-          {/* Ambient Glowing Fog Gas Orbs */}
-          <div style={{
-            position: 'absolute',
-            top: '-20%',
-            left: '20%',
-            width: 320,
-            height: 320,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(245, 158, 11, 0.25) 0%, rgba(245, 158, 11, 0) 70%)',
-            filter: 'blur(60px)',
-            pointerEvents: 'none',
-            animation: 'fogGlowPulse 8s ease-in-out infinite',
-          }} />
-
-          <div style={{
-            position: 'absolute',
-            bottom: '-20%',
-            right: '20%',
-            width: 340,
-            height: 340,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0) 70%)',
-            filter: 'blur(70px)',
-            pointerEvents: 'none',
-            animation: 'fogGlowPulse 10s ease-in-out infinite alternate',
-          }} />
-
-          {/* Spinning Vinyl Emblem */}
-          <div style={{
-            width: 140,
-            height: 140,
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #FFD700 0%, #F59E0B 50%, #10B981 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: isPlaying ? '0 15px 45px rgba(245, 158, 11, 0.5)' : '0 10px 30px rgba(0,0,0,0.6)',
-            marginBottom: 18,
-            position: 'relative',
-            border: '4px solid rgba(255, 255, 255, 0.15)',
-          }}>
-            <Disc
-              size={64}
-              color="#000000"
-              className={isPlaying ? 'animate-spin' : ''}
-              style={{ animationDuration: '6s' }}
-            />
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#0A0B0D', border: '2px solid #F59E0B', position: 'absolute' }} />
+            {/* Sort Dropdown (Default: Newest to Oldest) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0F1117', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 12, padding: '0 12px', height: 40 }}>
+              <SlidersHorizontal size={14} color="#FFD700" />
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as SortOption)}
+                style={{ background: 'transparent', border: 'none', color: '#FFFFFF', fontSize: 12, fontWeight: 700, outline: 'none', cursor: 'pointer' }}
+              >
+                <option value="date" style={{ background: '#0F1117', color: '#FFF' }}>Sort: Newest Added (New to Old)</option>
+                <option value="most_played" style={{ background: '#0F1117', color: '#FFF' }}>Sort: Most Played</option>
+                <option value="title" style={{ background: '#0F1117', color: '#FFF' }}>Sort: Title (A-Z)</option>
+                <option value="duration" style={{ background: '#0F1117', color: '#FFF' }}>Sort: Duration</option>
+              </select>
+            </div>
           </div>
 
-          {/* ML Track Badge */}
-          {currentTrack && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-              <span className="badge badge-warning">
-                <Flame size={12} color="#FFD700" /> ML Play Count: {currentTrack.playCount}
-              </span>
-              <span className="badge badge-success">
-                <Sparkles size={12} color="#10B981" /> ML Affinity: {currentTrack.affinityScore}
-              </span>
-              {currentTrack.fileFormat && (
-                <span className="badge badge-muted">
-                  {currentTrack.fileFormat}
-                </span>
-              )}
+          {/* CATEGORY FILTER PILLS */}
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+            {categoryTabs.map(tab => {
+              const active = categoryFilter === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setCategoryFilter(tab.key)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 99,
+                    border: active ? '1px solid #FFD700' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: active ? 'rgba(255, 215, 0, 0.15)' : '#0F1117',
+                    color: active ? '#FFD700' : '#9CA3AF',
+                    fontSize: 11.5,
+                    fontWeight: active ? 800 : 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* CLEAN TRACK LIST (NO DELETE, NO HEART, NO FOLDER ADD) */}
+        <div style={{ background: '#0A0B0D', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 20, padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: '0 8px' }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Tracks ({filteredTracks.length})
+            </span>
+            <span style={{ fontSize: 11, color: '#6B7280' }}>Tap to play in full screen</span>
+          </div>
+
+          {filteredTracks.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#9CA3AF', fontSize: 13, fontStyle: 'italic' }}>
+              No audio files found. Connect audio or check media permissions.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {filteredTracks.map((track, idx) => {
+                const originalIndex = tracks.findIndex(t => t.id === track.id)
+                const isSelected = currentTrackIndex === originalIndex
+                const isPlayingThis = isSelected && isPlaying
+
+                return (
+                  <div
+                    key={track.id}
+                    onClick={() => {
+                      playTrack(originalIndex)
+                      setIsFullScreenPlayer(true)
+                    }}
+                    style={{
+                      background: isSelected ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(16, 185, 129, 0.05))' : '#0F1117',
+                      border: isSelected ? '1px solid rgba(255, 215, 0, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)',
+                      borderRadius: 14,
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      gap: 12,
+                    }}
+                  >
+                    {/* Left: Index & Play Icon */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          width: 38,
+                          height: 38,
+                          borderRadius: 10,
+                          background: isSelected ? '#FFD700' : 'rgba(255, 255, 255, 0.06)',
+                          color: isSelected ? '#000000' : '#FFD700',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 900,
+                          fontSize: 13,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isPlayingThis ? <Radio size={18} className="animate-pulse" /> : <Play size={16} style={{ marginLeft: 2 }} />}
+                      </div>
+
+                      {/* Middle: Full Track Title & Artist */}
+                      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                        {/* Auto Marquee Container for Full Track Name */}
+                        <div className="marquee-container">
+                          <span
+                            className={`marquee-content ${track.title.length > 28 ? 'marquee-active' : ''}`}
+                            style={{
+                              fontSize: 13.5,
+                              fontWeight: 800,
+                              color: isSelected ? '#FFD700' : '#FFFFFF',
+                            }}
+                          >
+                            {track.title}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                          <span style={{ fontSize: 11, color: '#9CA3AF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {track.artist}
+                          </span>
+                          <span style={{ fontSize: 9.5, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: 'rgba(255, 255, 255, 0.08)', color: '#D1D5DB' }}>
+                            {track.category || 'Audio'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Duration Time */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#9CA3AF', fontFamily: 'monospace' }}>
+                        {formatTime(track.duration)}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
+        </div>
+      </div>
 
-          {/* Track Title & Artist */}
-          <h2 style={{ fontSize: 20, fontWeight: 900, color: '#FFFFFF', margin: '0 0 6px', maxWidth: 460, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {currentTrack ? currentTrack.title : 'No Track Selected'}
-          </h2>
-          <p style={{ fontSize: 13, color: '#F59E0B', margin: '0 0 18px', fontWeight: 600 }}>
-            {currentTrack ? `${currentTrack.artist || 'Local Device Audio'} • ${currentTrack.category}` : 'Import or select a track below'}
-          </p>
-
-          {/* Real-time Spectrum Visualizer Canvas */}
-          <canvas
-            ref={canvasRef}
-            width={280}
-            height={36}
-            style={{ width: 280, height: 36, borderRadius: 8, marginBottom: 18, opacity: isPlaying ? 1 : 0.3 }}
-          />
-
-          {/* Seek Bar */}
-          <div style={{ width: '100%', maxWidth: 520, marginBottom: 18 }}>
-            <input
-              type="range"
-              min={0}
-              max={duration || 100}
-              value={currentTime}
-              onChange={(e) => seekTo(Number(e.target.value))}
-              style={{ width: '100%', cursor: 'pointer', accentColor: '#F59E0B', height: 6 }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#9CA3AF', marginTop: 6, fontWeight: 700 }}>
-              <span>{formatSecs(currentTime)}</span>
-              <span>{formatSecs(duration)}</span>
-            </div>
-          </div>
-
-          {/* Main Playback Control Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 20 }}>
-            <button
-              onClick={toggleShuffle}
+      {/* MINI PLAYER FLOATING BAR */}
+      {currentTrack && (
+        <div
+          onClick={() => setIsFullScreenPlayer(true)}
+          style={{
+            position: 'fixed',
+            bottom: 72,
+            left: 16,
+            right: 16,
+            background: 'linear-gradient(135deg, rgba(20, 22, 30, 0.95), rgba(10, 11, 13, 0.98))',
+            border: '1px solid rgba(255, 215, 0, 0.35)',
+            borderRadius: 18,
+            padding: '10px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(16px)',
+            zIndex: 40,
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+            {/* Spinning Cassette Thumbnail */}
+            <div
               style={{
-                background: shuffle ? 'rgba(245, 158, 11, 0.2)' : 'none',
-                border: `1px solid ${shuffle ? '#F59E0B' : 'transparent'}`,
-                borderRadius: 8,
-                padding: 6,
-                cursor: 'pointer',
-                color: shuffle ? '#FFD700' : '#9CA3AF',
-              }}
-              title="Toggle Shuffle Mode"
-            >
-              <Shuffle size={19} />
-            </button>
-
-            <button onClick={prevTrack} className="btn-ghost btn-icon" style={{ width: 44, height: 44 }}>
-              <SkipBack size={22} color="#FFFFFF" />
-            </button>
-
-            <button
-              onClick={togglePlay}
-              disabled={!currentTrack}
-              style={{
-                width: 60,
-                height: 60,
+                width: 40,
+                height: 40,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #FFD700 0%, #F59E0B 100%)',
-                border: 'none',
-                cursor: 'pointer',
+                background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#000000',
-                boxShadow: '0 10px 30px rgba(245, 158, 11, 0.5)',
-                transition: 'transform 150ms ease',
+                flexShrink: 0,
+                boxShadow: '0 0 12px rgba(255, 215, 0, 0.4)',
+              }}
+              className={isPlaying ? 'animate-cassette' : ''}
+            >
+              <Disc size={22} />
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {currentTrack.title}
+              </div>
+              <div style={{ fontSize: 10.5, color: '#9CA3AF' }}>
+                {currentTrack.artist} • {formatTime(currentTime)} / {formatTime(duration || currentTrack.duration)}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} onClick={e => e.stopPropagation()}>
+            <button onClick={prevTrack} style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 4 }}>
+              <SkipBack size={18} />
+            </button>
+            <button
+              onClick={togglePlay}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                background: '#FFD700',
+                color: '#000000',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
               }}
             >
-              {isPlaying ? <Pause size={28} fill="#000000" color="#000000" /> : <Play size={28} fill="#000000" color="#000000" style={{ marginLeft: 4 }} />}
+              {isPlaying ? <Pause size={18} /> : <Play size={18} style={{ marginLeft: 2 }} />}
+            </button>
+            <button onClick={nextTrack} style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 4 }}>
+              <SkipForward size={18} />
+            </button>
+            <button onClick={() => setIsFullScreenPlayer(true)} style={{ background: 'none', border: 'none', color: '#FFD700', cursor: 'pointer', padding: 4 }}>
+              <Maximize2 size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FULL-SCREEN AMOLED AUDIO PLAYER MODAL WITH SPINNING CASSETTE & LIVE GRADIENT FOG */}
+      {isFullScreenPlayer && currentTrack && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: '#000000',
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: '24px 20px 36px',
+            overflowY: 'auto',
+          }}
+        >
+          {/* LIVE ANIMATED BLURRED GRADIENT FOG BACKGROUND */}
+          <div
+            className="animate-fog"
+            style={{
+              position: 'absolute',
+              top: '15%',
+              left: '10%',
+              width: 280,
+              height: 280,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255, 215, 0, 0.25) 0%, rgba(16, 185, 129, 0.15) 50%, transparent 100%)',
+              filter: 'blur(50px)',
+              pointerEvents: 'none',
+            }}
+          />
+          <div
+            className="animate-fog"
+            style={{
+              position: 'absolute',
+              bottom: '20%',
+              right: '10%',
+              width: 320,
+              height: 320,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.25) 0%, rgba(236, 72, 153, 0.15) 50%, transparent 100%)',
+              filter: 'blur(60px)',
+              pointerEvents: 'none',
+            }}
+          />
+
+          {/* Modal Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 10 }}>
+            <button
+              onClick={() => setIsFullScreenPlayer(false)}
+              style={{ background: 'rgba(255, 255, 255, 0.1)', border: 'none', borderRadius: '50%', width: 40, height: 40, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <ChevronDown size={24} />
             </button>
 
-            <button onClick={nextTrack} className="btn-ghost btn-icon" style={{ width: 44, height: 44 }}>
-              <SkipForward size={22} color="#FFFFFF" />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#FFD700', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                Playing From Device
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#9CA3AF' }}>
+                {currentTrack.category || 'Soundscape Engine'}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsFullScreenPlayer(false)}
+              style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer' }}
+            >
+              <Minimize2 size={20} />
+            </button>
+          </div>
+
+          {/* CENTER: ANIMATED SPINNING CASSETTE / VINYL DISC */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '24px 0', position: 'relative', zIndex: 10 }}>
+            <div
+              style={{
+                width: 220,
+                height: 220,
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, #1F2937 0%, #000000 70%, #FFD700 100%)',
+                border: '4px solid rgba(255, 215, 0, 0.4)',
+                boxShadow: '0 0 50px rgba(255, 215, 0, 0.3), 0 20px 40px rgba(0, 0, 0, 0.9)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+              }}
+              className={isPlaying ? 'animate-cassette' : ''}
+            >
+              {/* Vinyl Groove Rings */}
+              <div style={{ width: 170, height: 170, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 120, height: 120, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 70, height: 70, borderRadius: '50%', background: '#FFD700', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000000' }}>
+                    <Disc size={36} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Visualizer Canvas */}
+            <canvas ref={canvasRef} width={240} height={40} style={{ marginTop: 24, borderRadius: 8 }} />
+          </div>
+
+          {/* TRACK INFO & MARQUEE TITLE */}
+          <div style={{ position: 'relative', zIndex: 10, marginBottom: 12, textAlign: 'center' }}>
+            <div className="marquee-container" style={{ maxWidth: 320, margin: '0 auto' }}>
+              <h2
+                className={`marquee-content ${currentTrack.title.length > 24 ? 'marquee-active' : ''}`}
+                style={{ fontSize: 20, fontWeight: 900, color: '#FFFFFF', margin: 0 }}
+              >
+                {currentTrack.title}
+              </h2>
+            </div>
+            <p style={{ fontSize: 13, color: '#9CA3AF', margin: '6px 0 0', fontWeight: 600 }}>
+              {currentTrack.artist}
+            </p>
+          </div>
+
+          {/* AI INSIGHT ASSISTANT CARD */}
+          <div style={{ position: 'relative', zIndex: 10, background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 215, 0, 0.25)', borderRadius: 16, padding: 14, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 800, color: '#FFD700', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Sparkles size={14} color="#FFD700" /> NIRMAAN AI Sound Analysis
+              </span>
+              <button
+                onClick={generateAiInsight}
+                disabled={loadingAi}
+                style={{ background: 'rgba(255, 215, 0, 0.15)', border: '1px solid rgba(255, 215, 0, 0.3)', borderRadius: 8, padding: '3px 8px', color: '#FFD700', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}
+              >
+                {loadingAi ? 'Analyzing...' : 'Generate Insight'}
+              </button>
+            </div>
+            <p style={{ fontSize: 11.5, color: '#D1D5DB', margin: 0, fontStyle: 'italic', lineHeight: 1.4 }}>
+              {aiInsight || 'Tap "Generate Insight" for AI acoustic focus insights customized for your mental workflow.'}
+            </p>
+          </div>
+
+          {/* SEEKBAR & COUNTERS */}
+          <div style={{ position: 'relative', zIndex: 10, width: '100%', marginBottom: 16 }}>
+            <input
+              type="range"
+              min={0}
+              max={duration || currentTrack.duration || 100}
+              value={currentTime}
+              onChange={e => seekTo(Number(e.target.value))}
+              style={{ width: '100%', accentColor: '#FFD700', cursor: 'pointer', height: 6 }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9CA3AF', fontFamily: 'monospace', marginTop: 6, fontWeight: 700 }}>
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration || currentTrack.duration)}</span>
+            </div>
+          </div>
+
+          {/* MAIN PLAYER CONTROLS */}
+          <div style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-around', marginBottom: 20 }}>
+            <button onClick={toggleShuffle} style={{ background: 'none', border: 'none', color: shuffle ? '#FFD700' : '#6B7280', cursor: 'pointer' }}>
+              <Shuffle size={20} />
+            </button>
+
+            <button onClick={prevTrack} style={{ background: 'rgba(255, 255, 255, 0.08)', border: 'none', borderRadius: '50%', width: 50, height: 50, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <SkipBack size={22} />
             </button>
 
             <button
-              onClick={cycleLoopMode}
+              onClick={togglePlay}
               style={{
-                background: loopMode !== 'none' ? 'rgba(245, 158, 11, 0.2)' : 'none',
-                border: `1px solid ${loopMode !== 'none' ? '#F59E0B' : 'transparent'}`,
-                borderRadius: 8,
-                padding: 6,
+                width: 68,
+                height: 68,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #FFD700, #F59E0B)',
+                color: '#000000',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 cursor: 'pointer',
-                color: loopMode !== 'none' ? '#FFD700' : '#9CA3AF',
-                position: 'relative',
+                boxShadow: '0 0 24px rgba(255, 215, 0, 0.5)',
               }}
-              title={`Loop Mode: ${loopMode}`}
             >
-              <Repeat size={19} />
-              {loopMode === 'one' && <span style={{ fontSize: 9, fontWeight: 900, position: 'absolute', top: 2, right: 2, color: '#FFD700' }}>1</span>}
+              {isPlaying ? <Pause size={30} /> : <Play size={30} style={{ marginLeft: 3 }} />}
             </button>
 
-            {currentTrack && (
-              <button
-                onClick={() => toggleFavorite(currentTrack.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6 }}
-                title="Toggle Favorite"
-              >
-                <Heart size={20} fill={currentTrack.isFavorite ? '#EF4444' : 'none'} color={currentTrack.isFavorite ? '#EF4444' : '#9CA3AF'} />
-              </button>
-            )}
+            <button onClick={nextTrack} style={{ background: 'rgba(255, 255, 255, 0.08)', border: 'none', borderRadius: '50%', width: 50, height: 50, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <SkipForward size={22} />
+            </button>
+
+            <button onClick={cycleLoopMode} style={{ background: 'none', border: 'none', color: loopMode !== 'none' ? '#FFD700' : '#6B7280', cursor: 'pointer' }}>
+              <Repeat size={20} />
+            </button>
           </div>
 
-          {/* Secondary Controls Bar: Speed, Sleep Timer, Volume */}
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 16,
-            paddingTop: 16,
-            borderTop: '1px solid rgba(245, 158, 11, 0.2)',
-            width: '100%',
-            maxWidth: 520,
-          }}>
-            {/* Playback Speed */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Gauge size={15} color="#F59E0B" />
-              <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700 }}>SPEED:</span>
-              <select
-                value={playbackRate}
-                onChange={e => setPlaybackRate(Number(e.target.value))}
-                style={{ background: '#121318', color: '#FFFFFF', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 8, padding: '4px 8px', fontSize: 12, outline: 'none' }}
-              >
-                <option value={0.75}>0.75x</option>
-                <option value={1.0}>1.0x (Normal)</option>
-                <option value={1.25}>1.25x</option>
-                <option value={1.5}>1.5x</option>
-                <option value={2.0}>2.0x</option>
-              </select>
-            </div>
-
-            {/* Sleep Timer */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Clock size={15} color="#10B981" />
-              <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700 }}>SLEEP:</span>
-              <select
-                onChange={e => {
-                  const val = e.target.value ? Number(e.target.value) : null
-                  setSleepTimer(val)
-                  toast.success(val ? `Sleep timer set for ${val} minutes 🌙` : 'Sleep timer turned off')
-                }}
-                style={{ background: '#121318', color: '#FFFFFF', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 8, padding: '4px 8px', fontSize: 12, outline: 'none' }}
-              >
-                <option value="">Off</option>
-                <option value="15">15 min</option>
-                <option value="30">30 min</option>
-                <option value="45">45 min</option>
-                <option value="60">60 min</option>
-              </select>
-              {sleepTimerEnd && (
-                <span style={{ fontSize: 10, color: '#10B981', fontWeight: 700 }}>Active</span>
-              )}
-            </div>
-
-            {/* Volume */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: 140 }}>
-              <button onClick={toggleMute} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}>
-                {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} color="#F59E0B" />}
+          {/* BOTTOM VOLUME & PLAYBACK RATE CONTROLS */}
+          <div style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 14, padding: '8px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+              <button onClick={toggleMute} style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 0 }}>
+                {isMuted || volume === 0 ? <VolumeX size={16} color="#EF4444" /> : <Volume2 size={16} color="#FFD700" />}
               </button>
               <input
                 type="range"
@@ -504,433 +680,33 @@ export default function PlayerPage() {
                 max={1}
                 step={0.05}
                 value={isMuted ? 0 : volume}
-                onChange={(e) => setVolume(Number(e.target.value))}
-                style={{ flex: 1, cursor: 'pointer', accentColor: '#F59E0B' }}
+                onChange={e => setVolume(Number(e.target.value))}
+                style={{ width: 90, accentColor: '#FFD700', cursor: 'pointer' }}
               />
             </div>
-          </div>
-        </div>
 
-        {/* Media Folders Bar */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: '#F59E0B', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Folder size={15} color="#F59E0B" /> CUSTOM MEDIA FOLDERS
-            </div>
-            {activeFolderId && (
-              <button
-                onClick={() => setActiveFolder(null)}
-                style={{ fontSize: 11.5, color: '#FFD700', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}
-              >
-                View All Folders
-              </button>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
-            <button
-              onClick={() => setActiveFolder(null)}
-              style={{
-                padding: '10px 16px',
-                borderRadius: 14,
-                border: `1px solid ${activeFolderId === null ? '#F59E0B' : 'rgba(245, 158, 11, 0.25)'}`,
-                background: activeFolderId === null ? 'rgba(245, 158, 11, 0.2)' : '#121318',
-                color: activeFolderId === null ? '#FFD700' : '#FFFFFF',
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <span>📁 All Tracks ({tracks.length})</span>
-            </button>
-
-            {folders.map(folder => (
-              <div
-                key={folder.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '10px 14px',
-                  borderRadius: 14,
-                  border: `1px solid ${activeFolderId === folder.id ? folder.color || '#F59E0B' : 'rgba(245, 158, 11, 0.25)'}`,
-                  background: activeFolderId === folder.id ? 'rgba(245, 158, 11, 0.25)' : '#121318',
-                  color: '#FFFFFF',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-                onClick={() => setActiveFolder(folder.id)}
-              >
-                <span>{folder.name} ({folder.trackIds.length})</span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[1.0, 1.25, 1.5, 2.0].map(rate => (
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    deleteFolder(folder.id)
-                    toast.info(`Deleted folder "${folder.name}"`)
-                  }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2 }}
-                  title="Delete Folder"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Automatic Device Local Music Direct Access Banner */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, #0A0B0D 100%)',
-            border: '1px solid rgba(16, 185, 129, 0.4)',
-            borderRadius: 18,
-            padding: '16px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000000' }}>
-              <Music size={20} />
-            </div>
-            <div>
-              <h3 style={{ fontSize: 14, fontWeight: 900, color: '#FFFFFF', margin: '0 0 2px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                Device Music Direct Access Active <Sparkles size={14} color="#FFD700" />
-              </h3>
-              <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>
-                Directly accessing all MP3, M4A, WAV & FLAC tracks from your device without manual importing.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 800, color: '#10B981', background: 'rgba(16, 185, 129, 0.2)', padding: '4px 12px', borderRadius: 99, border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-              ⚡ {tracks.length} Device Tracks Loaded
-            </span>
-          </div>
-        </div>
-
-        {/* Category Filters Pill Bar */}
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
-          {[
-            { id: 'all', label: 'All Categories' },
-            { id: 'most_played', label: '🔥 ML Most Played' },
-            { id: 'favorites', label: '⭐ Favorites' },
-            { id: 'Local Device Audio', label: '📂 Local Device Audio' },
-            { id: 'Focus & Flow', label: '⚡ Focus & Flow' },
-            { id: 'Binaural Beats', label: '🧠 Binaural Beats' },
-            { id: 'Lo-Fi Beats', label: '🎧 Lo-Fi Beats' },
-            { id: 'Ambient & Nature', label: '🌧️ Ambient & Nature' },
-          ].map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setCategoryFilter(cat.id as CategoryFilter)}
-              style={{
-                padding: '8px 14px',
-                borderRadius: 99,
-                border: `1px solid ${categoryFilter === cat.id ? '#F59E0B' : 'rgba(245, 158, 11, 0.25)'}`,
-                background: categoryFilter === cat.id ? 'linear-gradient(135deg, #FFD700 0%, #F59E0B 100%)' : '#121318',
-                color: categoryFilter === cat.id ? '#000000' : '#FFFFFF',
-                fontSize: 12.5,
-                fontWeight: categoryFilter === cat.id ? 800 : 600,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 150ms ease',
-              }}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Search & Sorting Toolbar */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
-            <Search size={16} color="#F59E0B" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
-            <input
-              placeholder="Search by title, artist, or format..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                height: 42,
-                paddingLeft: 42,
-                paddingRight: 14,
-                background: '#121318',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
-                borderRadius: 12,
-                color: '#FFFFFF',
-                fontSize: 13,
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#9CA3AF', fontSize: 12, fontWeight: 700 }}>
-              <SlidersHorizontal size={15} color="#F59E0B" /> Sort:
-            </div>
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as SortOption)}
-              style={{ height: 42, fontSize: 12.5, background: '#121318', color: '#FFFFFF', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 12, padding: '0 12px', outline: 'none' }}
-            >
-              <option value="most_played">🔥 ML Most Played Rank</option>
-              <option value="affinity">⭐ ML Affinity Score</option>
-              <option value="recently_played">🕒 Recently Played</option>
-              <option value="title">Title (A-Z)</option>
-              <option value="duration">Duration (Longest)</option>
-              <option value="date">Date Added</option>
-            </select>
-
-            {tracks.length > 0 && (
-              <button onClick={clearPlaylist} className="btn btn-secondary" style={{ height: 42, fontSize: 12, color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                <Trash2 size={15} /> Clear All
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Track List Items */}
-        {sortedTracks.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', background: '#0A0B0D', borderRadius: 20, border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-            <Disc size={40} color="#F59E0B" style={{ margin: '0 auto 12px' }} />
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF', margin: '0 0 6px' }}>No tracks match active filter</h3>
-            <p style={{ color: '#9CA3AF', fontSize: 13, maxWidth: 360, margin: '0 auto 16px' }}>
-              Import local audio files or clear your search query to view all tracks.
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {sortedTracks.map((track, idx) => {
-              const isCurrent = currentTrack?.id === track.id
-              const realIndex = tracks.findIndex(t => t.id === track.id)
-
-              return (
-                <div
-                  key={track.id}
-                  onClick={() => playTrack(realIndex)}
+                  key={rate}
+                  onClick={() => setPlaybackRate(rate)}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '14px 16px',
-                    borderRadius: 16,
+                    padding: '3px 7px',
+                    borderRadius: 6,
+                    border: playbackRate === rate ? '1px solid #FFD700' : '1px solid transparent',
+                    background: playbackRate === rate ? 'rgba(255, 215, 0, 0.2)' : 'transparent',
+                    color: playbackRate === rate ? '#FFD700' : '#9CA3AF',
+                    fontSize: 10.5,
+                    fontWeight: 800,
                     cursor: 'pointer',
-                    background: isCurrent ? 'rgba(245, 158, 11, 0.15)' : '#121318',
-                    border: `1px solid ${isCurrent ? '#F59E0B' : 'rgba(245, 158, 11, 0.2)'}`,
-                    boxShadow: isCurrent ? '0 4px 20px rgba(245, 158, 11, 0.25)' : 'none',
-                    transition: 'all 150ms ease',
-                    position: 'relative',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: isCurrent ? '#FFD700' : '#9CA3AF', width: 24, textAlign: 'center' }}>
-                      #{idx + 1}
-                    </div>
-
-                    <div style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      background: isCurrent ? 'linear-gradient(135deg, #FFD700, #F59E0B)' : '#1A1C24',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      {isCurrent && isPlaying ? (
-                        <Disc size={20} color="#000000" className="animate-spin" />
-                      ) : (
-                        <Music size={18} color={isCurrent ? '#000000' : '#F59E0B'} />
-                      )}
-                    </div>
-
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <p style={{ fontSize: 14, fontWeight: isCurrent ? 800 : 700, color: isCurrent ? '#FFD700' : '#FFFFFF', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {track.title}
-                      </p>
-                      <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {track.artist || 'Local Device Track'} • <span style={{ color: '#F59E0B' }}>{track.category}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: '#FFD700' }}>
-                        🔥 {track.playCount} Plays
-                      </div>
-                      <div style={{ fontSize: 10, color: '#9CA3AF' }}>
-                        Score: {track.affinityScore}
-                      </div>
-                    </div>
-
-                    {/* Folder Dropdown Toggle Button */}
-                    <div style={{ position: 'relative' }}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setOpenFolderMenuTrackId(openFolderMenuTrackId === track.id ? null : track.id)
-                        }}
-                        style={{ background: '#1A1C24', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 8, padding: '5px 8px', color: '#FFD700', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                        title="Add to folder"
-                      >
-                        <Folder size={13} color="#FFD700" /> + Folder
-                      </button>
-
-                      {openFolderMenuTrackId === track.id && (
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            position: 'absolute',
-                            right: 0,
-                            top: '100%',
-                            marginTop: 6,
-                            zIndex: 100,
-                            background: '#0A0B0D',
-                            border: '1px solid #F59E0B',
-                            borderRadius: 12,
-                            padding: 8,
-                            minWidth: 180,
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.9)',
-                          }}
-                        >
-                          <div style={{ fontSize: 10.5, fontWeight: 800, color: '#9CA3AF', padding: '4px 8px', letterSpacing: '0.06em' }}>
-                            ADD TO FOLDER:
-                          </div>
-                          {folders.map(f => {
-                            const inFolder = f.trackIds.includes(track.id)
-                            return (
-                              <button
-                                key={f.id}
-                                onClick={() => {
-                                  if (inFolder) {
-                                    removeTrackFromFolder(f.id, track.id)
-                                    toast.info(`Removed from "${f.name}"`)
-                                  } else {
-                                    addTrackToFolder(f.id, track.id)
-                                    toast.success(`Added to "${f.name}"! 📁`)
-                                  }
-                                  setOpenFolderMenuTrackId(null)
-                                }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  width: '100%',
-                                  padding: '7px 10px',
-                                  borderRadius: 8,
-                                  border: 'none',
-                                  background: inFolder ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
-                                  color: inFolder ? '#FFD700' : '#FFFFFF',
-                                  fontSize: 12,
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  textAlign: 'left',
-                                }}
-                              >
-                                <span>{f.name}</span>
-                                {inFolder && <span style={{ fontSize: 10, fontWeight: 800 }}>✓</span>}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleFavorite(track.id)
-                      }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                      title="Favorite Track"
-                    >
-                      <Heart size={18} fill={track.isFavorite ? '#EF4444' : 'none'} color={track.isFavorite ? '#EF4444' : '#9CA3AF'} />
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeTrack(track.id)
-                      }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 4 }}
-                      title="Remove Track"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-      </div>
-
-      {/* Create New Folder Modal */}
-      {showCreateFolderModal && (
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 200, backdropFilter: 'blur(6px)' }}
-            onClick={() => setShowCreateFolderModal(false)}
-          />
-          <div
-            style={{
-              position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 210,
-              width: '90%',
-              maxWidth: 400,
-              background: '#0A0B0D',
-              border: '1px solid #F59E0B',
-              borderRadius: 20,
-              padding: 24,
-              boxShadow: '0 20px 50px rgba(0,0,0,0.9)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>
-                <FolderPlus size={20} color="#F59E0B" /> Create Custom Media Folder
-              </div>
-              <button onClick={() => setShowCreateFolderModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}>
-                <X size={18} />
-              </button>
+                  {rate}x
+                </button>
+              ))}
             </div>
-
-            <form onSubmit={handleFolderCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 800, color: '#F59E0B', marginBottom: 6, display: 'block' }}>FOLDER NAME</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 🎧 High Energy Workout"
-                  value={newFolderName}
-                  onChange={e => setNewFolderName(e.target.value)}
-                  autoFocus
-                  required
-                  style={{ width: '100%', height: 44, background: '#121318', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 12, color: '#FFFFFF', padding: '0 14px', fontSize: 13, outline: 'none' }}
-                />
-              </div>
-
-              <button type="submit" className="btn btn-primary" style={{ height: 44, fontSize: 14, marginTop: 4 }}>
-                <Plus size={16} /> Create Folder
-              </button>
-            </form>
           </div>
-        </>
+        </div>
       )}
     </AppShell>
   )

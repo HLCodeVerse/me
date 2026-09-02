@@ -1,3 +1,4 @@
+export const dynamic = 'force-static'
 import { NextRequest, NextResponse } from 'next/server'
 
 // Helper to sanitize text for 100% human-like natural speech (removes emojis, markdown, symbols, dashes)

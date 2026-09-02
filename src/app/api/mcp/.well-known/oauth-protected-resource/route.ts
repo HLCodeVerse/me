@@ -1,3 +1,4 @@
+export const dynamic = 'force-static'
 import { NextRequest, NextResponse } from 'next/server'
 
 // RFC 9728 — OAuth 2.0 Protected Resource Metadata

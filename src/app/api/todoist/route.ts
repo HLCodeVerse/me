@@ -1,3 +1,4 @@
+export const dynamic = 'force-static'
 import { NextRequest, NextResponse } from 'next/server'
 
 const TODOIST_API_TOKEN = 'a6e352d5b0f5d60530c9841b91a07bb760f2d910'

@@ -218,7 +218,7 @@ export const useMediaStore = create<MediaState>((set, get) => ({
   isMuted: false,
   shuffle: false,
   loopMode: 'none',
-  sortBy: 'most_played',
+  sortBy: 'date',
   categoryFilter: 'all',
   searchQuery: '',
   playbackRate: 1.0,

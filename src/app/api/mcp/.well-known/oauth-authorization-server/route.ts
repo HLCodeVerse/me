@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-static'
+
 function getOrigin(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'me-eight-dun.vercel.app'
   const proto = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
